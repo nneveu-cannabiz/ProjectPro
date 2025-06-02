@@ -137,6 +137,11 @@ const CollapsibleTaskItem: React.FC<CollapsibleTaskItemProps> = ({
       onClick: handleViewDetails
     },
     {
+      label: 'See Updates',
+      icon: <MessageSquare size={18} />,
+      onClick: handleUpdatesClick
+    },
+    {
       label: 'Edit Task',
       icon: <Edit size={18} />,
       onClick: handleEdit
@@ -216,6 +221,7 @@ const CollapsibleTaskItem: React.FC<CollapsibleTaskItemProps> = ({
                 <div className="space-y-2 py-1">
                   {taskSubTasks.map((subTask) => {
                     const subTaskAssignee = subTask.assigneeId ? users.find(user => user.id === subTask.assigneeId) : null;
+                    const subTaskUpdates = getUpdatesForEntity('subtask', subTask.id);
                     
                     // Dropdown menu items for subtask actions
                     const subtaskMenuItems = [
@@ -223,6 +229,14 @@ const CollapsibleTaskItem: React.FC<CollapsibleTaskItemProps> = ({
                         label: 'View Subtask',
                         icon: <Eye size={18} />,
                         onClick: (e: React.MouseEvent) => handleViewSubtask(e, subTask.id)
+                      },
+                      {
+                        label: 'See Updates',
+                        icon: <MessageSquare size={18} />,
+                        onClick: (e: React.MouseEvent) => {
+                          e.stopPropagation();
+                          navigate(`/projects/${projectId}/tasks/${task.id}/subtasks/${subTask.id}`);
+                        }
                       },
                       {
                         label: 'Delete Subtask',
@@ -270,6 +284,21 @@ const CollapsibleTaskItem: React.FC<CollapsibleTaskItemProps> = ({
                             <div>
                               <UserAvatar user={subTaskAssignee} size="sm" />
                             </div>
+                          )}
+                          
+                          {subTaskUpdates.length > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="p-0.5 h-auto text-gray-500"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/projects/${projectId}/tasks/${task.id}/subtasks/${subTask.id}`);
+                              }}
+                            >
+                              <MessageSquare size={14} />
+                              <span className="ml-1 text-xs">{subTaskUpdates.length}</span>
+                            </Button>
                           )}
                           
                           <DropdownMenu items={subtaskMenuItems} buttonClassName="p-1" />

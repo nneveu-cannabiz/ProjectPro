@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, ChevronRight, PlusCircle, MoreVertical, Circle, CheckCircle, Edit, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, PlusCircle, MoreVertical, Circle, CheckCircle, Edit, Trash2, MessageSquare } from 'lucide-react';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 import DropdownMenu from '../ui/DropdownMenu';
@@ -10,6 +10,7 @@ import UserAvatar from '../UserAvatar';
 import Modal from '../ui/Modal';
 import TaskForm from '../Task/TaskForm';
 import SubTaskForm from '../SubTask/SubTaskForm';
+import UpdatesModal from '../Update/UpdatesModal';
 
 interface CollapsibleTaskRowProps {
   task: Task;
@@ -18,11 +19,12 @@ interface CollapsibleTaskRowProps {
 
 const CollapsibleTaskRow: React.FC<CollapsibleTaskRowProps> = ({ task, projectId }) => {
   const navigate = useNavigate();
-  const { subTasks, updateSubTask, getUsers, deleteTask } = useAppContext();
+  const { subTasks, updateSubTask, getUsers, deleteTask, getUpdatesForEntity, getRelatedUpdates } = useAppContext();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isAddSubTaskModalOpen, setIsAddSubTaskModalOpen] = useState(false);
+  const [isUpdatesModalOpen, setIsUpdatesModalOpen] = useState(false);
   
   // Get subtasks for this task
   const taskSubTasks = subTasks.filter((subTask) => subTask.taskId === task.id);
@@ -31,6 +33,10 @@ const CollapsibleTaskRow: React.FC<CollapsibleTaskRowProps> = ({ task, projectId
   // Get users
   const users = getUsers();
   const assignee = task.assigneeId ? users.find(user => user.id === task.assigneeId) : null;
+  
+  // Get updates for this task
+  const directUpdates = getUpdatesForEntity('task', task.id);
+  const allRelatedUpdates = getRelatedUpdates('task', task.id);
   
   // Toggle expansion
   const handleToggleExpand = (e: React.MouseEvent) => {
@@ -66,6 +72,12 @@ const CollapsibleTaskRow: React.FC<CollapsibleTaskRowProps> = ({ task, projectId
   const handleAddSubTask = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsAddSubTaskModalOpen(true);
+  };
+  
+  // Open updates modal
+  const handleOpenUpdatesModal = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsUpdatesModalOpen(true);
   };
   
   // Get status badge variant
@@ -133,6 +145,11 @@ const CollapsibleTaskRow: React.FC<CollapsibleTaskRowProps> = ({ task, projectId
       onClick: handleViewTask
     },
     {
+      label: 'See Updates',
+      icon: <MessageSquare size={16} />,
+      onClick: handleOpenUpdatesModal
+    },
+    {
       label: 'Edit Task',
       icon: <Edit size={16} />,
       onClick: handleEditTask
@@ -183,6 +200,16 @@ const CollapsibleTaskRow: React.FC<CollapsibleTaskRowProps> = ({ task, projectId
           
           {assignee && (
             <UserAvatar user={assignee} size="sm" />
+          )}
+          
+          {directUpdates.length > 0 && (
+            <button 
+              onClick={handleOpenUpdatesModal}
+              className="text-sm flex items-center text-blue-600 hover:text-blue-800"
+            >
+              <MessageSquare size={16} className="mr-1" />
+              {directUpdates.length}
+            </button>
           )}
           
           <DropdownMenu items={menuItems} />
@@ -311,6 +338,17 @@ const CollapsibleTaskRow: React.FC<CollapsibleTaskRowProps> = ({ task, projectId
           </div>
         </div>
       </Modal>
+      
+      {/* Updates Modal */}
+      <UpdatesModal
+        isOpen={isUpdatesModalOpen}
+        onClose={() => setIsUpdatesModalOpen(false)}
+        entityType="task"
+        entityId={task.id}
+        entityName={task.name}
+        directUpdates={directUpdates}
+        relatedUpdates={allRelatedUpdates}
+      />
     </div>
   );
 };

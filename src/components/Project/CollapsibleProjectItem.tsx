@@ -162,7 +162,7 @@ const CollapsibleProjectItem: React.FC<CollapsibleProjectItemProps> = ({ project
       onClick: handleViewProject
     },
     {
-      label: 'View/Add Updates',
+      label: 'See Updates',
       icon: <MessageSquare size={16} />,
       onClick: handleOpenUpdatesModal
     },

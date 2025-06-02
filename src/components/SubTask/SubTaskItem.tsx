@@ -97,6 +97,11 @@ const SubTaskItem: React.FC<SubTaskItemProps> = ({ subTask, onEdit, taskId, proj
       onClick: handleClick
     },
     {
+      label: 'See Updates',
+      icon: <MessageSquare size={18} />,
+      onClick: handleUpdatesClick
+    },
+    {
       label: 'Edit Subtask',
       icon: <Edit size={18} />,
       onClick: handleEdit
