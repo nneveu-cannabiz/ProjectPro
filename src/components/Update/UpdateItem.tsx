@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Update, User } from '../../types';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, ChevronDown, ChevronUp } from 'lucide-react';
 import UserAvatar from '../UserAvatar';
 
 interface UpdateItemProps {
@@ -16,6 +16,11 @@ const UpdateItem: React.FC<UpdateItemProps> = ({
   showEntity = false,
   entityName
 }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  // Check if the message is long (more than 150 characters)
+  const isLongMessage = update.message.length > 150;
+  
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
@@ -80,9 +85,27 @@ const UpdateItem: React.FC<UpdateItemProps> = ({
             </div>
           )}
           
-          <p className="mt-3 text-sm text-gray-700 whitespace-pre-line">
-            {update.message}
-          </p>
+          <div className="mt-3">
+            <p className={`text-sm text-gray-700 whitespace-pre-line ${isLongMessage && !isExpanded ? 'line-clamp-3' : ''}`}>
+              {update.message}
+            </p>
+            {isLongMessage && (
+              <button 
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="text-xs text-blue-600 hover:text-blue-800 mt-1 flex items-center"
+              >
+                {isExpanded ? (
+                  <>
+                    <ChevronUp size={14} className="mr-1" /> Show less
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown size={14} className="mr-1" /> Show more
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

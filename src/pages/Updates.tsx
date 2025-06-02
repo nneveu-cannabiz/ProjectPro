@@ -1,15 +1,19 @@
 import React, { useState, useMemo } from 'react';
-import { Search, RefreshCw, Loader2, MessageSquare, Filter, ArrowUp, ArrowDown } from 'lucide-react';
+import { Search, RefreshCw, Loader2, MessageSquare, Filter, ArrowUp, ArrowDown, ChevronDown, ChevronRight } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import { useAppContext } from '../context/AppContext';
 import UserAvatar from '../components/UserAvatar';
 import { Update } from '../types';
 import { useNavigate } from 'react-router-dom';
+import UpdatesModal from '../components/Update/UpdatesModal';
 
 const UpdateCard: React.FC<{ update: Update }> = ({ update }) => {
   const navigate = useNavigate();
-  const { projects, tasks, subTasks, getUsers } = useAppContext();
+  const { projects, tasks, subTasks, getUsers, getRelatedUpdates } = useAppContext();
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showRelatedUpdates, setShowRelatedUpdates] = useState(false);
+  
   const users = getUsers();
   const author = users.find(u => u.id === update.userId);
   
@@ -65,6 +69,15 @@ const UpdateCard: React.FC<{ update: Update }> = ({ update }) => {
       parentProject: null
     };
   }, [update, projects, tasks, subTasks]);
+
+  // Get related updates for this entity
+  const relatedUpdates = useMemo(() => {
+    if (!update.entityType || !update.entityId) return [];
+    return getRelatedUpdates(update.entityType as 'project' | 'task', update.entityId);
+  }, [update, getRelatedUpdates]);
+
+  // Check if the message is long (more than 150 characters)
+  const isLongMessage = update.message.length > 150;
 
   // Format date for display
   const formatDate = (date: string) => {
@@ -160,10 +173,28 @@ const UpdateCard: React.FC<{ update: Update }> = ({ update }) => {
             )}
           </div>
           
-          {/* Message and timestamp */}
-          <p className="text-sm text-gray-800 mb-2 whitespace-pre-line line-clamp-3">
-            {update.message}
-          </p>
+          {/* Message and timestamp with expansion functionality */}
+          <div className="mb-2">
+            <p className={`text-sm text-gray-800 whitespace-pre-line ${isExpanded ? '' : 'line-clamp-3'}`}>
+              {update.message}
+            </p>
+            {isLongMessage && (
+              <button 
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="text-xs text-blue-600 hover:text-blue-800 mt-1 flex items-center"
+              >
+                {isExpanded ? (
+                  <>
+                    <ChevronUp size={14} className="mr-1" /> Show less
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown size={14} className="mr-1" /> Show more
+                  </>
+                )}
+              </button>
+            )}
+          </div>
           
           {/* Update metadata */}
           <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
@@ -181,10 +212,36 @@ const UpdateCard: React.FC<{ update: Update }> = ({ update }) => {
                 <span>Unknown User</span>
               )}
             </div>
-            <span>{formatDate(update.createdAt)}</span>
+            <div className="flex items-center">
+              <span className="mr-3">{formatDate(update.createdAt)}</span>
+              
+              {/* Show related updates button if applicable */}
+              {(update.entityType === 'project' || update.entityType === 'task') && relatedUpdates.length > 1 && (
+                <button 
+                  className="text-blue-600 hover:text-blue-800 text-xs flex items-center"
+                  onClick={() => setShowRelatedUpdates(true)}
+                >
+                  <MessageSquare size={12} className="mr-1" />
+                  See all related updates ({relatedUpdates.length})
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
+      
+      {/* Related Updates Modal */}
+      {showRelatedUpdates && (
+        <UpdatesModal
+          isOpen={showRelatedUpdates}
+          onClose={() => setShowRelatedUpdates(false)}
+          entityType={update.entityType as 'project' | 'task' | 'subtask'}
+          entityId={update.entityId}
+          entityName={entity.name}
+          directUpdates={[update]}
+          relatedUpdates={relatedUpdates}
+        />
+      )}
     </div>
   );
 };
