@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, RefreshCw, Loader2, MessageSquare, Filter, ArrowUp, ArrowDown, ChevronDown, ChevronRight } from 'lucide-react';
+import { Search, RefreshCw, Loader2, MessageSquare, Filter, ArrowUp, ArrowDown, ChevronDown, ChevronRight, ChevronUp } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import { useAppContext } from '../context/AppContext';
