@@ -19,6 +19,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSubmit }) => {
   const [category, setCategory] = useState(project?.category || '');
   const [status, setStatus] = useState(project?.status || 'todo');
   const [projectType, setProjectType] = useState(project?.projectType || 'Active');
+  const [priority, setPriority] = useState(project?.priority || 'Medium');
   const [errors, setErrors] = useState<Record<string, string>>({});
   
   const categoryOptions = categories.map((cat) => ({
@@ -37,6 +38,13 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSubmit }) => {
     { value: 'Upcoming', label: 'Upcoming' },
     { value: 'Future', label: 'Future' },
     { value: 'On Hold', label: 'On Hold' },
+  ];
+  
+  const priorityOptions = [
+    { value: 'Critical', label: 'Critical' },
+    { value: 'High', label: 'High' },
+    { value: 'Medium', label: 'Medium' },
+    { value: 'Low', label: 'Low' },
   ];
   
   const validate = () => {
@@ -60,6 +68,10 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSubmit }) => {
       newErrors.projectType = 'Project type is required';
     }
     
+    if (!priority) {
+      newErrors.priority = 'Priority is required';
+    }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -77,6 +89,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSubmit }) => {
         category,
         status: status as 'todo' | 'in-progress' | 'done',
         projectType: projectType as 'Active' | 'Upcoming' | 'Future' | 'On Hold',
+        priority: priority as 'Critical' | 'High' | 'Medium' | 'Low',
       });
     } else {
       addProject({
@@ -85,6 +98,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSubmit }) => {
         category,
         status: status as 'todo' | 'in-progress' | 'done',
         projectType: projectType as 'Active' | 'Upcoming' | 'Future' | 'On Hold',
+        priority: priority as 'Critical' | 'High' | 'Medium' | 'Low',
       });
     }
     
@@ -131,6 +145,14 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSubmit }) => {
         value={projectType}
         onChange={setProjectType}
         error={errors.projectType}
+      />
+      
+      <Select
+        label="Priority"
+        options={priorityOptions}
+        value={priority}
+        onChange={setPriority}
+        error={errors.priority}
       />
       
       <div className="flex justify-end space-x-3 mt-6">

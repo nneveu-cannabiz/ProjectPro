@@ -60,6 +60,22 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
     }
   };
   
+  // Get priority badge variant
+  const getPriorityVariant = (priority: string) => {
+    switch (priority) {
+      case 'Critical':
+        return 'critical';
+      case 'High':
+        return 'high';
+      case 'Medium':
+        return 'medium';
+      case 'Low':
+        return 'low';
+      default:
+        return 'medium';
+    }
+  };
+  
   // Format status text for display
   const getStatusText = (status: string) => {
     switch (status) {
@@ -96,6 +112,9 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
               <div className="flex mt-1 space-x-2">
                 <Badge variant={getProjectTypeVariant(project.projectType)}>
                   {project.projectType}
+                </Badge>
+                <Badge variant={getPriorityVariant(project.priority)}>
+                  {project.priority}
                 </Badge>
               </div>
               <p className="text-sm text-gray-600 mt-1">{project.description}</p>

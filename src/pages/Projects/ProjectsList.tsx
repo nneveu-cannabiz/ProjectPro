@@ -18,6 +18,7 @@ const ProjectsList: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [projectTypeFilter, setProjectTypeFilter] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('');
   const [viewMode, setViewMode] = useState<'card' | 'list'>('list');
   const [isRefreshing, setIsRefreshing] = useState(false);
   
@@ -28,8 +29,9 @@ const ProjectsList: React.FC = () => {
     const matchesCategory = categoryFilter === '' || project.category === categoryFilter;
     const matchesStatus = statusFilter === '' || project.status === statusFilter;
     const matchesProjectType = projectTypeFilter === '' || project.projectType === projectTypeFilter;
+    const matchesPriority = priorityFilter === '' || project.priority === priorityFilter;
     
-    return matchesSearch && matchesCategory && matchesStatus && matchesProjectType;
+    return matchesSearch && matchesCategory && matchesStatus && matchesProjectType && matchesPriority;
   });
   
   const handleCreateProject = () => {
@@ -125,6 +127,18 @@ const ProjectsList: React.FC = () => {
               <option value="On Hold">On Hold</option>
             </select>
             
+            <select
+              className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              value={priorityFilter}
+              onChange={(e) => setPriorityFilter(e.target.value)}
+            >
+              <option value="">All Priorities</option>
+              <option value="Critical">Critical</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+            
             <div className="border border-gray-300 rounded-md flex overflow-hidden">
               <button 
                 className={`p-2 ${viewMode === 'card' ? 'bg-blue-50 text-blue-600' : 'bg-white text-gray-600'}`}
@@ -170,9 +184,9 @@ const ProjectsList: React.FC = () => {
         <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
           <p className="text-gray-500 mb-2">No projects found.</p>
           <p className="text-gray-400 text-sm mb-4">
-            {searchTerm || categoryFilter || statusFilter || projectTypeFilter ? 'Try adjusting your filters.' : 'Create your first project to get started.'}
+            {searchTerm || categoryFilter || statusFilter || projectTypeFilter || priorityFilter ? 'Try adjusting your filters.' : 'Create your first project to get started.'}
           </p>
-          {!searchTerm && !categoryFilter && !statusFilter && !projectTypeFilter && (
+          {!searchTerm && !categoryFilter && !statusFilter && !projectTypeFilter && !priorityFilter && (
             <Button onClick={handleCreateProject} size="sm">
               Create Your First Project
             </Button>

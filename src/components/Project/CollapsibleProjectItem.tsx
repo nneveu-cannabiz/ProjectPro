@@ -120,6 +120,22 @@ const CollapsibleProjectItem: React.FC<CollapsibleProjectItemProps> = ({ project
     }
   };
   
+  // Get priority badge variant
+  const getPriorityVariant = (priority: string) => {
+    switch (priority) {
+      case 'Critical':
+        return 'critical';
+      case 'High':
+        return 'high';
+      case 'Medium':
+        return 'medium';
+      case 'Low':
+        return 'low';
+      default:
+        return 'medium';
+    }
+  };
+  
   // Get status badge variant
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -201,6 +217,9 @@ const CollapsibleProjectItem: React.FC<CollapsibleProjectItemProps> = ({ project
             <Badge variant={getProjectTypeVariant(project.projectType)}>
               {project.projectType}
             </Badge>
+            <Badge variant={getPriorityVariant(project.priority)}>
+              {project.priority}
+            </Badge>
           </div>
           {!isExpanded && (
             <div className="text-sm text-gray-500 truncate mt-0.5">{project.description}</div>
@@ -271,8 +290,8 @@ const CollapsibleProjectItem: React.FC<CollapsibleProjectItemProps> = ({ project
               <p className="text-sm text-gray-600">{formatDate(project.updatedAt)}</p>
             </div>
             <div>
-              <div className="text-sm font-medium text-gray-700 mb-1">Updates</div>
-              <p className="text-sm text-gray-600">{allRelatedUpdates.length || 'None'}</p>
+              <div className="text-sm font-medium text-gray-700 mb-1">Priority</div>
+              <Badge variant={getPriorityVariant(project.priority)}>{project.priority}</Badge>
             </div>
           </div>
           

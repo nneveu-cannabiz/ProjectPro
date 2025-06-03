@@ -6,6 +6,7 @@ export interface Project {
   category: string;
   status: 'todo' | 'in-progress' | 'done';
   projectType: 'Active' | 'Upcoming' | 'Future' | 'On Hold';
+  priority: 'Critical' | 'High' | 'Medium' | 'Low';
   createdAt: string;
   updatedAt: string;
 }

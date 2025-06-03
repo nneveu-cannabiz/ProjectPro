@@ -43,6 +43,7 @@ export const fetchProjects = async (): Promise<Project[]> => {
         category: p.category,
         status: p.status,
         projectType: p.project_type || 'Active',
+        priority: p.priority || 'Medium',
         createdAt: p.created_at,
         updatedAt: p.updated_at
       }));
@@ -65,6 +66,7 @@ export const addProject = async (project: Omit<Project, 'id' | 'createdAt' | 'up
       category: project.category,
       status: project.status,
       project_type: project.projectType,
+      priority: project.priority || 'Medium',
       created_at: timestamp,
       updated_at: timestamp
     });
@@ -88,6 +90,7 @@ export const updateProject = async (project: Project): Promise<void> => {
       category: project.category,
       status: project.status,
       project_type: project.projectType,
+      priority: project.priority,
       updated_at: timestamp
     })
     .eq('id', project.id);
