@@ -205,12 +205,12 @@ const ProjectDetails: React.FC = () => {
             <Badge variant={getProjectTypeVariant(project.projectType)} className="mr-2">
               {project.projectType}
             </Badge>
+            <Badge variant={getPriorityVariant(project.priority)} className="mr-2">
+              {project.priority}
+            </Badge>
             <Badge variant="primary" className="mr-2">{project.category}</Badge>
             <Badge variant={getStatusVariant(project.status)} className="mr-2">
               {getStatusText(project.status)}
-            </Badge>
-            <Badge variant={getPriorityVariant(project.priority)} className="mr-2">
-              {project.priority}
             </Badge>
             <span className="text-sm text-gray-600">
               Created: {new Date(project.createdAt).toLocaleDateString()}

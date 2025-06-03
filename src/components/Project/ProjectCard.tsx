@@ -113,13 +113,13 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
                 <Badge variant={getProjectTypeVariant(project.projectType)}>
                   {project.projectType}
                 </Badge>
-                <Badge variant={getPriorityVariant(project.priority)}>
-                  {project.priority}
-                </Badge>
               </div>
               <p className="text-sm text-gray-600 mt-1">{project.description}</p>
             </div>
             <div className="flex space-x-2">
+              <Badge variant={getPriorityVariant(project.priority)}>
+                {project.priority}
+              </Badge>
               <Badge variant="primary">{project.category}</Badge>
               <Badge variant={getStatusVariant(project.status)}>
                 {getStatusText(project.status)}

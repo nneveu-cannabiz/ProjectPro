@@ -217,9 +217,6 @@ const CollapsibleProjectItem: React.FC<CollapsibleProjectItemProps> = ({ project
             <Badge variant={getProjectTypeVariant(project.projectType)}>
               {project.projectType}
             </Badge>
-            <Badge variant={getPriorityVariant(project.priority)}>
-              {project.priority}
-            </Badge>
           </div>
           {!isExpanded && (
             <div className="text-sm text-gray-500 truncate mt-0.5">{project.description}</div>
@@ -227,6 +224,10 @@ const CollapsibleProjectItem: React.FC<CollapsibleProjectItemProps> = ({ project
         </div>
         
         <div className="flex items-center gap-3 ml-4">
+          <Badge variant={getPriorityVariant(project.priority)} className="whitespace-nowrap">
+            {project.priority}
+          </Badge>
+          
           <Badge variant="primary" className="whitespace-nowrap">
             {project.category}
           </Badge>
