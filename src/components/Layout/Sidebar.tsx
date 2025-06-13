@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -8,10 +8,10 @@ import {
   MessageSquare, 
   LogOut, 
   ChevronLeft, 
-  Menu,
-  Users
+  Menu 
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { getUserProfile } from '../../lib/supabase';
 
 interface SidebarItemProps {
   to: string;
@@ -69,26 +69,40 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser, logout } = useAuth();
+  const [profileData, setProfileData] = useState<{
+    firstName: string;
+    lastName: string;
+    profileColor: string;
+    email: string;
+  } | null>(null);
+  
+  // Load profile data when component mounts
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (currentUser) {
+        try {
+          const userProfile = await getUserProfile(currentUser.id);
+          
+          if (userProfile) {
+            setProfileData({
+              firstName: userProfile.first_name || '',
+              lastName: userProfile.last_name || '',
+              profileColor: userProfile.profile_color || '#2563eb',
+              email: userProfile.email
+            });
+          }
+        } catch (error) {
+          console.error('Error loading sidebar profile data:', error);
+        }
+      }
+    };
+    
+    loadProfile();
+  }, [currentUser]);
 
   const handleLogout = async () => {
     await logout();
     navigate('/login');
-  };
-
-  // Get user initials for avatar
-  const getUserInitials = () => {
-    if (currentUser?.firstName && currentUser?.lastName) {
-      return `${currentUser.firstName.charAt(0)}${currentUser.lastName.charAt(0)}`;
-    }
-    return currentUser?.email?.charAt(0).toUpperCase() || 'U';
-  };
-
-  // Get display name
-  const getDisplayName = () => {
-    if (currentUser?.firstName && currentUser?.lastName) {
-      return `${currentUser.firstName} ${currentUser.lastName}`;
-    }
-    return currentUser?.email || 'User';
   };
 
   return (
@@ -137,14 +151,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
         />
         
         <SidebarItem
-          to="/team"
-          icon={<Users size={20} />}
-          label="Team"
-          isActive={location.pathname === '/team'}
-          isCollapsed={isCollapsed}
-        />
-        
-        <SidebarItem
           to="/todo"
           icon={<CheckSquare size={20} />}
           label="My To Do List"
@@ -173,16 +179,27 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
         {!isCollapsed ? (
           <div className="flex items-center">
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold"
-              style={{ backgroundColor: currentUser?.profileColor || '#2563eb' }}
+              style={{ backgroundColor: profileData?.profileColor || '#2563eb' }}
             >
-              {getUserInitials()}
+              {profileData ? 
+                (profileData.firstName?.charAt(0) || '') + (profileData.lastName?.charAt(0) || '') ||
+                (currentUser?.email?.charAt(0).toUpperCase() || 'U') 
+                : 
+                (currentUser?.email?.charAt(0).toUpperCase() || 'U')
+              }
             </div>
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-700">
-                {getDisplayName()}
+                {profileData ? 
+                  (profileData.firstName && profileData.lastName ?
+                    `${profileData.firstName} ${profileData.lastName}` : 
+                    currentUser?.email) 
+                  : 
+                  (currentUser?.email || 'User')
+                }
               </p>
               <p className="text-xs text-gray-500">
-                {currentUser?.role?.name || 'User'}
+                {currentUser?.email || ''}
               </p>
             </div>
             <button 
