@@ -45,12 +45,24 @@ export interface TaskType {
   name: string;
 }
 
+export interface Role {
+  id: string;
+  name: string;
+  description?: string;
+  permissions?: Record<string, any>;
+  isSystemRole: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface User {
   id: string;
   email: string;
   firstName: string;
   lastName: string;
   profileColor?: string;
+  roleId?: string;
+  role?: Role;
 }
 
 export interface Update {

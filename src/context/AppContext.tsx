@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Project, Task, SubTask, Category, TaskType, User, Update } from '../types';
+import { Project, Task, SubTask, Category, TaskType, User, Update, Role } from '../types';
 import * as supabaseStore from '../data/supabase-store';
 import { useAuth } from './AuthContext';
 
@@ -11,6 +11,7 @@ interface AppContextType {
   categories: Category[];
   taskTypes: TaskType[];
   updates: Update[];
+  roles: Role[];
   getUsers: () => User[];
   addProject: (project: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
   updateProject: (project: Project) => Promise<void>;
@@ -30,6 +31,10 @@ interface AppContextType {
   addUpdate: (update: Omit<Update, 'id' | 'createdAt'>) => Promise<string>;
   getUpdatesForEntity: (entityType: 'project' | 'task' | 'subtask', entityId: string) => Update[];
   getRelatedUpdates: (entityType: 'project' | 'task', entityId: string) => Update[];
+  updateUser: (userId: string, userData: Partial<User>) => Promise<void>;
+  addRole: (role: Omit<Role, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
+  updateRole: (role: Role) => Promise<void>;
+  deleteRole: (id: string) => Promise<void>;
   isLoading: boolean;
   error: string | null;
   refreshData: () => Promise<void>;
@@ -57,6 +62,7 @@ const AppContext = createContext<AppContextType>({
   categories: defaultCategories,
   taskTypes: defaultTaskTypes,
   updates: [],
+  roles: [],
   getUsers: () => [],
   addProject: async () => '',
   updateProject: async () => {},
@@ -76,6 +82,10 @@ const AppContext = createContext<AppContextType>({
   addUpdate: async () => '',
   getUpdatesForEntity: () => [],
   getRelatedUpdates: () => [],
+  updateUser: async () => {},
+  addRole: async () => '',
+  updateRole: async () => {},
+  deleteRole: async () => {},
   isLoading: false,
   error: null,
   refreshData: async () => {},
@@ -91,6 +101,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [taskTypes, setTaskTypes] = useState<TaskType[]>(defaultTaskTypes);
   const [updates, setUpdates] = useState<Update[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { isAuthenticated, currentUser } = useAuth();
@@ -114,12 +125,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     
     try {
       // Try to fetch data from Supabase
-      const [projectsData, tasksData, subTasksData, updatesData, usersData] = await Promise.all([
+      const [projectsData, tasksData, subTasksData, updatesData, usersData, rolesData] = await Promise.all([
         supabaseStore.fetchProjects(),
         supabaseStore.fetchTasks(),
         supabaseStore.fetchSubTasks(),
         supabaseStore.fetchUpdates(),
-        supabaseStore.fetchUsers()
+        supabaseStore.fetchUsers(),
+        supabaseStore.fetchRoles()
       ]);
       
       clearTimeout(timeoutId);
@@ -129,13 +141,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSubTasks(subTasksData);
       setUpdates(updatesData);
       setUsers(usersData);
+      setRoles(rolesData);
       
       console.log('Data loaded from Supabase:', {
         projects: projectsData.length,
         tasks: tasksData.length,
         subtasks: subTasksData.length,
         updates: updatesData.length,
-        users: usersData.length
+        users: usersData.length,
+        roles: rolesData.length
       });
       
       // Fetch categories and task types if needed
@@ -179,6 +193,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setTasks([]);
       setSubTasks([]);
       setUpdates([]);
+      setUsers([]);
+      setRoles([]);
       setIsLoading(false);
       setError(null);
     }
@@ -560,6 +576,89 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return relatedUpdates.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   };
   
+  // User operations
+  const updateUser = async (userId: string, userData: Partial<User>) => {
+    try {
+      setIsLoading(true);
+      await supabaseStore.updateUser(userId, userData);
+      
+      // Update local state
+      setUsers(prev => 
+        prev.map(u => 
+          u.id === userId 
+            ? { ...u, ...userData } 
+            : u
+        )
+      );
+    } catch (error) {
+      console.error('Error updating user:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Role operations
+  const addRole = async (role: Omit<Role, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      setIsLoading(true);
+      const newId = await supabaseStore.addRole(role);
+      
+      // Update local state
+      const timestamp = new Date().toISOString();
+      const newRole: Role = {
+        ...role,
+        id: newId,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+      
+      setRoles(prev => [...prev, newRole]);
+      return newId;
+    } catch (error) {
+      console.error('Error adding role:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateRole = async (role: Role) => {
+    try {
+      setIsLoading(true);
+      await supabaseStore.updateRole(role);
+      
+      // Update local state
+      setRoles(prev => 
+        prev.map(r => 
+          r.id === role.id 
+            ? { ...role, updatedAt: new Date().toISOString() } 
+            : r
+        )
+      );
+    } catch (error) {
+      console.error('Error updating role:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const deleteRole = async (id: string) => {
+    try {
+      setIsLoading(true);
+      await supabaseStore.deleteRole(id);
+      
+      // Update local state
+      setRoles(prev => prev.filter(r => r.id !== id));
+    } catch (error) {
+      console.error('Error deleting role:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
   // Get users (without passwords)
   const getUsers = () => {
     return users;
@@ -574,6 +673,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         categories,
         taskTypes,
         updates,
+        roles,
         getUsers,
         addProject,
         updateProject,
@@ -593,6 +693,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addUpdate,
         getUpdatesForEntity,
         getRelatedUpdates,
+        updateUser,
+        addRole,
+        updateRole,
+        deleteRole,
         isLoading,
         error,
         refreshData

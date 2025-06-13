@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../lib/supabase';
-import { Project, Task, SubTask, Category, TaskType, User, Update } from '../types';
+import { Project, Task, SubTask, Category, TaskType, User, Update, Role } from '../types';
 
 // Helper function to handle Supabase errors with timeouts
 const safeSupabaseCall = async <T>(
@@ -407,7 +407,10 @@ export const fetchUsers = async (): Promise<User[]> => {
     async () => {
       const { data, error } = await supabase
         .from('PMA_Users')
-        .select('*');
+        .select(`
+          *,
+          role:PMA_Roles(*)
+        `);
       
       if (error) {
         console.error('Error fetching users:', error);
@@ -419,10 +422,128 @@ export const fetchUsers = async (): Promise<User[]> => {
         email: u.email,
         firstName: u.first_name || '',
         lastName: u.last_name || '',
-        profileColor: u.profile_color || '#2563eb'
+        profileColor: u.profile_color || '#2563eb',
+        roleId: u.role_id,
+        role: u.role ? {
+          id: u.role.id,
+          name: u.role.name,
+          description: u.role.description,
+          permissions: u.role.permissions || {},
+          isSystemRole: u.role.is_system_role,
+          createdAt: u.role.created_at,
+          updatedAt: u.role.updated_at
+        } : undefined
       }));
     },
     'Error fetching users',
     []
   );
+};
+
+export const updateUser = async (userId: string, userData: Partial<User>): Promise<void> => {
+  const timestamp = new Date().toISOString();
+  
+  const updateData: any = {
+    updated_at: timestamp
+  };
+  
+  if (userData.firstName !== undefined) updateData.first_name = userData.firstName;
+  if (userData.lastName !== undefined) updateData.last_name = userData.lastName;
+  if (userData.profileColor !== undefined) updateData.profile_color = userData.profileColor;
+  if (userData.roleId !== undefined) updateData.role_id = userData.roleId;
+  
+  const { error } = await supabase
+    .from('PMA_Users')
+    .update(updateData)
+    .eq('id', userId);
+  
+  if (error) {
+    console.error('Error updating user:', error);
+    throw error;
+  }
+};
+
+// Role operations
+export const fetchRoles = async (): Promise<Role[]> => {
+  return safeSupabaseCall(
+    async () => {
+      const { data, error } = await supabase
+        .from('PMA_Roles')
+        .select('*')
+        .order('name');
+      
+      if (error) {
+        console.error('Error fetching roles:', error);
+        throw error;
+      }
+      
+      return data.map(r => ({
+        id: r.id,
+        name: r.name,
+        description: r.description,
+        permissions: r.permissions || {},
+        isSystemRole: r.is_system_role,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at
+      }));
+    },
+    'Error fetching roles',
+    []
+  );
+};
+
+export const addRole = async (role: Omit<Role, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
+  const timestamp = new Date().toISOString();
+  const id = uuidv4();
+  
+  const { error } = await supabase
+    .from('PMA_Roles')
+    .insert({
+      id,
+      name: role.name,
+      description: role.description,
+      permissions: role.permissions || {},
+      is_system_role: role.isSystemRole,
+      created_at: timestamp,
+      updated_at: timestamp
+    });
+  
+  if (error) {
+    console.error('Error adding role:', error);
+    throw error;
+  }
+  
+  return id;
+};
+
+export const updateRole = async (role: Role): Promise<void> => {
+  const timestamp = new Date().toISOString();
+  
+  const { error } = await supabase
+    .from('PMA_Roles')
+    .update({
+      name: role.name,
+      description: role.description,
+      permissions: role.permissions || {},
+      is_system_role: role.isSystemRole,
+      updated_at: timestamp
+    })
+    .eq('id', role.id);
+  
+  if (error) {
+    console.error('Error updating role:', error);
+    throw error;
+  }
+};
+
+export const deleteRole = async (id: string): Promise<void> => {
+  const { error } = await supabase
+    .from('PMA_Roles')
+    .delete()
+    .eq('id', id);
+  
+  if (error) {
+    console.error('Error deleting role:', error);
+    throw error;
+  }
 };
