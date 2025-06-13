@@ -1,717 +1,182 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Project, Task, SubTask, Category, TaskType, User, Update, Role } from '../types';
-import * as supabaseStore from '../data/supabase-store';
-import { useAuth } from './AuthContext';
+import { supabase } from '../lib/supabase';
 
 // Define the context type
-interface AppContextType {
-  projects: Project[];
-  tasks: Task[];
-  subTasks: SubTask[];
-  categories: Category[];
-  taskTypes: TaskType[];
-  updates: Update[];
-  roles: Role[];
-  getUsers: () => User[];
-  addProject: (project: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
-  updateProject: (project: Project) => Promise<void>;
-  deleteProject: (id: string) => Promise<void>;
-  addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
-  updateTask: (task: Task) => Promise<void>;
-  deleteTask: (id: string) => Promise<void>;
-  addSubTask: (subTask: Omit<SubTask, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
-  updateSubTask: (subTask: SubTask) => Promise<void>;
-  deleteSubTask: (id: string) => Promise<void>;
-  addCategory: (name: string) => Promise<string>;
-  updateCategory: (category: Category) => Promise<void>;
-  deleteCategory: (id: string) => Promise<void>;
-  addTaskType: (name: string) => Promise<string>;
-  updateTaskType: (taskType: TaskType) => Promise<void>;
-  deleteTaskType: (id: string) => Promise<void>;
-  addUpdate: (update: Omit<Update, 'id' | 'createdAt'>) => Promise<string>;
-  getUpdatesForEntity: (entityType: 'project' | 'task' | 'subtask', entityId: string) => Update[];
-  getRelatedUpdates: (entityType: 'project' | 'task', entityId: string) => Update[];
-  updateUser: (userId: string, userData: Partial<User>) => Promise<void>;
-  addRole: (role: Omit<Role, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
-  updateRole: (role: Role) => Promise<void>;
-  deleteRole: (id: string) => Promise<void>;
+interface AuthContextType {
+  currentUser: {
+    id: string;
+    email: string;
+    firstName: null;
+    lastName: null;
+    profileColor: null;
+  } | null;
+  isAuthenticated: boolean;
+  login: (email: string, password: string) => Promise<boolean>;
+  logout: () => Promise<void>;
+  authError: string | null;
   isLoading: boolean;
-  error: string | null;
-  refreshData: () => Promise<void>;
+  updateUserProfile?: (userData: { firstName?: string; lastName?: string; profileColor?: string }) => Promise<void>;
 }
 
-// Default data
-const defaultCategories: Category[] = [
-  { id: '1', name: 'Live Website' },
-  { id: '2', name: 'Admin Portal' },
-  { id: '3', name: 'State Licensing' },
-  { id: '4', name: 'Backend Development' },
-];
-
-const defaultTaskTypes: TaskType[] = [
-  { id: '1', name: 'Bug' },
-  { id: '2', name: 'Feature' },
-  { id: '3', name: 'Discovery' },
-];
-
 // Create the context with default values
-const AppContext = createContext<AppContextType>({
-  projects: [],
-  tasks: [],
-  subTasks: [],
-  categories: defaultCategories,
-  taskTypes: defaultTaskTypes,
-  updates: [],
-  roles: [],
-  getUsers: () => [],
-  addProject: async () => '',
-  updateProject: async () => {},
-  deleteProject: async () => {},
-  addTask: async () => '',
-  updateTask: async () => {},
-  deleteTask: async () => {},
-  addSubTask: async () => '',
-  updateSubTask: async () => {},
-  deleteSubTask: async () => {},
-  addCategory: async () => '',
-  updateCategory: async () => {},
-  deleteCategory: async () => {},
-  addTaskType: async () => '',
-  updateTaskType: async () => {},
-  deleteTaskType: async () => {},
-  addUpdate: async () => '',
-  getUpdatesForEntity: () => [],
-  getRelatedUpdates: () => [],
-  updateUser: async () => {},
-  addRole: async () => '',
-  updateRole: async () => {},
-  deleteRole: async () => {},
-  isLoading: false,
-  error: null,
-  refreshData: async () => {},
+const AuthContext = createContext<AuthContextType>({
+  currentUser: null,
+  isAuthenticated: false,
+  login: async () => false,
+  logout: async () => {},
+  authError: null,
+  isLoading: false
 });
 
 // Provider component
-export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Initialize state
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [subTasks, setSubTasks] = useState<SubTask[]>([]);
-  const [categories, setCategories] = useState<Category[]>(defaultCategories);
-  const [taskTypes, setTaskTypes] = useState<TaskType[]>(defaultTaskTypes);
-  const [updates, setUpdates] = useState<Update[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const { isAuthenticated, currentUser } = useAuth();
-  
-  // Function to fetch data from Supabase
-  const fetchData = async () => {
-    if (!isAuthenticated) {
-      setIsLoading(false);
-      return;
-    }
-    
-    setIsLoading(true);
-    setError(null);
-    
-    // Set a timeout to prevent the loading state from getting stuck
-    const timeoutId = setTimeout(() => {
-      console.warn('Data fetching timeout exceeded.');
-      setIsLoading(false);
-      setError('Request timed out. Please try again later.');
-    }, 20000); // 20 seconds timeout
-    
-    try {
-      // Try to fetch data from Supabase
-      const [projectsData, tasksData, subTasksData, updatesData, usersData, rolesData] = await Promise.all([
-        supabaseStore.fetchProjects(),
-        supabaseStore.fetchTasks(),
-        supabaseStore.fetchSubTasks(),
-        supabaseStore.fetchUpdates(),
-        supabaseStore.fetchUsers(),
-        supabaseStore.fetchRoles()
-      ]);
-      
-      clearTimeout(timeoutId);
-      
-      setProjects(projectsData);
-      setTasks(tasksData);
-      setSubTasks(subTasksData);
-      setUpdates(updatesData);
-      setUsers(usersData);
-      setRoles(rolesData);
-      
-      console.log('Data loaded from Supabase:', {
-        projects: projectsData.length,
-        tasks: tasksData.length,
-        subtasks: subTasksData.length,
-        updates: updatesData.length,
-        users: usersData.length,
-        roles: rolesData.length
-      });
-      
-      // Fetch categories and task types if needed
-      try {
-        const categoriesData = await supabaseStore.fetchCategories();
-        if (categoriesData.length > 0) {
-          setCategories(categoriesData);
-        }
-        
-        const taskTypesData = await supabaseStore.fetchTaskTypes();
-        if (taskTypesData.length > 0) {
-          setTaskTypes(taskTypesData);
-        }
-      } catch (err) {
-        console.error('Error loading categories or task types:', err);
-        // Continue with default categories and task types
-      }
-    } catch (err) {
-      clearTimeout(timeoutId);
-      console.error('Error loading data from Supabase:', err);
-      setError('Failed to load data from the server. Please try again later.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  // Expose the refresh function for manual refresh
-  const refreshData = async () => {
-    await fetchData();
-  };
-  
-  // Load data when the component mounts and when authentication state changes
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [currentUser, setCurrentUser] = useState<{
+    id: string; 
+    email: string;
+    firstName: null;
+    lastName: null;
+    profileColor: null;
+  } | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  // Check for saved session on component mount
   useEffect(() => {
-    if (isAuthenticated) {
-      console.log('User authenticated, loading data...');
-      fetchData();
-    } else {
-      // Reset to empty state when logged out
-      console.log('User not authenticated, clearing data');
-      setProjects([]);
-      setTasks([]);
-      setSubTasks([]);
-      setUpdates([]);
-      setUsers([]);
-      setRoles([]);
-      setIsLoading(false);
-      setError(null);
-    }
-  }, [isAuthenticated]);
-  
-  // Project CRUD operations
-  const addProject = async (project: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => {
-    try {
-      setIsLoading(true);
-      const newId = await supabaseStore.addProject(project);
-      
-      // Update local state
-      const timestamp = new Date().toISOString();
-      const newProject: Project = {
-        ...project,
-        id: newId,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      };
-      
-      setProjects(prev => [...prev, newProject]);
-      return newId;
-    } catch (error) {
-      console.error('Error adding project:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const updateProject = async (project: Project) => {
-    try {
-      setIsLoading(true);
-      await supabaseStore.updateProject(project);
-      
-      // Update local state
-      setProjects(prev => 
-        prev.map(p => 
-          p.id === project.id 
-            ? { ...project, updatedAt: new Date().toISOString() } 
-            : p
-        )
-      );
-    } catch (error) {
-      console.error('Error updating project:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const deleteProject = async (id: string) => {
-    try {
-      setIsLoading(true);
-      await supabaseStore.deleteProject(id);
-      
-      // Update local state
-      setProjects(prev => prev.filter(p => p.id !== id));
-      setTasks(prev => prev.filter(t => t.projectId !== id));
-      setSubTasks(prev => prev.filter(st => 
-        !tasks.some(t => t.projectId === id && t.id === st.taskId)
-      ));
-      setUpdates(prev => prev.filter(u => 
-        !(u.entityType === 'project' && u.entityId === id) &&
-        !tasks.some(t => t.projectId === id && 
-          (u.entityType === 'task' && u.entityId === t.id) ||
-          subTasks.some(st => st.taskId === t.id && 
-            u.entityType === 'subtask' && u.entityId === st.id
-          )
-        )
-      ));
-    } catch (error) {
-      console.error('Error deleting project:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Task CRUD operations
-  const addTask = async (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
-    try {
-      setIsLoading(true);
-      const newId = await supabaseStore.addTask(task);
-      
-      // Update local state
-      const timestamp = new Date().toISOString();
-      const newTask: Task = {
-        ...task,
-        id: newId,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      };
-      
-      setTasks(prev => [...prev, newTask]);
-      return newId;
-    } catch (error) {
-      console.error('Error adding task:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const updateTask = async (task: Task) => {
-    try {
-      setIsLoading(true);
-      await supabaseStore.updateTask(task);
-      
-      // Update local state
-      setTasks(prev => 
-        prev.map(t => 
-          t.id === task.id 
-            ? { ...task, updatedAt: new Date().toISOString() } 
-            : t
-        )
-      );
-    } catch (error) {
-      console.error('Error updating task:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const deleteTask = async (id: string) => {
-    try {
-      setIsLoading(true);
-      await supabaseStore.deleteTask(id);
-      
-      // Update local state
-      setTasks(prev => prev.filter(t => t.id !== id));
-      setSubTasks(prev => prev.filter(st => st.taskId !== id));
-      setUpdates(prev => prev.filter(u => 
-        !(u.entityType === 'task' && u.entityId === id) &&
-        !(u.entityType === 'subtask' && 
-          prev.some(st => st.taskId === id && st.id === u.entityId)
-        )
-      ));
-    } catch (error) {
-      console.error('Error deleting task:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // SubTask CRUD operations
-  const addSubTask = async (subTask: Omit<SubTask, 'id' | 'createdAt' | 'updatedAt'>) => {
-    try {
-      setIsLoading(true);
-      const newId = await supabaseStore.addSubTask(subTask);
-      
-      // Update local state
-      const timestamp = new Date().toISOString();
-      const newSubTask: SubTask = {
-        ...subTask,
-        id: newId,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      };
-      
-      setSubTasks(prev => [...prev, newSubTask]);
-      return newId;
-    } catch (error) {
-      console.error('Error adding subtask:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const updateSubTask = async (subTask: SubTask) => {
-    try {
-      setIsLoading(true);
-      await supabaseStore.updateSubTask(subTask);
-      
-      // Update local state
-      setSubTasks(prev => 
-        prev.map(st => 
-          st.id === subTask.id 
-            ? { ...subTask, updatedAt: new Date().toISOString() } 
-            : st
-        )
-      );
-    } catch (error) {
-      console.error('Error updating subtask:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const deleteSubTask = async (id: string) => {
-    try {
-      setIsLoading(true);
-      await supabaseStore.deleteSubTask(id);
-      
-      // Update local state
-      setSubTasks(prev => prev.filter(st => st.id !== id));
-      setUpdates(prev => prev.filter(u => 
-        !(u.entityType === 'subtask' && u.entityId === id)
-      ));
-    } catch (error) {
-      console.error('Error deleting subtask:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Category CRUD operations
-  const addCategory = async (name: string) => {
-    try {
-      setIsLoading(true);
-      const newId = await supabaseStore.addCategory(name);
-      
-      // Update local state
-      const newCategory: Category = { id: newId, name };
-      setCategories(prev => [...prev, newCategory]);
-      
-      return newId;
-    } catch (error) {
-      console.error('Error adding category:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const updateCategory = async (category: Category) => {
-    try {
-      setIsLoading(true);
-      await supabaseStore.updateCategory(category);
-      
-      // Update local state
-      setCategories(prev => 
-        prev.map(c => c.id === category.id ? category : c)
-      );
-    } catch (error) {
-      console.error('Error updating category:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const deleteCategory = async (id: string) => {
-    try {
-      setIsLoading(true);
-      await supabaseStore.deleteCategory(id);
-      
-      // Update local state
-      setCategories(prev => prev.filter(c => c.id !== id));
-    } catch (error) {
-      console.error('Error deleting category:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // TaskType CRUD operations
-  const addTaskType = async (name: string) => {
-    try {
-      setIsLoading(true);
-      const newId = await supabaseStore.addTaskType(name);
-      
-      // Update local state
-      const newTaskType: TaskType = { id: newId, name };
-      setTaskTypes(prev => [...prev, newTaskType]);
-      
-      return newId;
-    } catch (error) {
-      console.error('Error adding task type:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const updateTaskType = async (taskType: TaskType) => {
-    try {
-      setIsLoading(true);
-      await supabaseStore.updateTaskType(taskType);
-      
-      // Update local state
-      setTaskTypes(prev => 
-        prev.map(tt => tt.id === taskType.id ? taskType : tt)
-      );
-    } catch (error) {
-      console.error('Error updating task type:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const deleteTaskType = async (id: string) => {
-    try {
-      setIsLoading(true);
-      await supabaseStore.deleteTaskType(id);
-      
-      // Update local state
-      setTaskTypes(prev => prev.filter(tt => tt.id !== id));
-    } catch (error) {
-      console.error('Error deleting task type:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  // Update operations
-  const addUpdate = async (update: Omit<Update, 'id' | 'createdAt'>) => {
-    try {
-      setIsLoading(true);
-      const newId = await supabaseStore.addUpdate(update);
-      
-      // Update local state
-      const timestamp = new Date().toISOString();
-      const newUpdate: Update = {
-        ...update,
-        id: newId,
-        createdAt: timestamp,
-      };
-      
-      setUpdates(prev => [newUpdate, ...prev]);
-      return newId;
-    } catch (error) {
-      console.error('Error adding update:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  const getUpdatesForEntity = (entityType: 'project' | 'task' | 'subtask', entityId: string) => {
-    return updates
-      .filter(update => update.entityType === entityType && update.entityId === entityId)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  };
-  
-  const getRelatedUpdates = (entityType: 'project' | 'task', entityId: string) => {
-    let relatedUpdates: Update[] = [];
+    const checkSession = async () => {
+      try {
+        setIsLoading(true);
+        // Get current session
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session) {
+          console.log('Session found:', session.user.id);
+          
+          // Just set minimal user info from session
+          setCurrentUser({
+            id: session.user.id,
+            email: session.user.email || '',
+            firstName: null,
+            lastName: null,
+            profileColor: null
+          });
+          setIsAuthenticated(true);
+        }
+      } catch (error) {
+        console.error('Session check error:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
     
-    // Get direct updates for this entity
-    relatedUpdates = relatedUpdates.concat(
-      updates.filter(update => update.entityType === entityType && update.entityId === entityId)
+    checkSession();
+    
+    // Set up auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log('Auth state change event:', event);
+        
+        if (event === 'SIGNED_IN' && session) {
+          // Just set minimal user info from session
+          setCurrentUser({
+            id: session.user.id,
+            email: session.user.email || '',
+            firstName: null,
+            lastName: null,
+            profileColor: null
+          });
+          setIsAuthenticated(true);
+          setIsLoading(false);
+        } else if (event === 'SIGNED_OUT') {
+          setCurrentUser(null);
+          setIsAuthenticated(false);
+          setIsLoading(false);
+        }
+      }
     );
     
-    if (entityType === 'project') {
-      // Get task updates for this project
-      const projectTasks = tasks.filter(task => task.projectId === entityId);
-      projectTasks.forEach(task => {
-        relatedUpdates = relatedUpdates.concat(
-          updates.filter(update => update.entityType === 'task' && update.entityId === task.id)
-        );
+    // Cleanup subscription
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // Login function - ONLY use Supabase sign in with password
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      setAuthError(null);
+      setIsLoading(true);
+      
+      console.log('Attempting login for:', email);
+      
+      // Sign in with Supabase - no profile fetching!
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      if (error) {
+        console.error('Login error:', error.message);
+        setAuthError(`Authentication failed: ${error.message}`);
+        return false;
+      }
+      
+      if (data.user) {
+        console.log('User authenticated:', data.user.id);
         
-        // Get subtask updates for each task
-        const taskSubTasks = subTasks.filter(subTask => subTask.taskId === task.id);
-        taskSubTasks.forEach(subTask => {
-          relatedUpdates = relatedUpdates.concat(
-            updates.filter(update => update.entityType === 'subtask' && update.entityId === subTask.id)
-          );
+        // Set minimal user info
+        setCurrentUser({
+          id: data.user.id,
+          email: data.user.email || '',
+          firstName: null,
+          lastName: null,
+          profileColor: null
         });
-      });
-    } else if (entityType === 'task') {
-      // Get subtask updates for this task
-      const taskSubTasks = subTasks.filter(subTask => subTask.taskId === entityId);
-      taskSubTasks.forEach(subTask => {
-        relatedUpdates = relatedUpdates.concat(
-          updates.filter(update => update.entityType === 'subtask' && update.entityId === subTask.id)
-        );
-      });
-    }
-    
-    // Sort updates by date, most recent first
-    return relatedUpdates.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  };
-  
-  // User operations
-  const updateUser = async (userId: string, userData: Partial<User>) => {
-    try {
-      setIsLoading(true);
-      await supabaseStore.updateUser(userId, userData);
+        setIsAuthenticated(true);
+        return true;
+      }
       
-      // Update local state
-      setUsers(prev => 
-        prev.map(u => 
-          u.id === userId 
-            ? { ...u, ...userData } 
-            : u
-        )
-      );
+      setAuthError('Login failed - please check your credentials');
+      return false;
     } catch (error) {
-      console.error('Error updating user:', error);
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('Login exception:', errorMessage);
+      setAuthError(`Login failed: ${errorMessage}`);
+      return false;
     } finally {
       setIsLoading(false);
     }
   };
   
-  // Role operations
-  const addRole = async (role: Omit<Role, 'id' | 'createdAt' | 'updatedAt'>) => {
+  // Logout function
+  const logout = async () => {
     try {
       setIsLoading(true);
-      const newId = await supabaseStore.addRole(role);
-      
-      // Update local state
-      const timestamp = new Date().toISOString();
-      const newRole: Role = {
-        ...role,
-        id: newId,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      };
-      
-      setRoles(prev => [...prev, newRole]);
-      return newId;
+      await supabase.auth.signOut();
+      setCurrentUser(null);
+      setIsAuthenticated(false);
     } catch (error) {
-      console.error('Error adding role:', error);
-      throw error;
+      console.error('Logout error:', error);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const updateRole = async (role: Role) => {
-    try {
-      setIsLoading(true);
-      await supabaseStore.updateRole(role);
-      
-      // Update local state
-      setRoles(prev => 
-        prev.map(r => 
-          r.id === role.id 
-            ? { ...role, updatedAt: new Date().toISOString() } 
-            : r
-        )
-      );
-    } catch (error) {
-      console.error('Error updating role:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const deleteRole = async (id: string) => {
-    try {
-      setIsLoading(true);
-      await supabaseStore.deleteRole(id);
-      
-      // Update local state
-      setRoles(prev => prev.filter(r => r.id !== id));
-    } catch (error) {
-      console.error('Error deleting role:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  // Get users (without passwords)
-  const getUsers = () => {
-    return users;
   };
 
   return (
-    <AppContext.Provider
+    <AuthContext.Provider
       value={{
-        projects,
-        tasks,
-        subTasks,
-        categories,
-        taskTypes,
-        updates,
-        roles,
-        getUsers,
-        addProject,
-        updateProject,
-        deleteProject,
-        addTask,
-        updateTask,
-        deleteTask,
-        addSubTask,
-        updateSubTask,
-        deleteSubTask,
-        addCategory,
-        updateCategory,
-        deleteCategory,
-        addTaskType,
-        updateTaskType,
-        deleteTaskType,
-        addUpdate,
-        getUpdatesForEntity,
-        getRelatedUpdates,
-        updateUser,
-        addRole,
-        updateRole,
-        deleteRole,
-        isLoading,
-        error,
-        refreshData
+        currentUser,
+        isAuthenticated,
+        login,
+        logout,
+        authError,
+        isLoading
       }}
     >
       {children}
-    </AppContext.Provider>
+    </AuthContext.Provider>
   );
 };
 
 // Custom hook to use the context
-export const useAppContext = () => {
-  const context = useContext(AppContext);
-  if (context === undefined) {
-    throw new Error('useAppContext must be used within an AppProvider');
-  }
-  return context;
-};
+export const useAuth = () => useContext(AuthContext);
