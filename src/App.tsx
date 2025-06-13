@@ -19,6 +19,7 @@ const SubTaskDetails = lazy(() => import('./pages/Tasks/SubTaskDetails'));
 const Settings = lazy(() => import('./pages/Settings'));
 const MyToDoList = lazy(() => import('./pages/MyToDoList'));
 const Updates = lazy(() => import('./pages/Updates'));
+const Team = lazy(() => import('./pages/Team'));
 
 // Loading fallback for lazy-loaded components
 const PageLoader = () => (
@@ -60,7 +61,7 @@ function App() {
                   <MainLayout />
                 </ProtectedRoute>
               }>
-                <Route index element={<Navigate to="/projects\" replace />} />
+                <Route index element={<Navigate to="/projects" replace />} />
                 <Route path="dashboard" element={
                   <ErrorBoundaryWrapper pageName="Dashboard">
                     <Dashboard />
@@ -91,6 +92,11 @@ function App() {
                     <SubTaskDetails />
                   </ErrorBoundaryWrapper>
                 } />
+                <Route path="team" element={
+                  <ErrorBoundaryWrapper pageName="Team">
+                    <Team />
+                  </ErrorBoundaryWrapper>
+                } />
                 <Route path="settings" element={
                   <ErrorBoundaryWrapper pageName="Settings">
                     <Settings />
@@ -109,7 +115,7 @@ function App() {
               </Route>
               
               {/* Fallback route */}
-              <Route path="*" element={<Navigate to="/projects\" replace />} />
+              <Route path="*" element={<Navigate to="/projects" replace />} />
             </Routes>
           </Router>
         </AppProvider>

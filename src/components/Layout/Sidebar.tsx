@@ -8,9 +8,11 @@ import {
   MessageSquare, 
   LogOut, 
   ChevronLeft, 
-  Menu 
+  Menu,
+  Users
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useAppContext } from '../../context/AppContext';
 import { getUserProfile } from '../../lib/supabase';
 
 interface SidebarItemProps {
@@ -69,12 +71,21 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser, logout } = useAuth();
+  const { getUsers } = useAppContext();
   const [profileData, setProfileData] = useState<{
     firstName: string;
     lastName: string;
     profileColor: string;
     email: string;
   } | null>(null);
+  
+  // Get current user's role
+  const users = getUsers();
+  const currentUserData = users.find(u => u.id === currentUser?.id);
+  const userRole = currentUserData?.role?.name;
+  
+  // Determine if Team tab should be shown
+  const showTeamTab = userRole === 'Admin' || userRole === 'Manager';
   
   // Load profile data when component mounts
   useEffect(() => {
@@ -150,6 +161,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
           isCollapsed={isCollapsed}
         />
         
+        {showTeamTab && (
+          <SidebarItem
+            to="/team"
+            icon={<Users size={20} />}
+            label="Team"
+            isActive={location.pathname === '/team'}
+            isCollapsed={isCollapsed}
+          />
+        )}
+        
         <SidebarItem
           to="/todo"
           icon={<CheckSquare size={20} />}
@@ -199,7 +220,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
                 }
               </p>
               <p className="text-xs text-gray-500">
-                {currentUser?.email || ''}
+                {userRole || 'User'}
               </p>
             </div>
             <button 

@@ -63,6 +63,8 @@ export interface User {
   profileColor?: string;
   roleId?: string;
   role?: Role;
+  managerId?: string;
+  manager?: User;
 }
 
 export interface Update {
@@ -72,4 +74,13 @@ export interface Update {
   createdAt: string;
   entityType: 'project' | 'task' | 'subtask';
   entityId: string;
+}
+
+export interface ManagerEmployee {
+  id: string;
+  managerId: string;
+  employeeId: string;
+  assignedDate: string;
+  createdAt: string;
+  updatedAt: string;
 }
