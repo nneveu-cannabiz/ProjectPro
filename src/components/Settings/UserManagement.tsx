@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Edit, Trash2, UserPlus, Shield, Mail, User as UserIcon, RefreshCw, UserCheck } from 'lucide-react';
+import { Users, Edit, Trash2, UserPlus, Shield, Mail, User as UserIcon, RefreshCw } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { User, Role } from '../../types';
@@ -17,30 +17,18 @@ interface UserFormProps {
 }
 
 const UserForm: React.FC<UserFormProps> = ({ user, onSubmit, onCancel }) => {
-  const { roles, updateUser, refreshData, getUsers } = useAppContext();
+  const { roles, updateUser, refreshData } = useAppContext();
   const [firstName, setFirstName] = useState(user?.firstName || '');
   const [lastName, setLastName] = useState(user?.lastName || '');
   const [roleId, setRoleId] = useState(user?.roleId || '');
-  const [managerId, setManagerId] = useState(user?.managerId || '');
   const [profileColor, setProfileColor] = useState(user?.profileColor || '#2563eb');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const users = getUsers();
-  
   const roleOptions = roles.map(role => ({
     value: role.id,
     label: role.name
   }));
-
-  // Get managers (users with Manager or Admin role)
-  const managerOptions = users
-    .filter(u => u.role?.name === 'Manager' || u.role?.name === 'Admin')
-    .filter(u => u.id !== user?.id) // Don't allow self-assignment
-    .map(manager => ({
-      value: manager.id,
-      label: `${manager.firstName} ${manager.lastName}` || manager.email
-    }));
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -73,7 +61,6 @@ const UserForm: React.FC<UserFormProps> = ({ user, onSubmit, onCancel }) => {
         firstName,
         lastName,
         roleId,
-        managerId: managerId || undefined,
         profileColor
       });
       
@@ -127,18 +114,6 @@ const UserForm: React.FC<UserFormProps> = ({ user, onSubmit, onCancel }) => {
         error={errors.roleId}
       />
 
-      {managerOptions.length > 0 && (
-        <Select
-          label="Manager (Optional)"
-          options={[
-            { value: '', label: 'No Manager' },
-            ...managerOptions
-          ]}
-          value={managerId}
-          onChange={setManagerId}
-        />
-      )}
-
       <div className="mb-4">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Profile Color
@@ -178,9 +153,9 @@ const UserManagement: React.FC = () => {
 
   const users = getUsers();
   
-  // Check if current user is admin
+  // Check if current user is admin or manager
   const currentUserRole = users.find(u => u.id === currentUser?.id)?.role;
-  const canManageUsers = currentUserRole?.name === 'Admin';
+  const canManageUsers = currentUserRole?.name === 'Admin' || currentUserRole?.name === 'Manager';
 
   // Auto-refresh data when component mounts or when users/roles change
   useEffect(() => {
@@ -233,7 +208,7 @@ const UserManagement: React.FC = () => {
       <div className="text-center py-8">
         <Shield size={48} className="mx-auto text-gray-400 mb-4" />
         <h3 className="text-lg font-medium text-gray-700 mb-2">Access Restricted</h3>
-        <p className="text-gray-500">You need Admin privileges to manage users.</p>
+        <p className="text-gray-500">You need Admin or Manager privileges to manage users.</p>
       </div>
     );
   }
@@ -289,14 +264,6 @@ const UserManagement: React.FC = () => {
                     <Mail size={14} className="text-gray-400 mr-1" />
                     <p className="text-sm text-gray-500">{user.email}</p>
                   </div>
-                  {user.manager && (
-                    <div className="flex items-center mt-1">
-                      <UserCheck size={14} className="text-gray-400 mr-1" />
-                      <p className="text-xs text-gray-500">
-                        Reports to: {user.manager.firstName} {user.manager.lastName}
-                      </p>
-                    </div>
-                  )}
                 </div>
               </div>
 
