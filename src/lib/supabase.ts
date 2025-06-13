@@ -14,9 +14,80 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: false
+    detectSessionInUrl: true
   },
 });
+
+// Get user profile from PMA_Users table
+export const getUserProfile = async (userId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('PMA_Users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+    
+    if (error) {
+      console.error('Error fetching user profile:', error);
+      return null;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error in getUserProfile:', error);
+    return null;
+  }
+};
+
+// Create or update user profile in PMA_Users table
+export const updateUserProfileInDb = async (
+  userId: string, 
+  userData: { 
+    first_name?: string; 
+    last_name?: string; 
+    email?: string;
+    profile_color?: string;
+  }
+) => {
+  try {
+    // Check if user exists
+    const { data: existingUser } = await supabase
+      .from('PMA_Users')
+      .select('id')
+      .eq('id', userId)
+      .single();
+    
+    if (existingUser) {
+      // Update existing user
+      const { error } = await supabase
+        .from('PMA_Users')
+        .update({
+          ...userData,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
+      
+      if (error) throw error;
+    } else {
+      // Insert new user
+      const { error } = await supabase
+        .from('PMA_Users')
+        .insert({
+          id: userId,
+          ...userData,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+      
+      if (error) throw error;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error updating user profile:', error);
+    throw error;
+  }
+};
 
 // Test the Supabase connection by making a simple query
 export const testSupabaseConnection = async () => {
