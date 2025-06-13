@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Shield, Edit, Trash2, Plus, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Shield, Edit, Trash2, Plus, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { Role } from '../../types';
@@ -16,7 +16,7 @@ interface RoleFormProps {
 }
 
 const RoleForm: React.FC<RoleFormProps> = ({ role, onSubmit, onCancel }) => {
-  const { addRole, updateRole } = useAppContext();
+  const { addRole, updateRole, refreshData } = useAppContext();
   const [name, setName] = useState(role?.name || '');
   const [description, setDescription] = useState(role?.description || '');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -55,6 +55,9 @@ const RoleForm: React.FC<RoleFormProps> = ({ role, onSubmit, onCancel }) => {
           isSystemRole: false,
         });
       }
+      
+      // Refresh data to ensure UI is updated with latest changes
+      await refreshData();
       
       onSubmit();
     } catch (error) {
@@ -107,18 +110,28 @@ const RoleForm: React.FC<RoleFormProps> = ({ role, onSubmit, onCancel }) => {
 };
 
 const RoleManagement: React.FC = () => {
-  const { roles, deleteRole, getUsers } = useAppContext();
+  const { roles, deleteRole, getUsers, refreshData, isLoading } = useAppContext();
   const { currentUser } = useAuth();
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [roleToDelete, setRoleToDelete] = useState<Role | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const users = getUsers();
   
   // Check if current user is admin
   const currentUserRole = users.find(u => u.id === currentUser?.id)?.role;
   const canManageRoles = currentUserRole?.name === 'Admin';
+
+  // Auto-refresh data when component mounts or when roles change
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      refreshData();
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(refreshInterval);
+  }, [refreshData]);
 
   const handleEditRole = (role: Role) => {
     setEditingRole(role);
@@ -139,6 +152,10 @@ const RoleManagement: React.FC = () => {
     if (roleToDelete) {
       try {
         await deleteRole(roleToDelete.id);
+        
+        // Refresh data to ensure UI is updated
+        await refreshData();
+        
         setIsDeleteModalOpen(false);
         setRoleToDelete(null);
       } catch (error) {
@@ -147,9 +164,21 @@ const RoleManagement: React.FC = () => {
     }
   };
 
-  const handleCloseModal = () => {
+  const handleCloseModal = async () => {
     setIsFormModalOpen(false);
     setEditingRole(null);
+    
+    // Refresh data when modal closes to ensure latest changes are shown
+    await refreshData();
+  };
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshData();
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const getRoleBadgeVariant = (roleName: string) => {
@@ -189,15 +218,34 @@ const RoleManagement: React.FC = () => {
           <Shield size={24} className="mr-3 text-gray-500" />
           <h2 className="text-lg font-semibold">Role Management</h2>
         </div>
-        <Button onClick={handleAddRole} size="sm">
-          <Plus size={16} className="mr-1" />
-          Add Role
-        </Button>
+        <div className="flex items-center space-x-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleManualRefresh}
+            disabled={isLoading || isRefreshing}
+          >
+            <RefreshCw size={16} className={`mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button onClick={handleAddRole} size="sm">
+            <Plus size={16} className="mr-1" />
+            Add Role
+          </Button>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-          <h3 className="text-md font-medium text-gray-700">All Roles ({roles.length})</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-md font-medium text-gray-700">All Roles ({roles.length})</h3>
+            {isLoading && (
+              <div className="flex items-center text-sm text-gray-500">
+                <RefreshCw size={14} className="animate-spin mr-1" />
+                Loading...
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="divide-y divide-gray-200">
@@ -250,7 +298,7 @@ const RoleManagement: React.FC = () => {
           })}
         </div>
 
-        {roles.length === 0 && (
+        {roles.length === 0 && !isLoading && (
           <div className="px-6 py-12 text-center">
             <Shield size={48} className="mx-auto text-gray-400 mb-4" />
             <h3 className="text-lg font-medium text-gray-700 mb-2">No Roles Found</h3>

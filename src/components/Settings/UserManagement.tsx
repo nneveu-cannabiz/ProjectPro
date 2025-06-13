@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Users, Edit, Trash2, UserPlus, Shield, Mail, User as UserIcon } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Users, Edit, Trash2, UserPlus, Shield, Mail, User as UserIcon, RefreshCw } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { User, Role } from '../../types';
@@ -17,7 +17,7 @@ interface UserFormProps {
 }
 
 const UserForm: React.FC<UserFormProps> = ({ user, onSubmit, onCancel }) => {
-  const { roles, updateUser } = useAppContext();
+  const { roles, updateUser, refreshData } = useAppContext();
   const [firstName, setFirstName] = useState(user?.firstName || '');
   const [lastName, setLastName] = useState(user?.lastName || '');
   const [roleId, setRoleId] = useState(user?.roleId || '');
@@ -63,6 +63,9 @@ const UserForm: React.FC<UserFormProps> = ({ user, onSubmit, onCancel }) => {
         roleId,
         profileColor
       });
+      
+      // Refresh data to ensure UI is updated with latest changes
+      await refreshData();
       
       onSubmit();
     } catch (error) {
@@ -142,10 +145,11 @@ const UserForm: React.FC<UserFormProps> = ({ user, onSubmit, onCancel }) => {
 };
 
 const UserManagement: React.FC = () => {
-  const { getUsers, roles } = useAppContext();
+  const { getUsers, roles, refreshData, isLoading } = useAppContext();
   const { currentUser } = useAuth();
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const users = getUsers();
   
@@ -153,14 +157,35 @@ const UserManagement: React.FC = () => {
   const currentUserRole = users.find(u => u.id === currentUser?.id)?.role;
   const canManageUsers = currentUserRole?.name === 'Admin' || currentUserRole?.name === 'Manager';
 
+  // Auto-refresh data when component mounts or when users/roles change
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      refreshData();
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(refreshInterval);
+  }, [refreshData]);
+
   const handleEditUser = (user: User) => {
     setEditingUser(user);
     setIsEditModalOpen(true);
   };
 
-  const handleCloseModal = () => {
+  const handleCloseModal = async () => {
     setIsEditModalOpen(false);
     setEditingUser(null);
+    
+    // Refresh data when modal closes to ensure latest changes are shown
+    await refreshData();
+  };
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshData();
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const getRoleBadgeVariant = (roleName: string) => {
@@ -195,11 +220,28 @@ const UserManagement: React.FC = () => {
           <Users size={24} className="mr-3 text-gray-500" />
           <h2 className="text-lg font-semibold">User Management</h2>
         </div>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleManualRefresh}
+          disabled={isLoading || isRefreshing}
+        >
+          <RefreshCw size={16} className={`mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-          <h3 className="text-md font-medium text-gray-700">All Users ({users.length})</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-md font-medium text-gray-700">All Users ({users.length})</h3>
+            {isLoading && (
+              <div className="flex items-center text-sm text-gray-500">
+                <RefreshCw size={14} className="animate-spin mr-1" />
+                Loading...
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="divide-y divide-gray-200">
@@ -244,7 +286,7 @@ const UserManagement: React.FC = () => {
           ))}
         </div>
 
-        {users.length === 0 && (
+        {users.length === 0 && !isLoading && (
           <div className="px-6 py-12 text-center">
             <Users size={48} className="mx-auto text-gray-400 mb-4" />
             <h3 className="text-lg font-medium text-gray-700 mb-2">No Users Found</h3>
