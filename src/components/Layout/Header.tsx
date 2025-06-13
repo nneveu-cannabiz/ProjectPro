@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Search, Bell, User } from 'lucide-react';
 import UserProfileCard from '../Profile/UserProfileCard';
 import { useAuth } from '../../context/AuthContext';
-import { getUserProfile } from '../../lib/supabase';
 
 interface HeaderProps {
   title: string;
@@ -11,36 +10,6 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ title }) => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const { currentUser } = useAuth();
-  const [profileData, setProfileData] = useState<{
-    firstName: string;
-    lastName: string;
-    profileColor: string;
-    email: string;
-  } | null>(null);
-  
-  // Load profile data when component mounts
-  useEffect(() => {
-    const loadProfile = async () => {
-      if (currentUser) {
-        try {
-          const userProfile = await getUserProfile(currentUser.id);
-          
-          if (userProfile) {
-            setProfileData({
-              firstName: userProfile.first_name || '',
-              lastName: userProfile.last_name || '',
-              profileColor: userProfile.profile_color || '#2563eb',
-              email: userProfile.email
-            });
-          }
-        } catch (error) {
-          console.error('Error loading header profile data:', error);
-        }
-      }
-    };
-    
-    loadProfile();
-  }, [currentUser]);
   
   const handleProfileClick = () => {
     setIsProfileOpen(true);
@@ -52,8 +21,8 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
   
   // Get user initials for avatar
   const getUserInitials = () => {
-    if (profileData?.firstName && profileData?.lastName) {
-      return `${profileData.firstName.charAt(0)}${profileData.lastName.charAt(0)}`;
+    if (currentUser?.firstName && currentUser?.lastName) {
+      return `${currentUser.firstName.charAt(0)}${currentUser.lastName.charAt(0)}`;
     }
     return currentUser?.email.charAt(0).toUpperCase() || 'U';
   };
@@ -83,7 +52,7 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
         >
           <div 
             className="w-8 h-8 rounded-full flex items-center justify-center text-white"
-            style={{ backgroundColor: profileData?.profileColor || '#2563eb' }}
+            style={{ backgroundColor: currentUser?.profileColor || '#2563eb' }}
           >
             {getUserInitials()}
           </div>
@@ -93,7 +62,12 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
       <UserProfileCard 
         isOpen={isProfileOpen} 
         onClose={handleCloseProfile} 
-        userProfile={profileData} 
+        userProfile={currentUser ? {
+          firstName: currentUser.firstName,
+          lastName: currentUser.lastName,
+          profileColor: currentUser.profileColor || '#2563eb',
+          email: currentUser.email
+        } : null}
         userId={currentUser?.id}
       />
     </header>

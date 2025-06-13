@@ -1,15 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, getUserProfile } from '../lib/supabase';
+import { User } from '../types';
 
 // Define the context type
 interface AuthContextType {
-  currentUser: {
-    id: string;
-    email: string;
-    firstName: null;
-    lastName: null;
-    profileColor: null;
-  } | null;
+  currentUser: User | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
@@ -30,16 +25,58 @@ const AuthContext = createContext<AuthContextType>({
 
 // Provider component
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<{
-    id: string; 
-    email: string;
-    firstName: null;
-    lastName: null;
-    profileColor: null;
-  } | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  // Function to load complete user profile
+  const loadUserProfile = async (userId: string, email: string) => {
+    try {
+      console.log('Loading user profile for:', userId);
+      const userProfile = await getUserProfile(userId);
+      
+      if (userProfile) {
+        const fullUser: User = {
+          id: userId,
+          email: email,
+          firstName: userProfile.first_name || '',
+          lastName: userProfile.last_name || '',
+          profileColor: userProfile.profile_color || '#2563eb',
+          roleId: userProfile.role_id || undefined,
+          role: userProfile.role || undefined,
+          managerId: userProfile.manager_id || undefined
+        };
+        
+        console.log('User profile loaded successfully:', fullUser);
+        setCurrentUser(fullUser);
+        return fullUser;
+      } else {
+        // Fallback to minimal user data if profile fetch fails
+        const minimalUser: User = {
+          id: userId,
+          email: email,
+          firstName: '',
+          lastName: '',
+          profileColor: '#2563eb'
+        };
+        setCurrentUser(minimalUser);
+        return minimalUser;
+      }
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+      // Fallback to minimal user data on error
+      const minimalUser: User = {
+        id: userId,
+        email: email,
+        firstName: '',
+        lastName: '',
+        profileColor: '#2563eb'
+      };
+      setCurrentUser(minimalUser);
+      return minimalUser;
+    }
+  };
 
   // Check for saved session on component mount
   useEffect(() => {
@@ -52,14 +89,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (session) {
           console.log('Session found:', session.user.id);
           
-          // Just set minimal user info from session
-          setCurrentUser({
-            id: session.user.id,
-            email: session.user.email || '',
-            firstName: null,
-            lastName: null,
-            profileColor: null
-          });
+          // Load complete user profile
+          await loadUserProfile(session.user.id, session.user.email || '');
           setIsAuthenticated(true);
         }
       } catch (error) {
@@ -73,18 +104,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         console.log('Auth state change event:', event);
         
         if (event === 'SIGNED_IN' && session) {
-          // Just set minimal user info from session
-          setCurrentUser({
-            id: session.user.id,
-            email: session.user.email || '',
-            firstName: null,
-            lastName: null,
-            profileColor: null
-          });
+          // Load complete user profile
+          await loadUserProfile(session.user.id, session.user.email || '');
           setIsAuthenticated(true);
           setIsLoading(false);
         } else if (event === 'SIGNED_OUT') {
@@ -109,7 +134,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       console.log('Attempting login for:', email);
       
-      // Sign in with Supabase - no profile fetching!
+      // Sign in with Supabase
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -124,14 +149,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data.user) {
         console.log('User authenticated:', data.user.id);
         
-        // Set minimal user info
-        setCurrentUser({
-          id: data.user.id,
-          email: data.user.email || '',
-          firstName: null,
-          lastName: null,
-          profileColor: null
-        });
+        // Load complete user profile
+        await loadUserProfile(data.user.id, data.user.email || '');
         setIsAuthenticated(true);
         return true;
       }
@@ -162,6 +181,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Update user profile function
+  const updateUserProfile = async (userData: { firstName?: string; lastName?: string; profileColor?: string }) => {
+    if (!currentUser) return;
+    
+    try {
+      // Update the current user state immediately for UI responsiveness
+      const updatedUser: User = {
+        ...currentUser,
+        firstName: userData.firstName !== undefined ? userData.firstName : currentUser.firstName,
+        lastName: userData.lastName !== undefined ? userData.lastName : currentUser.lastName,
+        profileColor: userData.profileColor !== undefined ? userData.profileColor : currentUser.profileColor
+      };
+      
+      setCurrentUser(updatedUser);
+      
+      // Update in database
+      const { error } = await supabase
+        .from('PMA_Users')
+        .update({
+          first_name: userData.firstName,
+          last_name: userData.lastName,
+          profile_color: userData.profileColor
+        })
+        .eq('id', currentUser.id);
+      
+      if (error) {
+        console.error('Error updating user profile:', error);
+        // Revert the optimistic update on error
+        setCurrentUser(currentUser);
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+      throw error;
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -170,7 +226,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         logout,
         authError,
-        isLoading
+        isLoading,
+        updateUserProfile
       }}
     >
       {children}

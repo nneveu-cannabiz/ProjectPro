@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAppContext } from '../../context/AppContext';
-import { getUserProfile } from '../../lib/supabase';
 
 interface SidebarItemProps {
   to: string;
@@ -72,48 +71,34 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
   const navigate = useNavigate();
   const { currentUser, logout } = useAuth();
   const { getUsers } = useAppContext();
-  const [profileData, setProfileData] = useState<{
-    firstName: string;
-    lastName: string;
-    profileColor: string;
-    email: string;
-  } | null>(null);
   
   // Get current user's role
   const users = getUsers();
   const currentUserData = users.find(u => u.id === currentUser?.id);
-  const userRole = currentUserData?.role?.name;
+  const userRole = currentUserData?.role?.name || currentUser?.role?.name;
   
   // Determine if Team tab should be shown
   const showTeamTab = userRole === 'Admin' || userRole === 'Manager';
-  
-  // Load profile data when component mounts
-  useEffect(() => {
-    const loadProfile = async () => {
-      if (currentUser) {
-        try {
-          const userProfile = await getUserProfile(currentUser.id);
-          
-          if (userProfile) {
-            setProfileData({
-              firstName: userProfile.first_name || '',
-              lastName: userProfile.last_name || '',
-              profileColor: userProfile.profile_color || '#2563eb',
-              email: userProfile.email
-            });
-          }
-        } catch (error) {
-          console.error('Error loading sidebar profile data:', error);
-        }
-      }
-    };
-    
-    loadProfile();
-  }, [currentUser]);
 
   const handleLogout = async () => {
     await logout();
     navigate('/login');
+  };
+
+  // Get user initials for avatar
+  const getUserInitials = () => {
+    if (currentUser?.firstName && currentUser?.lastName) {
+      return `${currentUser.firstName.charAt(0)}${currentUser.lastName.charAt(0)}`;
+    }
+    return currentUser?.email?.charAt(0).toUpperCase() || 'U';
+  };
+
+  // Get display name
+  const getDisplayName = () => {
+    if (currentUser?.firstName && currentUser?.lastName) {
+      return `${currentUser.firstName} ${currentUser.lastName}`;
+    }
+    return currentUser?.email || 'User';
   };
 
   return (
@@ -200,24 +185,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
         {!isCollapsed ? (
           <div className="flex items-center">
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold"
-              style={{ backgroundColor: profileData?.profileColor || '#2563eb' }}
+              style={{ backgroundColor: currentUser?.profileColor || '#2563eb' }}
             >
-              {profileData ? 
-                (profileData.firstName?.charAt(0) || '') + (profileData.lastName?.charAt(0) || '') ||
-                (currentUser?.email?.charAt(0).toUpperCase() || 'U') 
-                : 
-                (currentUser?.email?.charAt(0).toUpperCase() || 'U')
-              }
+              {getUserInitials()}
             </div>
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-700">
-                {profileData ? 
-                  (profileData.firstName && profileData.lastName ?
-                    `${profileData.firstName} ${profileData.lastName}` : 
-                    currentUser?.email) 
-                  : 
-                  (currentUser?.email || 'User')
-                }
+                {getDisplayName()}
               </p>
               <p className="text-xs text-gray-500">
                 {userRole || 'User'}
