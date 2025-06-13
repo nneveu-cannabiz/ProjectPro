@@ -23,7 +23,7 @@ export const getUserProfile = async (userId: string) => {
   try {
     const { data, error } = await supabase
       .from('PMA_Users')
-      .select('*')
+      .select('id, first_name, last_name, email, profile_color, role_id, manager_id, created_at, updated_at')
       .eq('id', userId)
       .single();
     

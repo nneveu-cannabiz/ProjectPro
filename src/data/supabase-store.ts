@@ -408,8 +408,24 @@ export const fetchUsers = async (): Promise<User[]> => {
       const { data, error } = await supabase
         .from('PMA_Users')
         .select(`
-          *,
-          role:role_id(*)
+          id,
+          first_name,
+          last_name,
+          email,
+          profile_color,
+          role_id,
+          manager_id,
+          created_at,
+          updated_at,
+          role:role_id(
+            id,
+            name,
+            description,
+            permissions,
+            is_system_role,
+            created_at,
+            updated_at
+          )
         `);
       
       if (error) {
