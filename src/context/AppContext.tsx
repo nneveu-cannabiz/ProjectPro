@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Project, Task, SubTask, Category, TaskType, User, Update, Role, ManagerEmployee } from '../types';
+import { Project, Task, SubTask, Category, TaskType, User, Update, Role } from '../types';
 import * as supabaseStore from '../data/supabase-store';
 import { useAuth } from './AuthContext';
 
@@ -12,7 +12,6 @@ interface AppContextType {
   taskTypes: TaskType[];
   updates: Update[];
   roles: Role[];
-  managerEmployees: ManagerEmployee[];
   getUsers: () => User[];
   addProject: (project: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
   updateProject: (project: Project) => Promise<void>;
@@ -36,8 +35,6 @@ interface AppContextType {
   addRole: (role: Omit<Role, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
   updateRole: (role: Role) => Promise<void>;
   deleteRole: (id: string) => Promise<void>;
-  assignEmployeeToManager: (managerId: string, employeeId: string) => Promise<void>;
-  removeEmployeeFromManager: (managerId: string, employeeId: string) => Promise<void>;
   isLoading: boolean;
   error: string | null;
   refreshData: () => Promise<void>;
@@ -66,7 +63,6 @@ const AppContext = createContext<AppContextType>({
   taskTypes: defaultTaskTypes,
   updates: [],
   roles: [],
-  managerEmployees: [],
   getUsers: () => [],
   addProject: async () => '',
   updateProject: async () => {},
@@ -90,8 +86,6 @@ const AppContext = createContext<AppContextType>({
   addRole: async () => '',
   updateRole: async () => {},
   deleteRole: async () => {},
-  assignEmployeeToManager: async () => {},
-  removeEmployeeFromManager: async () => {},
   isLoading: false,
   error: null,
   refreshData: async () => {},
@@ -108,7 +102,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [updates, setUpdates] = useState<Update[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
-  const [managerEmployees, setManagerEmployees] = useState<ManagerEmployee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { isAuthenticated, currentUser } = useAuth();
@@ -132,14 +125,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     
     try {
       // Try to fetch data from Supabase
-      const [projectsData, tasksData, subTasksData, updatesData, usersData, rolesData, managerEmployeesData] = await Promise.all([
+      const [projectsData, tasksData, subTasksData, updatesData, usersData, rolesData] = await Promise.all([
         supabaseStore.fetchProjects(),
         supabaseStore.fetchTasks(),
         supabaseStore.fetchSubTasks(),
         supabaseStore.fetchUpdates(),
         supabaseStore.fetchUsers(),
-        supabaseStore.fetchRoles(),
-        supabaseStore.fetchManagerEmployees()
+        supabaseStore.fetchRoles()
       ]);
       
       clearTimeout(timeoutId);
@@ -150,7 +142,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setUpdates(updatesData);
       setUsers(usersData);
       setRoles(rolesData);
-      setManagerEmployees(managerEmployeesData);
       
       console.log('Data loaded from Supabase:', {
         projects: projectsData.length,
@@ -158,8 +149,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         subtasks: subTasksData.length,
         updates: updatesData.length,
         users: usersData.length,
-        roles: rolesData.length,
-        managerEmployees: managerEmployeesData.length
+        roles: rolesData.length
       });
       
       // Fetch categories and task types if needed
@@ -205,7 +195,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setUpdates([]);
       setUsers([]);
       setRoles([]);
-      setManagerEmployees([]);
       setIsLoading(false);
       setError(null);
     }
@@ -669,67 +658,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsLoading(false);
     }
   };
-
-  // Manager-Employee operations
-  const assignEmployeeToManager = async (managerId: string, employeeId: string) => {
-    try {
-      setIsLoading(true);
-      const newId = await supabaseStore.assignEmployeeToManager(managerId, employeeId);
-      
-      // Update local state
-      const timestamp = new Date().toISOString();
-      const newRelationship: ManagerEmployee = {
-        id: newId,
-        managerId,
-        employeeId,
-        assignedDate: timestamp,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      };
-      
-      setManagerEmployees(prev => [...prev, newRelationship]);
-      
-      // Also update the user's manager_id
-      setUsers(prev => 
-        prev.map(u => 
-          u.id === employeeId 
-            ? { ...u, managerId } 
-            : u
-        )
-      );
-    } catch (error) {
-      console.error('Error assigning employee to manager:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const removeEmployeeFromManager = async (managerId: string, employeeId: string) => {
-    try {
-      setIsLoading(true);
-      await supabaseStore.removeEmployeeFromManager(managerId, employeeId);
-      
-      // Update local state
-      setManagerEmployees(prev => 
-        prev.filter(me => !(me.managerId === managerId && me.employeeId === employeeId))
-      );
-      
-      // Also clear the user's manager_id
-      setUsers(prev => 
-        prev.map(u => 
-          u.id === employeeId 
-            ? { ...u, managerId: undefined } 
-            : u
-        )
-      );
-    } catch (error) {
-      console.error('Error removing employee from manager:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
   
   // Get users (without passwords)
   const getUsers = () => {
@@ -746,7 +674,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         taskTypes,
         updates,
         roles,
-        managerEmployees,
         getUsers,
         addProject,
         updateProject,
@@ -770,8 +697,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addRole,
         updateRole,
         deleteRole,
-        assignEmployeeToManager,
-        removeEmployeeFromManager,
         isLoading,
         error,
         refreshData
