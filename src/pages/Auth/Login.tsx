@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Lock, Mail } from 'lucide-react';
 import Input from '../../components/ui/Input';
@@ -10,9 +10,20 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { login, authError } = useAuth();
+  const { login, authError, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // Clear any existing session when component mounts
+  useEffect(() => {
+    const clearSession = async () => {
+      if (isAuthenticated) {
+        console.log('Clearing existing session...');
+        await logout();
+      }
+    };
+    clearSession();
+  }, []);
   
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -39,14 +50,19 @@ const Login: React.FC = () => {
     setIsSubmitting(true);
     
     try {
+      console.log('Starting login process...');
+      
       // Attempt login
       const success = await login(email, password);
       
       if (success) {
+        console.log('Login successful, navigating...');
         // Login successful, navigate to projects page
         const from = location.state?.from?.pathname || '/projects';
-        navigate(from);
+        navigate(from, { replace: true });
       }
+    } catch (error) {
+      console.error('Login error:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -101,6 +117,14 @@ const Login: React.FC = () => {
               </Button>
             </div>
           </form>
+          
+          <div className="mt-6 text-center">
+            <div className="text-sm text-gray-600">
+              <p className="mb-2">Test Credentials:</p>
+              <p><strong>Email:</strong> nickole@cannabizcredit.com</p>
+              <p><strong>Password:</strong> Cannabiz1!</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

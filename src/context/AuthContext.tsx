@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase, getUserProfile } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { User } from '../types';
 
 // Define the context type
@@ -170,18 +170,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const checkSession = async () => {
       try {
         setIsLoading(true);
-        // Get current session
-        const { data: { session } } = await supabase.auth.getSession();
+        console.log('Checking for existing session...');
         
-        if (session) {
+        // Get current session
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Session check error:', error);
+          setIsAuthenticated(false);
+          setCurrentUser(null);
+          setIsLoading(false);
+          return;
+        }
+        
+        if (session && session.user) {
           console.log('Session found:', session.user.id);
           
           // Load complete user profile from PMA_Users
           await loadUserProfile(session.user.id, session.user.email || '');
           setIsAuthenticated(true);
+        } else {
+          console.log('No session found');
+          setIsAuthenticated(false);
+          setCurrentUser(null);
         }
       } catch (error) {
         console.error('Session check error:', error);
+        setIsAuthenticated(false);
+        setCurrentUser(null);
       } finally {
         setIsLoading(false);
       }
@@ -195,14 +211,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('Auth state change event:', event);
         
         if (event === 'SIGNED_IN' && session) {
+          console.log('User signed in:', session.user.id);
           // Load complete user profile from PMA_Users
           await loadUserProfile(session.user.id, session.user.email || '');
           setIsAuthenticated(true);
           setIsLoading(false);
         } else if (event === 'SIGNED_OUT') {
+          console.log('User signed out');
           setCurrentUser(null);
           setIsAuthenticated(false);
           setIsLoading(false);
+        } else if (event === 'TOKEN_REFRESHED' && session) {
+          console.log('Token refreshed');
+          // Optionally refresh user profile
         }
       }
     );
@@ -221,6 +242,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       console.log('Attempting login for:', email);
       
+      // Clear any existing session first
+      await supabase.auth.signOut();
+      
       // Sign in with Supabase
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -230,27 +254,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) {
         console.error('Login error:', error.message);
         setAuthError(`Authentication failed: ${error.message}`);
+        setIsLoading(false);
         return false;
       }
       
-      if (data.user) {
+      if (data.user && data.session) {
         console.log('User authenticated:', data.user.id);
         
         // Load complete user profile from PMA_Users
         await loadUserProfile(data.user.id, data.user.email || '');
         setIsAuthenticated(true);
+        setIsLoading(false);
         return true;
       }
       
       setAuthError('Login failed - please check your credentials');
+      setIsLoading(false);
       return false;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       console.error('Login exception:', errorMessage);
       setAuthError(`Login failed: ${errorMessage}`);
-      return false;
-    } finally {
       setIsLoading(false);
+      return false;
     }
   };
   
@@ -258,9 +284,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       setIsLoading(true);
-      await supabase.auth.signOut();
+      console.log('Logging out...');
+      
+      // Clear local state first
       setCurrentUser(null);
       setIsAuthenticated(false);
+      setAuthError(null);
+      
+      // Sign out from Supabase
+      await supabase.auth.signOut();
+      
+      console.log('Logout successful');
     } catch (error) {
       console.error('Logout error:', error);
     } finally {

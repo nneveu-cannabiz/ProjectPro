@@ -14,7 +14,8 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true
+    detectSessionInUrl: false, // Disable automatic session detection from URL
+    flowType: 'pkce'
   },
 });
 
@@ -23,7 +24,33 @@ export const getUserProfile = async (userId: string) => {
   try {
     const { data, error } = await supabase
       .from('PMA_Users')
-      .select('id, first_name, last_name, email, profile_color, role_id, created_at, updated_at')
+      .select(`
+        id,
+        first_name,
+        last_name,
+        email,
+        profile_color,
+        role_id,
+        manager_id,
+        created_at,
+        updated_at,
+        role:role_id(
+          id,
+          name,
+          description,
+          permissions,
+          is_system_role,
+          created_at,
+          updated_at
+        ),
+        manager:manager_id(
+          id,
+          first_name,
+          last_name,
+          email,
+          profile_color
+        )
+      `)
       .eq('id', userId)
       .single();
     
