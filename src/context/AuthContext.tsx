@@ -27,7 +27,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // Function to fetch user from PMA_Users using uid
   const fetchUserProfile = async (uid: string) => {
@@ -41,14 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           email,
           profile_color,
           role_id,
-          manager_id,
-          role:role_id(
-            id,
-            name,
-            description,
-            permissions,
-            is_system_role
-          )
+          manager_id
         `)
         .eq('id', uid)
         .single();
@@ -66,15 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         profileColor: data.profile_color || '#2563eb',
         roleId: data.role_id,
         managerId: data.manager_id,
-        role: data.role ? {
-          id: data.role.id,
-          name: data.role.name,
-          description: data.role.description,
-          permissions: data.role.permissions || {},
-          isSystemRole: data.role.is_system_role,
-          createdAt: '',
-          updatedAt: ''
-        } : undefined
+        role: undefined // Role will be populated from AppContext if needed
       };
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
@@ -86,6 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const checkSession = async () => {
       try {
+        setIsLoading(true);
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.user) {

@@ -99,14 +99,6 @@ const Login: React.FC = () => {
               </Button>
             </div>
           </form>
-          
-          <div className="mt-6 text-center">
-            <div className="text-sm text-gray-600">
-              <p className="mb-2">Test Credentials:</p>
-              <p><strong>Email:</strong> nickole@cannabizcredit.com</p>
-              <p><strong>Password:</strong> Cannabiz1!</p>
-            </div>
-          </div>
         </div>
       </div>
     </div>
