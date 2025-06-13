@@ -409,7 +409,7 @@ export const fetchUsers = async (): Promise<User[]> => {
         .from('PMA_Users')
         .select(`
           *,
-          role:PMA_Roles(*)
+          role:PMA_Roles!PMA_Users_role_id_fkey(*)
         `);
       
       if (error) {
