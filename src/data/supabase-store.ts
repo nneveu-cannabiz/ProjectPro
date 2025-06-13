@@ -409,8 +409,7 @@ export const fetchUsers = async (): Promise<User[]> => {
         .from('PMA_Users')
         .select(`
           *,
-          role:PMA_Roles!PMA_Users_role_id_fkey(*),
-          manager:PMA_Users!PMA_Users_manager_id_fkey(id, email, first_name, last_name, profile_color)
+          role:role_id(*)
         `);
       
       if (error) {
@@ -434,13 +433,6 @@ export const fetchUsers = async (): Promise<User[]> => {
           isSystemRole: u.role.is_system_role,
           createdAt: u.role.created_at,
           updatedAt: u.role.updated_at
-        } : undefined,
-        manager: u.manager ? {
-          id: u.manager.id,
-          email: u.manager.email,
-          firstName: u.manager.first_name || '',
-          lastName: u.manager.last_name || '',
-          profileColor: u.manager.profile_color || '#2563eb'
         } : undefined
       }));
     },

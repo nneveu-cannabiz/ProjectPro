@@ -49,6 +49,8 @@ export interface Database {
           description: string | null
           category: string
           status: string
+          project_type: string | null
+          priority: string
           created_at: string
           updated_at: string
         }
@@ -58,6 +60,8 @@ export interface Database {
           description?: string | null
           category: string
           status: string
+          project_type?: string | null
+          priority?: string
           created_at?: string
           updated_at?: string
         }
@@ -67,6 +71,8 @@ export interface Database {
           description?: string | null
           category?: string
           status?: string
+          project_type?: string | null
+          priority?: string
           created_at?: string
           updated_at?: string
         }
@@ -192,6 +198,8 @@ export interface Database {
           last_name: string | null
           email: string
           profile_color: string
+          role_id: string | null
+          manager_id: string | null
           created_at: string
           updated_at: string
         }
@@ -201,6 +209,8 @@ export interface Database {
           last_name?: string | null
           email: string
           profile_color?: string
+          role_id?: string | null
+          manager_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -210,6 +220,8 @@ export interface Database {
           last_name?: string | null
           email?: string
           profile_color?: string
+          role_id?: string | null
+          manager_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -218,6 +230,88 @@ export interface Database {
             foreignKeyName: "PMA_Users_id_fkey"
             columns: ["id"]
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "PMA_Users_role_id_fkey"
+            columns: ["role_id"]
+            referencedRelation: "PMA_Roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "PMA_Users_manager_id_fkey"
+            columns: ["manager_id"]
+            referencedRelation: "PMA_Users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      PMA_Roles: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          permissions: Json | null
+          is_system_role: boolean | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          permissions?: Json | null
+          is_system_role?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string | null
+          permissions?: Json | null
+          is_system_role?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      Manager_Employees: {
+        Row: {
+          id: string
+          manager_id: string
+          employee_id: string
+          assigned_date: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          manager_id: string
+          employee_id: string
+          assigned_date?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          manager_id?: string
+          employee_id?: string
+          assigned_date?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Manager_Employees_manager_id_fkey"
+            columns: ["manager_id"]
+            referencedRelation: "PMA_Users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Manager_Employees_employee_id_fkey"
+            columns: ["employee_id"]
+            referencedRelation: "PMA_Users"
             referencedColumns: ["id"]
           }
         ]
