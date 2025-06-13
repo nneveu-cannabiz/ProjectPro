@@ -4,7 +4,6 @@ import Input from '../ui/Input';
 import Button from '../ui/Button';
 import { useOnClickOutside } from '../../hooks/useOnClickOutside';
 import { useAppContext } from '../../context/AppContext';
-import { getUserProfile, updateUserProfileInDb } from '../../lib/supabase';
 
 interface UserProfileCardProps {
   isOpen: boolean;
@@ -24,7 +23,7 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({
   userProfile,
   userId 
 }) => {
-  const { refreshData } = useAppContext();
+  const { refreshData, updateUser } = useAppContext();
   const [firstName, setFirstName] = useState(userProfile?.firstName || '');
   const [lastName, setLastName] = useState(userProfile?.lastName || '');
   const [profileColor, setProfileColor] = useState(userProfile?.profileColor || '#2563eb');
@@ -59,8 +58,8 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({
     setSuccessMessage(null);
     
     try {
-      // Update in database
-      await updateUserProfileInDb(userId, {
+      // Update using the updateUser function from AppContext
+      await updateUser(userId, {
         first_name: firstName,
         last_name: lastName,
         profile_color: profileColor
