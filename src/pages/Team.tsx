@@ -251,14 +251,9 @@ const Team: React.FC = () => {
   const currentUserData = users.find(u => u.id === currentUser?.id);
   const userRole = currentUserData?.role?.name;
   
-  // Filter users based on role
+  // Filter users based on role - now all users can see all team members
   const filteredUsers = useMemo(() => {
     let result = users;
-    
-    // For managers, only show their employees
-    if (userRole === 'Manager') {
-      result = users.filter(user => user.managerId === currentUser?.id);
-    }
     
     // Apply search filter
     if (searchTerm) {
@@ -276,7 +271,7 @@ const Team: React.FC = () => {
     }
     
     return result;
-  }, [users, userRole, currentUser?.id, searchTerm, roleFilter]);
+  }, [users, searchTerm, roleFilter]);
   
   // Get unique roles for filter
   const availableRoles = useMemo(() => {
@@ -296,7 +291,7 @@ const Team: React.FC = () => {
           <h1 className="text-2xl font-bold">Team</h1>
         </div>
         <div className="text-sm text-gray-600">
-          {userRole === 'Admin' ? 'All Users' : 'My Team'}
+          All Team Members
         </div>
       </div>
       
@@ -405,9 +400,7 @@ const Team: React.FC = () => {
           <UserIcon size={48} className="mx-auto text-gray-400 mb-4" />
           <h3 className="text-lg font-medium text-gray-700 mb-2">No Team Members Found</h3>
           <p className="text-gray-500">
-            {userRole === 'Manager' 
-              ? 'You have no employees assigned to you yet.'
-              : 'No users match your search criteria.'}
+            No users match your search criteria.
           </p>
         </div>
       )}

@@ -30,29 +30,73 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [authError, setAuthError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Function to load complete user profile
+  // Function to load complete user profile from PMA_Users
   const loadUserProfile = async (userId: string, email: string) => {
     try {
       console.log('Loading user profile for:', userId);
-      const userProfile = await getUserProfile(userId);
       
-      if (userProfile) {
-        const fullUser: User = {
-          id: userId,
-          email: email,
-          firstName: userProfile.first_name || '',
-          lastName: userProfile.last_name || '',
-          profileColor: userProfile.profile_color || '#2563eb',
-          roleId: userProfile.role_id || undefined,
-          role: userProfile.role || undefined,
-          managerId: userProfile.manager_id || undefined
-        };
+      // Fetch user profile with role information
+      const { data: userProfile, error } = await supabase
+        .from('PMA_Users')
+        .select(`
+          id,
+          first_name,
+          last_name,
+          email,
+          profile_color,
+          role_id,
+          manager_id,
+          created_at,
+          updated_at,
+          role:role_id(
+            id,
+            name,
+            description,
+            permissions,
+            is_system_role,
+            created_at,
+            updated_at
+          ),
+          manager:manager_id(
+            id,
+            first_name,
+            last_name,
+            email,
+            profile_color
+          )
+        `)
+        .eq('id', userId)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching user profile:', error);
         
-        console.log('User profile loaded successfully:', fullUser);
-        setCurrentUser(fullUser);
-        return fullUser;
-      } else {
-        // Fallback to minimal user data if profile fetch fails
+        // If user doesn't exist in PMA_Users, create a basic profile
+        if (error.code === 'PGRST116') {
+          console.log('User not found in PMA_Users, creating basic profile...');
+          
+          const { error: insertError } = await supabase
+            .from('PMA_Users')
+            .insert({
+              id: userId,
+              email: email,
+              first_name: '',
+              last_name: '',
+              profile_color: '#2563eb',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
+          
+          if (insertError) {
+            console.error('Error creating user profile:', insertError);
+          } else {
+            console.log('Basic user profile created successfully');
+            // Retry fetching the profile
+            return loadUserProfile(userId, email);
+          }
+        }
+        
+        // Fallback to minimal user data
         const minimalUser: User = {
           id: userId,
           email: email,
@@ -63,6 +107,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCurrentUser(minimalUser);
         return minimalUser;
       }
+      
+      if (userProfile) {
+        const fullUser: User = {
+          id: userProfile.id,
+          email: userProfile.email,
+          firstName: userProfile.first_name || '',
+          lastName: userProfile.last_name || '',
+          profileColor: userProfile.profile_color || '#2563eb',
+          roleId: userProfile.role_id || undefined,
+          role: userProfile.role ? {
+            id: userProfile.role.id,
+            name: userProfile.role.name,
+            description: userProfile.role.description,
+            permissions: userProfile.role.permissions || {},
+            isSystemRole: userProfile.role.is_system_role,
+            createdAt: userProfile.role.created_at,
+            updatedAt: userProfile.role.updated_at
+          } : undefined,
+          managerId: userProfile.manager_id || undefined,
+          manager: userProfile.manager ? {
+            id: userProfile.manager.id,
+            email: userProfile.manager.email,
+            firstName: userProfile.manager.first_name || '',
+            lastName: userProfile.manager.last_name || '',
+            profileColor: userProfile.manager.profile_color || '#2563eb'
+          } : undefined
+        };
+        
+        console.log('User profile loaded successfully:', fullUser);
+        setCurrentUser(fullUser);
+        return fullUser;
+      }
+      
+      // Fallback to minimal user data
+      const minimalUser: User = {
+        id: userId,
+        email: email,
+        firstName: '',
+        lastName: '',
+        profileColor: '#2563eb'
+      };
+      setCurrentUser(minimalUser);
+      return minimalUser;
     } catch (error) {
       console.error('Error loading user profile:', error);
       // Fallback to minimal user data on error
@@ -89,7 +176,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (session) {
           console.log('Session found:', session.user.id);
           
-          // Load complete user profile
+          // Load complete user profile from PMA_Users
           await loadUserProfile(session.user.id, session.user.email || '');
           setIsAuthenticated(true);
         }
@@ -108,7 +195,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('Auth state change event:', event);
         
         if (event === 'SIGNED_IN' && session) {
-          // Load complete user profile
+          // Load complete user profile from PMA_Users
           await loadUserProfile(session.user.id, session.user.email || '');
           setIsAuthenticated(true);
           setIsLoading(false);
@@ -149,7 +236,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data.user) {
         console.log('User authenticated:', data.user.id);
         
-        // Load complete user profile
+        // Load complete user profile from PMA_Users
         await loadUserProfile(data.user.id, data.user.email || '');
         setIsAuthenticated(true);
         return true;
@@ -202,7 +289,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .update({
           first_name: userData.firstName,
           last_name: userData.lastName,
-          profile_color: userData.profileColor
+          profile_color: userData.profileColor,
+          updated_at: new Date().toISOString()
         })
         .eq('id', currentUser.id);
       

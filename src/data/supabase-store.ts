@@ -401,7 +401,7 @@ export const addUpdate = async (update: Omit<Update, 'id' | 'createdAt'>): Promi
   return id;
 };
 
-// User operations
+// User operations - Updated to fetch from PMA_Users with proper relationships
 export const fetchUsers = async (): Promise<User[]> => {
   return safeSupabaseCall(
     async () => {
@@ -414,6 +414,7 @@ export const fetchUsers = async (): Promise<User[]> => {
           email,
           profile_color,
           role_id,
+          manager_id,
           created_at,
           updated_at,
           role:role_id(
@@ -424,6 +425,13 @@ export const fetchUsers = async (): Promise<User[]> => {
             is_system_role,
             created_at,
             updated_at
+          ),
+          manager:manager_id(
+            id,
+            first_name,
+            last_name,
+            email,
+            profile_color
           )
         `);
       
@@ -439,7 +447,7 @@ export const fetchUsers = async (): Promise<User[]> => {
         lastName: u.last_name || '',
         profileColor: u.profile_color || '#2563eb',
         roleId: u.role_id,
-        managerId: undefined, // Temporarily remove to avoid recursion
+        managerId: u.manager_id,
         role: u.role ? {
           id: u.role.id,
           name: u.role.name,
@@ -448,6 +456,13 @@ export const fetchUsers = async (): Promise<User[]> => {
           isSystemRole: u.role.is_system_role,
           createdAt: u.role.created_at,
           updatedAt: u.role.updated_at
+        } : undefined,
+        manager: u.manager ? {
+          id: u.manager.id,
+          email: u.manager.email,
+          firstName: u.manager.first_name || '',
+          lastName: u.manager.last_name || '',
+          profileColor: u.manager.profile_color || '#2563eb'
         } : undefined
       }));
     },

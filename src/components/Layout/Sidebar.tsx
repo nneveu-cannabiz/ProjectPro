@@ -12,7 +12,6 @@ import {
   Users
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { useAppContext } from '../../context/AppContext';
 
 interface SidebarItemProps {
   to: string;
@@ -70,15 +69,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser, logout } = useAuth();
-  const { getUsers } = useAppContext();
-  
-  // Get current user's role
-  const users = getUsers();
-  const currentUserData = users.find(u => u.id === currentUser?.id);
-  const userRole = currentUserData?.role?.name || currentUser?.role?.name;
-  
-  // Determine if Team tab should be shown
-  const showTeamTab = userRole === 'Admin' || userRole === 'Manager';
 
   const handleLogout = async () => {
     await logout();
@@ -146,15 +136,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
           isCollapsed={isCollapsed}
         />
         
-        {showTeamTab && (
-          <SidebarItem
-            to="/team"
-            icon={<Users size={20} />}
-            label="Team"
-            isActive={location.pathname === '/team'}
-            isCollapsed={isCollapsed}
-          />
-        )}
+        <SidebarItem
+          to="/team"
+          icon={<Users size={20} />}
+          label="Team"
+          isActive={location.pathname === '/team'}
+          isCollapsed={isCollapsed}
+        />
         
         <SidebarItem
           to="/todo"
@@ -194,7 +182,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
                 {getDisplayName()}
               </p>
               <p className="text-xs text-gray-500">
-                {userRole || 'User'}
+                {currentUser?.role?.name || 'User'}
               </p>
             </div>
             <button 
