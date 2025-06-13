@@ -414,7 +414,6 @@ export const fetchUsers = async (): Promise<User[]> => {
           email,
           profile_color,
           role_id,
-          manager_id,
           created_at,
           updated_at,
           role:role_id(
@@ -440,7 +439,7 @@ export const fetchUsers = async (): Promise<User[]> => {
         lastName: u.last_name || '',
         profileColor: u.profile_color || '#2563eb',
         roleId: u.role_id,
-        managerId: u.manager_id,
+        managerId: undefined, // Temporarily remove to avoid recursion
         role: u.role ? {
           id: u.role.id,
           name: u.role.name,
