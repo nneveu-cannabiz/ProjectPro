@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../lib/supabase';
-import { Project, Task, SubTask, Category, TaskType, User, Update, Role, ManagerEmployee } from '../types';
+import { Project, Task, SubTask, Category, TaskType, User, Update, Role } from '../types';
 
 // Helper function to handle Supabase errors with timeouts
 const safeSupabaseCall = async <T>(
@@ -401,38 +401,15 @@ export const addUpdate = async (update: Omit<Update, 'id' | 'createdAt'>): Promi
   return id;
 };
 
-// User operations - Updated to fetch from PMA_Users with proper relationships
+// User operations
 export const fetchUsers = async (): Promise<User[]> => {
   return safeSupabaseCall(
     async () => {
       const { data, error } = await supabase
         .from('PMA_Users')
         .select(`
-          id,
-          first_name,
-          last_name,
-          email,
-          profile_color,
-          role_id,
-          manager_id,
-          created_at,
-          updated_at,
-          role:role_id(
-            id,
-            name,
-            description,
-            permissions,
-            is_system_role,
-            created_at,
-            updated_at
-          ),
-          manager:manager_id(
-            id,
-            first_name,
-            last_name,
-            email,
-            profile_color
-          )
+          *,
+          role:PMA_Roles!PMA_Users_role_id_fkey(*)
         `);
       
       if (error) {
@@ -447,7 +424,6 @@ export const fetchUsers = async (): Promise<User[]> => {
         lastName: u.last_name || '',
         profileColor: u.profile_color || '#2563eb',
         roleId: u.role_id,
-        managerId: u.manager_id,
         role: u.role ? {
           id: u.role.id,
           name: u.role.name,
@@ -456,13 +432,6 @@ export const fetchUsers = async (): Promise<User[]> => {
           isSystemRole: u.role.is_system_role,
           createdAt: u.role.created_at,
           updatedAt: u.role.updated_at
-        } : undefined,
-        manager: u.manager ? {
-          id: u.manager.id,
-          email: u.manager.email,
-          firstName: u.manager.first_name || '',
-          lastName: u.manager.last_name || '',
-          profileColor: u.manager.profile_color || '#2563eb'
         } : undefined
       }));
     },
@@ -482,7 +451,6 @@ export const updateUser = async (userId: string, userData: Partial<User>): Promi
   if (userData.lastName !== undefined) updateData.last_name = userData.lastName;
   if (userData.profileColor !== undefined) updateData.profile_color = userData.profileColor;
   if (userData.roleId !== undefined) updateData.role_id = userData.roleId;
-  if (userData.managerId !== undefined) updateData.manager_id = userData.managerId;
   
   const { error } = await supabase
     .from('PMA_Users')
@@ -576,69 +544,6 @@ export const deleteRole = async (id: string): Promise<void> => {
   
   if (error) {
     console.error('Error deleting role:', error);
-    throw error;
-  }
-};
-
-// Manager-Employee operations
-export const fetchManagerEmployees = async (): Promise<ManagerEmployee[]> => {
-  return safeSupabaseCall(
-    async () => {
-      const { data, error } = await supabase
-        .from('Manager_Employees')
-        .select('*');
-      
-      if (error) {
-        console.error('Error fetching manager-employee relationships:', error);
-        throw error;
-      }
-      
-      return data.map(me => ({
-        id: me.id,
-        managerId: me.manager_id,
-        employeeId: me.employee_id,
-        assignedDate: me.assigned_date,
-        createdAt: me.created_at,
-        updatedAt: me.updated_at
-      }));
-    },
-    'Error fetching manager-employee relationships',
-    []
-  );
-};
-
-export const assignEmployeeToManager = async (managerId: string, employeeId: string): Promise<string> => {
-  const timestamp = new Date().toISOString();
-  const id = uuidv4();
-  
-  const { error } = await supabase
-    .from('Manager_Employees')
-    .insert({
-      id,
-      manager_id: managerId,
-      employee_id: employeeId,
-      assigned_date: timestamp,
-      created_at: timestamp,
-      updated_at: timestamp
-    });
-  
-  if (error) {
-    console.error('Error assigning employee to manager:', error);
-    throw error;
-  }
-  
-  return id;
-};
-
-export const removeEmployeeFromManager = async (managerId: string, employeeId: string): Promise<void> => {
-  const { error } = await supabase
-    .from('Manager_Employees')
-    .delete()
-    .eq('manager_id', managerId)
-    .eq('employee_id', employeeId);
-  
-  if (error) {
-    console.error('Error removing employee from manager:', error);
     throw error;
   }
 };
