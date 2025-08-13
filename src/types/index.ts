@@ -8,6 +8,11 @@ export interface Project {
   projectType: 'Active' | 'Upcoming' | 'Future' | 'On Hold';
   createdAt: string;
   updatedAt: string;
+  startDate?: string;
+  endDate?: string;
+  deadline?: string;
+  tags?: string[];
+  progress?: number;
 }
 
 export interface Task {
@@ -20,6 +25,11 @@ export interface Task {
   assigneeId?: string; // Optional assignee for the task
   createdAt: string;
   updatedAt: string;
+  startDate?: string;
+  endDate?: string;
+  deadline?: string;
+  tags?: string[];
+  progress?: number;
 }
 
 export interface SubTask {
@@ -32,6 +42,11 @@ export interface SubTask {
   assigneeId?: string; // Optional assignee for the subtask
   createdAt: string;
   updatedAt: string;
+  startDate?: string;
+  endDate?: string;
+  deadline?: string;
+  tags?: string[];
+  progress?: number;
 }
 
 export interface Category {
@@ -50,6 +65,8 @@ export interface User {
   firstName: string;
   lastName: string;
   profileColor?: string;
+  department?: string | null;
+  flowChart?: string | null;
 }
 
 export interface Update {

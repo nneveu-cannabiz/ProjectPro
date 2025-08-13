@@ -19,6 +19,11 @@ const SubTaskDetails = lazy(() => import('./pages/Tasks/SubTaskDetails'));
 const Settings = lazy(() => import('./pages/Settings'));
 const MyToDoList = lazy(() => import('./pages/MyToDoList'));
 const Updates = lazy(() => import('./pages/Updates'));
+const DepartmentSelect = lazy(() => import('./pages/Projects Redo/DepartmentSelect'));
+const ViewSelect = lazy(() => import('./pages/Projects Redo/ViewSelect'));
+const ProjectsRedoList = lazy(() => import('./pages/Projects Redo/Projects/ProjectsList'));
+const ProjectsFlowChart = lazy(() => import('./pages/Projects Redo/Projects/Flow Chart/ProjectsFlowChart'));
+const OutstandingList = lazy(() => import('./pages/Projects Redo/Projects/Flow Chart/Outstanding Projects/outstandinglist'));
 
 // Loading fallback for lazy-loaded components
 const PageLoader = () => (
@@ -60,7 +65,7 @@ function App() {
                   <MainLayout />
                 </ProtectedRoute>
               }>
-                <Route index element={<Navigate to="/projects\" replace />} />
+                <Route index element={<Navigate to="/projects" replace />} />
                 <Route path="dashboard" element={
                   <ErrorBoundaryWrapper pageName="Dashboard">
                     <Dashboard />
@@ -91,6 +96,31 @@ function App() {
                     <SubTaskDetails />
                   </ErrorBoundaryWrapper>
                 } />
+                <Route path="projects-redo" element={
+                  <ErrorBoundaryWrapper pageName="Department Select">
+                    <DepartmentSelect />
+                  </ErrorBoundaryWrapper>
+                } />
+                <Route path="projects-redo/view-select" element={
+                  <ErrorBoundaryWrapper pageName="View Select">
+                    <ViewSelect />
+                  </ErrorBoundaryWrapper>
+                } />
+                <Route path="projects-redo/projects-list" element={
+                  <ErrorBoundaryWrapper pageName="Projects List">
+                    <ProjectsRedoList />
+                  </ErrorBoundaryWrapper>
+                } />
+                <Route path="projects-redo/projects-flow-chart" element={
+                  <ErrorBoundaryWrapper pageName="Projects Flow Chart">
+                    <ProjectsFlowChart />
+                  </ErrorBoundaryWrapper>
+                } />
+                <Route path="projects-redo/outstanding-projects" element={
+                  <ErrorBoundaryWrapper pageName="Outstanding Projects">
+                    <OutstandingList />
+                  </ErrorBoundaryWrapper>
+                } />
                 <Route path="settings" element={
                   <ErrorBoundaryWrapper pageName="Settings">
                     <Settings />
@@ -109,7 +139,7 @@ function App() {
               </Route>
               
               {/* Fallback route */}
-              <Route path="*" element={<Navigate to="/projects\" replace />} />
+              <Route path="*" element={<Navigate to="/projects" replace />} />
             </Routes>
           </Router>
         </AppProvider>

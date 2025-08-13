@@ -51,6 +51,15 @@ export interface Database {
           status: string
           created_at: string
           updated_at: string
+          project_type: string | null
+          priority: string
+                  flow_chart: string | null
+        start_date: string | null
+        end_date: string | null
+        assignee_id: string | null
+        deadline: string | null
+        tags: Json | null
+        progress: number | null
         }
         Insert: {
           id?: string
@@ -60,6 +69,15 @@ export interface Database {
           status: string
           created_at?: string
           updated_at?: string
+          project_type?: string | null
+          priority?: string
+          flow_chart?: string | null
+          start_date?: string | null
+          end_date?: string | null
+          assignee_id?: string | null
+          deadline?: string | null
+          tags?: Json | null
+          progress?: number | null
         }
         Update: {
           id?: string
@@ -69,6 +87,15 @@ export interface Database {
           status?: string
           created_at?: string
           updated_at?: string
+          project_type?: string | null
+          priority?: string
+          flow_chart?: string | null
+          start_date?: string | null
+          end_date?: string | null
+          assignee_id?: string | null
+          deadline?: string | null
+          tags?: Json | null
+          progress?: number | null
         }
         Relationships: []
       }
@@ -83,6 +110,11 @@ export interface Database {
           assignee_id: string | null
           created_at: string
           updated_at: string
+          start_date: string | null
+          end_date: string | null
+          deadline: string | null
+          tags: Json | null
+          progress: number | null
         }
         Insert: {
           id?: string
@@ -94,6 +126,11 @@ export interface Database {
           assignee_id?: string | null
           created_at?: string
           updated_at?: string
+          start_date?: string | null
+          end_date?: string | null
+          deadline?: string | null
+          tags?: Json | null
+          progress?: number | null
         }
         Update: {
           id?: string
@@ -105,6 +142,11 @@ export interface Database {
           assignee_id?: string | null
           created_at?: string
           updated_at?: string
+          start_date?: string | null
+          end_date?: string | null
+          deadline?: string | null
+          tags?: Json | null
+          progress?: number | null
         }
         Relationships: [
           {
@@ -126,6 +168,11 @@ export interface Database {
           assignee_id: string | null
           created_at: string
           updated_at: string
+          start_date: string | null
+          end_date: string | null
+          deadline: string | null
+          tags: Json | null
+          progress: number | null
         }
         Insert: {
           id?: string
@@ -137,6 +184,11 @@ export interface Database {
           assignee_id?: string | null
           created_at?: string
           updated_at?: string
+          start_date?: string | null
+          end_date?: string | null
+          deadline?: string | null
+          tags?: Json | null
+          progress?: number | null
         }
         Update: {
           id?: string
@@ -148,6 +200,11 @@ export interface Database {
           assignee_id?: string | null
           created_at?: string
           updated_at?: string
+          start_date?: string | null
+          end_date?: string | null
+          deadline?: string | null
+          tags?: Json | null
+          progress?: number | null
         }
         Relationships: [
           {
@@ -190,10 +247,12 @@ export interface Database {
           id: string
           first_name: string | null
           last_name: string | null
-          email: string
-          profile_color: string
-          created_at: string
-          updated_at: string
+                  email: string
+        profile_color: string
+        department: string | null
+        flow_chart: string | null
+        created_at: string
+        updated_at: string
         }
         Insert: {
           id: string
@@ -201,6 +260,8 @@ export interface Database {
           last_name?: string | null
           email: string
           profile_color?: string
+          department?: string | null
+          flow_chart?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -210,6 +271,8 @@ export interface Database {
           last_name?: string | null
           email?: string
           profile_color?: string
+          department?: string | null
+          flow_chart?: string | null
           created_at?: string
           updated_at?: string
         }

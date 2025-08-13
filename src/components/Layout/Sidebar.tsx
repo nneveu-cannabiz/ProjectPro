@@ -8,7 +8,8 @@ import {
   MessageSquare, 
   LogOut, 
   ChevronLeft, 
-  Menu 
+  Menu,
+  Sparkles
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getUserProfile } from '../../lib/supabase';
@@ -146,7 +147,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
           to="/projects"
           icon={<ListTodo size={20} />}
           label="Projects"
-          isActive={location.pathname.startsWith('/projects')}
+          isActive={location.pathname.startsWith('/projects') && !location.pathname.startsWith('/projects-redo')}
+          isCollapsed={isCollapsed}
+        />
+        
+        <SidebarItem
+          to="/projects-redo"
+          icon={<Sparkles size={20} />}
+          label="Projects New"
+          isActive={location.pathname.startsWith('/projects-redo')}
           isCollapsed={isCollapsed}
         />
         

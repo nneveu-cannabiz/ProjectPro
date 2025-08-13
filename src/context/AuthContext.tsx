@@ -45,12 +45,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const checkSession = async () => {
       try {
+        console.log('🔍 Checking for existing session...');
         setIsLoading(true);
         // Get current session
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session) {
-          console.log('Session found:', session.user.id);
+          console.log('✅ Session found:', session.user.id);
           
           // Just set minimal user info from session
           setCurrentUser({
@@ -61,9 +62,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             profileColor: null
           });
           setIsAuthenticated(true);
+        } else {
+          console.log('❌ No session found, user needs to login');
         }
       } catch (error) {
-        console.error('Session check error:', error);
+        console.error('❌ Session check error:', error);
       } finally {
         setIsLoading(false);
       }

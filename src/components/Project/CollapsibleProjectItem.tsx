@@ -12,6 +12,7 @@ import ProjectForm from '../Project/ProjectForm';
 import UpdatesModal from '../Update/UpdatesModal';
 import UserAvatar from '../UserAvatar';
 import TaskForm from '../Task/TaskForm';
+import { brandTheme } from '../../styles/brandTheme';
 
 interface CollapsibleProjectItemProps {
   project: Project;
@@ -185,25 +186,35 @@ const CollapsibleProjectItem: React.FC<CollapsibleProjectItemProps> = ({ project
   ];
   
   return (
-    <div className="border-b border-gray-200 last:border-b-0">
+    <div style={{ borderColor: brandTheme.border.light }} className="border-b last:border-b-0">
       {/* Project Row */}
       <div 
-        className="flex items-center px-4 py-3 cursor-pointer hover:bg-blue-50 transition-colors"
+        className="flex items-center px-4 py-3 cursor-pointer transition-colors"
+        style={{
+          backgroundColor: brandTheme.primary.paleBlue,
+          '--tw-hover-bg-opacity': '0.8'
+        } as React.CSSProperties}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = brandTheme.table.row.backgroundHover;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = brandTheme.primary.paleBlue;
+        }}
         onClick={handleToggleExpand}
       >
-        <button className="mr-3 text-gray-500">
+        <button style={{ color: brandTheme.text.secondary }} className="mr-3">
           {isExpanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
         </button>
         
         <div className="flex-1 min-w-0">
-          <div className="text-md font-medium text-gray-800">{project.name}</div>
+          <div className="text-md font-medium" style={{ color: brandTheme.text.primary }}>{project.name}</div>
           <div className="flex items-center mt-1 space-x-2">
             <Badge variant={getProjectTypeVariant(project.projectType)}>
               {project.projectType}
             </Badge>
           </div>
           {!isExpanded && (
-            <div className="text-sm text-gray-500 truncate mt-0.5">{project.description}</div>
+            <div className="text-sm truncate mt-0.5" style={{ color: brandTheme.text.muted }}>{project.description}</div>
           )}
         </div>
         
@@ -216,7 +227,7 @@ const CollapsibleProjectItem: React.FC<CollapsibleProjectItemProps> = ({ project
             {getStatusText(project.status)}
           </Badge>
           
-          <span className="text-sm text-gray-500 whitespace-nowrap ml-3">
+          <span className="text-sm whitespace-nowrap ml-3" style={{ color: brandTheme.text.muted }}>
             {completedTasks}/{totalTasks} tasks
           </span>
           
@@ -228,7 +239,7 @@ const CollapsibleProjectItem: React.FC<CollapsibleProjectItemProps> = ({ project
                 </div>
               ))}
               {projectTeam.length > 5 && (
-                <div className="relative flex items-center justify-center w-6 h-6 bg-gray-200 rounded-full text-xs font-medium z-0">
+                <div className="relative flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium z-0" style={{ backgroundColor: brandTheme.gray[200] }}>
                   +{projectTeam.length - 5}
                 </div>
               )}
@@ -238,7 +249,14 @@ const CollapsibleProjectItem: React.FC<CollapsibleProjectItemProps> = ({ project
           {directUpdates.length > 0 && (
             <button 
               onClick={handleOpenUpdatesModal}
-              className="text-sm flex items-center text-blue-600 hover:text-blue-800"
+              className="text-sm flex items-center"
+              style={{ color: brandTheme.primary.navy }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = brandTheme.interactive.hover;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = brandTheme.primary.navy;
+              }}
             >
               <MessageSquare size={16} className="mr-1" />
               {directUpdates.length}
@@ -251,35 +269,40 @@ const CollapsibleProjectItem: React.FC<CollapsibleProjectItemProps> = ({ project
       
       {/* Expanded Content - Project Details and Tasks */}
       {isExpanded && (
-        <div className="bg-blue-50 px-6 py-3 border-t border-gray-200">
+        <div style={{ 
+          backgroundColor: brandTheme.background.secondary,
+          borderColor: brandTheme.border.light
+        }} className="px-6 py-3 border-t">
           {/* Project Description */}
           {project.description && (
-            <div className="mb-4 pb-3 border-b border-gray-200">
-              <div className="text-sm font-medium text-gray-700 mb-1">Description:</div>
-              <p className="text-sm text-gray-600">{project.description}</p>
+            <div className="mb-4 pb-3 border-b" style={{ borderColor: brandTheme.border.light }}>
+              <div className="text-sm font-medium mb-1" style={{ color: brandTheme.text.secondary }}>Description:</div>
+              <p className="text-sm" style={{ color: brandTheme.text.muted }}>{project.description}</p>
             </div>
           )}
           
-          {/* Project Info */}
-          <div className="grid grid-cols-3 gap-4 mb-4 pb-3 border-b border-gray-200">
-            <div>
-              <div className="text-sm font-medium text-gray-700 mb-1">Created</div>
-              <p className="text-sm text-gray-600">{formatDate(project.createdAt)}</p>
-            </div>
-            <div>
-              <div className="text-sm font-medium text-gray-700 mb-1">Last Updated</div>
-              <p className="text-sm text-gray-600">{formatDate(project.updatedAt)}</p>
-            </div>
-            <div>
-              <div className="text-sm font-medium text-gray-700 mb-1">Updates</div>
-              <p className="text-sm text-gray-600">{allRelatedUpdates.length || 'None'}</p>
+          {/* Project Info - Horizontal Row */}
+          <div className="flex items-center justify-between mb-4 pb-3 border-b" style={{ borderColor: brandTheme.border.light }}>
+            <div className="flex items-center space-x-6">
+              <div>
+                <div className="text-sm font-medium" style={{ color: brandTheme.text.secondary }}>Created</div>
+                <p className="text-sm" style={{ color: brandTheme.text.muted }}>{formatDate(project.createdAt)}</p>
+              </div>
+              <div>
+                <div className="text-sm font-medium" style={{ color: brandTheme.text.secondary }}>Last Updated</div>
+                <p className="text-sm" style={{ color: brandTheme.text.muted }}>{formatDate(project.updatedAt)}</p>
+              </div>
+              <div>
+                <div className="text-sm font-medium" style={{ color: brandTheme.text.secondary }}>Updates</div>
+                <p className="text-sm" style={{ color: brandTheme.text.muted }}>{allRelatedUpdates.length || 'None'}</p>
+              </div>
             </div>
           </div>
           
           {/* Tasks Section */}
           <div className="mb-2">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium text-gray-700">Tasks</h3>
+              <h3 className="text-sm font-medium" style={{ color: brandTheme.text.secondary }}>Tasks</h3>
               <Button 
                 size="sm" 
                 variant="outline" 
@@ -291,7 +314,10 @@ const CollapsibleProjectItem: React.FC<CollapsibleProjectItemProps> = ({ project
             </div>
             
             {projectTasks.length > 0 ? (
-              <div className="border border-gray-200 rounded-md bg-white">
+              <div style={{ 
+                borderColor: brandTheme.border.light,
+                backgroundColor: brandTheme.background.primary
+              }} className="border rounded-md">
                 {projectTasks.map(task => (
                   <CollapsibleTaskRow 
                     key={task.id} 
@@ -301,8 +327,11 @@ const CollapsibleProjectItem: React.FC<CollapsibleProjectItemProps> = ({ project
                 ))}
               </div>
             ) : (
-              <div className="text-center py-6 bg-white rounded-lg border border-gray-200">
-                <p className="text-gray-500 text-sm">No tasks created for this project yet.</p>
+              <div style={{ 
+                backgroundColor: brandTheme.background.primary,
+                borderColor: brandTheme.border.light
+              }} className="text-center py-6 rounded-lg border">
+                <p className="text-sm" style={{ color: brandTheme.text.muted }}>No tasks created for this project yet.</p>
               </div>
             )}
           </div>

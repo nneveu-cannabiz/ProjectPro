@@ -44,7 +44,12 @@ export const fetchProjects = async (): Promise<Project[]> => {
         status: p.status,
         projectType: p.project_type || 'Active',
         createdAt: p.created_at,
-        updatedAt: p.updated_at
+        updatedAt: p.updated_at,
+        startDate: p.start_date,
+        endDate: p.end_date,
+        deadline: p.deadline,
+        tags: p.tags,
+        progress: p.progress
       }));
     },
     'Error fetching projects',
@@ -88,6 +93,11 @@ export const updateProject = async (project: Project): Promise<void> => {
       category: project.category,
       status: project.status,
       project_type: project.projectType,
+      start_date: project.startDate,
+      end_date: project.endDate,
+      deadline: project.deadline,
+      tags: project.tags,
+      progress: project.progress,
       updated_at: timestamp
     })
     .eq('id', project.id);
@@ -133,7 +143,12 @@ export const fetchTasks = async (): Promise<Task[]> => {
         status: t.status,
         assigneeId: t.assignee_id,
         createdAt: t.created_at,
-        updatedAt: t.updated_at
+        updatedAt: t.updated_at,
+        startDate: t.start_date,
+        endDate: t.end_date,
+        deadline: t.deadline,
+        tags: t.tags,
+        progress: t.progress
       }));
     },
     'Error fetching tasks',
@@ -179,6 +194,11 @@ export const updateTask = async (task: Task): Promise<void> => {
       task_type: task.taskType,
       status: task.status,
       assignee_id: task.assigneeId,
+      start_date: task.startDate,
+      end_date: task.endDate,
+      deadline: task.deadline,
+      tags: task.tags,
+      progress: task.progress,
       updated_at: timestamp
     })
     .eq('id', task.id);
@@ -416,10 +436,170 @@ export const fetchUsers = async (): Promise<User[]> => {
         email: u.email,
         firstName: u.first_name || '',
         lastName: u.last_name || '',
-        profileColor: u.profile_color || '#2563eb'
+        profileColor: u.profile_color || '#2563eb',
+        department: u.department || null,
+        flowChart: u.flow_chart || null
       }));
     },
     'Error fetching users',
     []
   );
+};
+
+export const fetchUsersByDepartment = async (department: string): Promise<User[]> => {
+  return safeSupabaseCall(
+    async () => {
+      const { data, error } = await supabase
+        .from('PMA_Users')
+        .select('*')
+        .eq('department', department);
+      
+      if (error) {
+        console.error('Error fetching users by department:', error);
+        throw error;
+      }
+      
+      return data.map(u => ({
+        id: u.id,
+        email: u.email,
+        firstName: u.first_name || '',
+        lastName: u.last_name || '',
+        profileColor: u.profile_color || '#2563eb',
+        department: u.department || null,
+        flowChart: u.flow_chart || null
+      }));
+    },
+    'Error fetching users by department',
+    []
+  );
+};
+
+export const updateUserDepartment = async (userId: string, department: string): Promise<void> => {
+  const timestamp = new Date().toISOString();
+  
+  const { error } = await supabase
+    .from('PMA_Users')
+    .update({
+      department: department,
+      updated_at: timestamp
+    })
+    .eq('id', userId);
+  
+  if (error) {
+    console.error('Error updating user department:', error);
+    throw error;
+  }
+};
+
+export const fetchProjectsForFlowChart = async (): Promise<any[]> => {
+  return safeSupabaseCall(
+    async () => {
+      const { data, error } = await supabase
+        .from('PMA_Projects')
+        .select('*')
+        .is('flow_chart', null);
+      
+      if (error) {
+        console.error('Error fetching projects for flow chart:', error);
+        throw error;
+      }
+      
+      return data;
+    },
+    'Error fetching projects for flow chart',
+    []
+  );
+};
+
+export const updateProjectFlowChart = async (projectId: string, flowChart: string): Promise<void> => {
+  const timestamp = new Date().toISOString();
+  
+  const { error } = await supabase
+    .from('PMA_Projects')
+    .update({
+      flow_chart: flowChart,
+      updated_at: timestamp
+    })
+    .eq('id', projectId);
+  
+  if (error) {
+    console.error('Error updating project flow chart:', error);
+    throw error;
+  }
+};
+
+export const fetchFlowChartProjects = async (flowChart: string): Promise<any[]> => {
+  return safeSupabaseCall(
+    async () => {
+      const { data, error } = await supabase
+        .from('PMA_Projects')
+        .select('*')
+        .eq('flow_chart', flowChart);
+      
+      if (error) {
+        console.error('Error fetching flow chart projects:', error);
+        throw error;
+      }
+      
+      return data;
+    },
+    'Error fetching flow chart projects',
+    []
+  );
+};
+
+export const fetchOKRProjects = async (flowChart: string): Promise<any[]> => {
+  return safeSupabaseCall(
+    async () => {
+      const { data, error } = await supabase
+        .from('PMA_Projects')
+        .select('*')
+        .eq('flow_chart', flowChart)
+        .contains('tags', ['OKR']);
+      
+      if (error) {
+        console.error('Error fetching OKR projects:', error);
+        throw error;
+      }
+      
+      return data;
+    },
+    'Error fetching OKR projects',
+    []
+  );
+};
+
+export const updateProjectDates = async (projectId: string, startDate: string, endDate: string): Promise<void> => {
+  const timestamp = new Date().toISOString();
+  
+  const { error } = await supabase
+    .from('PMA_Projects')
+    .update({
+      start_date: startDate,
+      end_date: endDate,
+      updated_at: timestamp
+    })
+    .eq('id', projectId);
+  
+  if (error) {
+    console.error('Error updating project dates:', error);
+    throw error;
+  }
+};
+
+export const updateProjectAssignee = async (projectId: string, assigneeId: string | null): Promise<void> => {
+  const timestamp = new Date().toISOString();
+  
+  const { error } = await supabase
+    .from('PMA_Projects')
+    .update({
+      assignee_id: assigneeId,
+      updated_at: timestamp
+    })
+    .eq('id', projectId);
+  
+  if (error) {
+    console.error('Error updating project assignee:', error);
+    throw error;
+  }
 };

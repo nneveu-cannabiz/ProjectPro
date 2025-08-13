@@ -75,6 +75,7 @@ export const updateUserProfileInDb = async (
         .insert({
           id: userId,
           ...userData,
+          email: userData.email || '', // Ensure email is always provided
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         });
@@ -100,19 +101,11 @@ export const testSupabaseConnection = async () => {
       };
     }
     
-    // Add a timeout to the fetch request
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Connection timeout')), 15000);
-    });
-    
     // Make a simple query to test the connection
-    const connectionPromise = supabase
+    const { error } = await supabase
       .from('PMA_Projects')
       .select('id')
       .limit(1);
-    
-    // Race between the timeout and the actual request
-    const { error } = await Promise.race([connectionPromise, timeoutPromise]);
     
     if (error) {
       console.error('Supabase database connection test failed:', error);
@@ -147,7 +140,9 @@ export const testSupabaseConnection = async () => {
 export const logEnvironmentInfo = () => {
   console.log('Environment info:');
   console.log(`- Supabase URL defined: ${Boolean(supabaseUrl)}`);
+  console.log(`- Supabase URL: ${supabaseUrl}`);
   console.log(`- Supabase Anon Key defined: ${Boolean(supabaseAnonKey)}`);
+  console.log(`- Supabase Anon Key (first 20 chars): ${supabaseAnonKey.substring(0, 20)}...`);
   console.log(`- Running in development: ${import.meta.env.DEV}`);
   console.log(`- Base URL: ${import.meta.env.BASE_URL}`);
 };

@@ -1,0 +1,73 @@
+create table public."PMA_Projects" (
+  id uuid not null,
+  name text not null,
+  description text null,
+  category text not null,
+  status text not null,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  project_type text null default 'Active'::text,
+  priority text not null default 'Medium'::text,
+  flow_chart text null,
+  start_date date null,
+  end_date date null,
+  assignee_id uuid null,
+  deadline date null,
+  tags jsonb null,
+  progress smallint null,
+  constraint PMA_Projects_pkey primary key (id),
+  constraint pma_projects_assignee_id_fkey foreign KEY (assignee_id) references "PMA_Users" (id) on delete set null,
+  constraint PMA_Projects_priority_check check (
+    (
+      priority = any (
+        array[
+          'Critical'::text,
+          'High'::text,
+          'Medium'::text,
+          'Low'::text
+        ]
+      )
+    )
+  ),
+  constraint PMA_Projects_project_type_check check (
+    (
+      project_type = any (
+        array[
+          'Active'::text,
+          'Upcoming'::text,
+          'Future'::text,
+          'On Hold'::text
+        ]
+      )
+    )
+  ),
+  constraint PMA_Projects_status_check check (
+    (
+      status = any (
+        array['todo'::text, 'in-progress'::text, 'done'::text]
+      )
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists idx_pma_projects_assignee_id on public."PMA_Projects" using btree (assignee_id) TABLESPACE pg_default;
+
+create index IF not exists idx_pma_projects_deadline on public."PMA_Projects" using btree (deadline) TABLESPACE pg_default;
+
+create index IF not exists idx_pma_projects_tags on public."PMA_Projects" using gin (tags) TABLESPACE pg_default;
+
+create index IF not exists idx_pma_projects_progress on public."PMA_Projects" using btree (progress) TABLESPACE pg_default;
+
+-- Indexes for PMA_Tasks table
+create index IF not exists idx_pma_tasks_start_date on public."PMA_Tasks" using btree (start_date) TABLESPACE pg_default;
+create index IF not exists idx_pma_tasks_end_date on public."PMA_Tasks" using btree (end_date) TABLESPACE pg_default;
+create index IF not exists idx_pma_tasks_deadline on public."PMA_Tasks" using btree (deadline) TABLESPACE pg_default;
+create index IF not exists idx_pma_tasks_tags on public."PMA_Tasks" using gin (tags) TABLESPACE pg_default;
+create index IF not exists idx_pma_tasks_progress on public."PMA_Tasks" using btree (progress) TABLESPACE pg_default;
+
+-- Indexes for PMA_SubTasks table
+create index IF not exists idx_pma_subtasks_start_date on public."PMA_SubTasks" using btree (start_date) TABLESPACE pg_default;
+create index IF not exists idx_pma_subtasks_end_date on public."PMA_SubTasks" using btree (end_date) TABLESPACE pg_default;
+create index IF not exists idx_pma_subtasks_deadline on public."PMA_SubTasks" using btree (deadline) TABLESPACE pg_default;
+create index IF not exists idx_pma_subtasks_tags on public."PMA_SubTasks" using gin (tags) TABLESPACE pg_default;
+create index IF not exists idx_pma_subtasks_progress on public."PMA_SubTasks" using btree (progress) TABLESPACE pg_default;
