@@ -36,9 +36,12 @@ const CollapsibleProjectItem: React.FC<CollapsibleProjectItemProps> = ({ project
   const directUpdates = getUpdatesForEntity('project', project.id);
   const allRelatedUpdates = getRelatedUpdates('project', project.id);
   
-  // Get all users involved in this project (from tasks and subtasks)
+  // Get all users involved in this project (from project, tasks and subtasks)
   const getProjectTeam = () => {
     const assigneeIds = new Set<string>();
+    
+    // Add project assignee
+    if (project.assigneeId) assigneeIds.add(project.assigneeId);
     
     // Add task assignees
     projectTasks.forEach(task => {

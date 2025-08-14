@@ -14,6 +14,7 @@ import UpdatesList from '../../../../../components/Update/UpdatesList';
 import UpdateForm from '../../../../../components/Update/UpdateForm';
 import UpdatesModal from '../../../../../components/Update/UpdatesModal';
 import DropdownMenu from '../../../../../components/ui/DropdownMenu';
+import UserSelect from '../../../../../components/UserSelect';
 import { brandTheme } from '../../../../../styles/brandTheme';
 
 interface TaskDetailsModalProps {
@@ -55,6 +56,9 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
     deadline: ''
   });
   const [isUpdatingDates, setIsUpdatingDates] = useState(false);
+  const [isEditingAssignee, setIsEditingAssignee] = useState(false);
+  const [assigneeValue, setAssigneeValue] = useState<string>('');
+  const [isUpdatingAssignee, setIsUpdatingAssignee] = useState(false);
   
   const task = tasks.find((t) => t.id === taskId);
   
@@ -313,6 +317,35 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
       ...prev,
       [field]: value
     }));
+  };
+
+  // Assignee management functions
+  const handleEditAssignee = () => {
+    setAssigneeValue(task.assigneeId || '');
+    setIsEditingAssignee(true);
+  };
+
+  const handleCancelAssigneeEdit = () => {
+    setIsEditingAssignee(false);
+    setAssigneeValue('');
+  };
+
+  const handleUpdateAssignee = async () => {
+    try {
+      setIsUpdatingAssignee(true);
+      
+      await updateTask({
+        ...task,
+        assigneeId: assigneeValue || undefined
+      });
+      
+      setIsEditingAssignee(false);
+      setAssigneeValue('');
+    } catch (error) {
+      console.error('Error updating assignee:', error);
+    } finally {
+      setIsUpdatingAssignee(false);
+    }
   };
 
   return (
@@ -616,6 +649,83 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
                                 variant="outline"
                                 onClick={handleCancelDatesEdit}
                                 disabled={isUpdatingDates}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="mt-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 
+                            className="text-sm font-medium"
+                            style={{ color: brandTheme.text.primary }}
+                          >
+                            Task Assignee
+                          </h3>
+                          {!isEditingAssignee && (
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={handleEditAssignee}
+                            >
+                              Edit
+                            </Button>
+                          )}
+                        </div>
+
+                        {!isEditingAssignee ? (
+                          <div className="flex items-center space-x-2">
+                            {task.assigneeId ? (
+                              (() => {
+                                const assignee = users.find(user => user.id === task.assigneeId);
+                                return assignee ? (
+                                  <div className="flex items-center p-2 hover:bg-blue-50 rounded-md">
+                                    <UserAvatar user={assignee} showName />
+                                  </div>
+                                ) : (
+                                  <span 
+                                    className="text-sm"
+                                    style={{ color: brandTheme.text.muted }}
+                                  >
+                                    Assignee not found
+                                  </span>
+                                );
+                              })()
+                            ) : (
+                              <span 
+                                className="text-sm"
+                                style={{ color: brandTheme.text.muted }}
+                              >
+                                No assignee set
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <UserSelect
+                              selectedUserId={assigneeValue}
+                              onChange={setAssigneeValue}
+                              users={users}
+                              placeholder="Select assignee"
+                              className="mb-0"
+                            />
+                            
+                            <div className="flex space-x-2">
+                              <Button 
+                                size="sm" 
+                                onClick={handleUpdateAssignee}
+                                disabled={isUpdatingAssignee}
+                              >
+                                {isUpdatingAssignee ? 'Saving...' : 'Save'}
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={handleCancelAssigneeEdit}
+                                disabled={isUpdatingAssignee}
                               >
                                 Cancel
                               </Button>

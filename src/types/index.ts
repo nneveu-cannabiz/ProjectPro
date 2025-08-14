@@ -6,6 +6,7 @@ export interface Project {
   category: string;
   status: 'todo' | 'in-progress' | 'done';
   projectType: 'Active' | 'Upcoming' | 'Future' | 'On Hold';
+  assigneeId?: string; // Optional assignee for the project
   createdAt: string;
   updatedAt: string;
   startDate?: string;

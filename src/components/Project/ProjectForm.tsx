@@ -3,6 +3,7 @@ import Input from '../ui/Input';
 import Textarea from '../ui/Textarea';
 import Select from '../ui/Select';
 import Button from '../ui/Button';
+import UserSelect from '../UserSelect';
 import { useAppContext } from '../../context/AppContext';
 import { Project } from '../../types';
 
@@ -12,14 +13,17 @@ interface ProjectFormProps {
 }
 
 const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSubmit }) => {
-  const { categories, addProject, updateProject } = useAppContext();
+  const { categories, addProject, updateProject, getUsers } = useAppContext();
   
   const [name, setName] = useState(project?.name || '');
   const [description, setDescription] = useState(project?.description || '');
   const [category, setCategory] = useState(project?.category || '');
   const [status, setStatus] = useState(project?.status || 'todo');
   const [projectType, setProjectType] = useState(project?.projectType || 'Active');
+  const [assigneeId, setAssigneeId] = useState(project?.assigneeId || '');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  const users = getUsers();
   
   const categoryOptions = categories.map((cat) => ({
     value: cat.name,
@@ -77,6 +81,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSubmit }) => {
         category,
         status: status as 'todo' | 'in-progress' | 'done',
         projectType: projectType as 'Active' | 'Upcoming' | 'Future' | 'On Hold',
+        assigneeId: assigneeId || undefined,
       });
     } else {
       addProject({
@@ -85,6 +90,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSubmit }) => {
         category,
         status: status as 'todo' | 'in-progress' | 'done',
         projectType: projectType as 'Active' | 'Upcoming' | 'Future' | 'On Hold',
+        assigneeId: assigneeId || undefined,
       });
     }
     
@@ -131,6 +137,14 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSubmit }) => {
         value={projectType}
         onChange={setProjectType}
         error={errors.projectType}
+      />
+      
+      <UserSelect
+        label="Project Assignee"
+        selectedUserId={assigneeId}
+        onChange={setAssigneeId}
+        users={users}
+        placeholder="Unassigned"
       />
       
       <div className="flex justify-end space-x-3 mt-6">

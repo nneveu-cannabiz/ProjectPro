@@ -37,16 +37,21 @@ const calculatePositionInFlexLayout = (
   for (let i = 0; i < allDates.length; i++) {
     const currentDate = allDates[i];
     
+    // Normalize currentDate to start of day for accurate comparison
+    const normalizedCurrentDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+    const normalizedTaskStart = new Date(taskStart.getFullYear(), taskStart.getMonth(), taskStart.getDate());
+    const normalizedTaskEnd = new Date(taskEnd.getFullYear(), taskEnd.getMonth(), taskEnd.getDate());
+    
     // Find the start column
-    if (startColumnIndex === -1 && currentDate >= taskStart) {
+    if (startColumnIndex === -1 && normalizedCurrentDate >= normalizedTaskStart) {
       startColumnIndex = i;
     }
     
     // Find the end column - we want to include the full day that contains the end date
-    if (currentDate.toDateString() === taskEnd.toDateString()) {
+    if (normalizedCurrentDate.getTime() === normalizedTaskEnd.getTime()) {
       endColumnIndex = i;
       break;
-    } else if (currentDate > taskEnd) {
+    } else if (normalizedCurrentDate > normalizedTaskEnd) {
       // If we've passed the end date, use the previous column
       endColumnIndex = Math.max(0, i - 1);
       break;
@@ -100,21 +105,41 @@ const calculatePositionInFlexLayout = (
     }
   });
   
-  // Calculate actual pixel positions
-  const assumedContainerWidth = 1000; // Assume 1000px container for calculation
-  const remainingWidth = assumedContainerWidth - totalFixedWidth;
-  const flexUnitWidth = totalFlexUnits > 0 ? remainingWidth / totalFlexUnits : 0;
+  // Use a simpler percentage-based approach that works consistently across rows
+  // Calculate based on column ratios instead of pixel assumptions
   
-  const leftPixels = leftFixedWidth + (leftFlexUnits * flexUnitWidth);
-  const spannedPixels = spannedFixedWidth + (spannedFlexUnits * flexUnitWidth);
+  const totalColumns = allDates.length;
+  const weekendColumnCount = allDates.filter(date => isWeekendDay(date)).length;
+  const workdayColumnCount = totalColumns - weekendColumnCount;
+  
+  // Calculate position based on column indices, accounting for different column types
+  let leftPosition = 0;
+  let spannedWidth = 0;
+  
+  // Each weekend column is worth 0.4 units (48px / 120px), each workday is worth 1 unit
+  const weekendWeight = 0.4;
+  const workdayWeight = 1.0;
+  
+  let totalWeight = (weekendColumnCount * weekendWeight) + (workdayColumnCount * workdayWeight);
+  
+  for (let i = 0; i < allDates.length; i++) {
+    const isWeekend = isWeekendDay(allDates[i]);
+    const columnWeight = isWeekend ? weekendWeight : workdayWeight;
+    
+    if (i < startColumnIndex) {
+      leftPosition += columnWeight;
+    }
+    
+    if (i >= startColumnIndex && i <= endColumnIndex) {
+      spannedWidth += columnWeight;
+    }
+  }
   
   // Convert to percentages
-  const leftPercent = (leftPixels / assumedContainerWidth) * 100;
-  const widthPercent = (spannedPixels / assumedContainerWidth) * 100;
+  const leftPercent = (leftPosition / totalWeight) * 100;
+  const widthPercent = (spannedWidth / totalWeight) * 100;
   
-  // Add a small buffer to ensure we reach the end of the end column
-  const bufferedWidthPercent = widthPercent + 0.1; // Small buffer
-  const finalWidthPercent = Math.min(100 - leftPercent, bufferedWidthPercent);
+  const finalWidthPercent = Math.max(widthPercent, 0.1); // Ensure minimum visibility
   
   return { leftPercent, widthPercent: finalWidthPercent };
 };
@@ -184,16 +209,47 @@ const TaskBar: React.FC<TaskBarProps> = ({
     return null;
   }
 
-  // Calculate positioning using the flex layout logic that accounts for weekends
-  const { leftPercent, widthPercent } = calculatePositionInFlexLayout(
+  // Calculate task positioning relative to the full timeline (same as project bars)
+  // This fixes the positioning context issue where tasks were positioned relative to project bar width
+  const taskPosition = calculatePositionInFlexLayout(
     taskStartDate,
     taskEndDate,
     projectWeekStart
   );
   
+  // Calculate project positioning relative to the full timeline
+  const projectPosition = calculatePositionInFlexLayout(
+    projectStart,
+    projectEnd,
+    projectWeekStart
+  );
+  
+  // Convert task position from project-relative to timeline-relative
+  // Tasks should be positioned relative to the full timeline, not the project bar
+  const timelineLeftPercent = taskPosition.leftPercent;
+  const timelineWidthPercent = taskPosition.widthPercent;
+  
+  // Convert to project-relative coordinates for rendering within the project bar
+  // Calculate where this task should appear within the project bar container
+  const relativeLeftPercent = ((timelineLeftPercent - projectPosition.leftPercent) / projectPosition.widthPercent) * 100;
+  const relativeWidthPercent = (timelineWidthPercent / projectPosition.widthPercent) * 100;
+  
   // Ensure minimum width for visibility and bounds checking
-  const finalWidthPercent = Math.max(5, Math.min(100 - leftPercent, widthPercent));
-  const clampedLeftPercent = Math.max(0, Math.min(95, leftPercent));
+  const calculatedWidth = Math.min(100 - relativeLeftPercent, relativeWidthPercent);
+  const finalWidthPercent = Math.max(15, calculatedWidth);
+  const clampedLeftPercent = Math.max(0, Math.min(85, relativeLeftPercent));
+  
+  // Debug logging for task positioning
+  if (task.name.includes("Left")) {
+    console.log(`Task: ${task.name}`, {
+      taskStartDate: taskStartDate.toDateString(),
+      taskEndDate: taskEndDate.toDateString(),
+      timelinePosition: { left: timelineLeftPercent, width: timelineWidthPercent },
+      projectPosition: { left: projectPosition.leftPercent, width: projectPosition.widthPercent },
+      relativePosition: { left: relativeLeftPercent, width: relativeWidthPercent },
+      finalPosition: { left: clampedLeftPercent, width: finalWidthPercent }
+    });
+  }
 
   // Task bar height
   const taskBarHeight = 32; // Increased height for tasks
@@ -266,7 +322,8 @@ Deadline: ${formatShortDate(taskDeadline)}` : ''}${
             className="truncate font-semibold"
             style={{ 
               color: brandTheme.primary.navy,
-              fontSize: '15px'
+              fontSize: '13px',
+              whiteSpace: 'nowrap'
             }}
           >
             {task.name}

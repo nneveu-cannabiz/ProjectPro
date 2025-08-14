@@ -45,6 +45,7 @@ const projectsOverlap = (project1: FlowProject, project2: FlowProject): boolean 
 };
 
 // Calculate stacking positions for projects to avoid overlaps
+// Projects with the same assignee will be stacked vertically regardless of time overlap
 const calculateProjectStacking = (projects: FlowProject[], weekStart: Date, weekEnd: Date): StackedProject[] => {
   if (projects.length === 0) return [];
   
@@ -61,10 +62,21 @@ const calculateProjectStacking = (projects: FlowProject[], weekStart: Date, week
   });
   
   const stackedProjects: StackedProject[] = [];
+  // Track the highest stack level used for each assignee
+  const assigneeStackLevels: Map<string, number> = new Map();
   
   for (const project of sortedProjects) {
     let stackLevel = 0;
     let foundLevel = false;
+    
+    // If this project has an assignee, ensure it stacks below other projects with the same assignee
+    if (project.assigneeId) {
+      const lastAssigneeLevel = assigneeStackLevels.get(project.assigneeId);
+      if (lastAssigneeLevel !== undefined) {
+        // Start checking from the level after the last project with this assignee
+        stackLevel = lastAssigneeLevel + 1;
+      }
+    }
     
     // Find the lowest stack level where this project doesn't overlap with others
     while (!foundLevel) {
@@ -76,6 +88,11 @@ const calculateProjectStacking = (projects: FlowProject[], weekStart: Date, week
       } else {
         stackLevel++;
       }
+    }
+    
+    // Update the highest stack level for this assignee
+    if (project.assigneeId) {
+      assigneeStackLevels.set(project.assigneeId, stackLevel);
     }
     
     stackedProjects.push({ project, stackLevel });
@@ -335,7 +352,7 @@ const FlowChartContainer: React.FC = () => {
 
   return (
     <div 
-      className="w-full h-full"
+      className="w-full h-full flex flex-col"
       style={{ backgroundColor: brandTheme.background.secondary }}
     >
              {/* Header */}
@@ -418,7 +435,7 @@ const FlowChartContainer: React.FC = () => {
        </div>
 
       {/* Flow Chart Container */}
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col flex-1 min-h-0">
         {/* Date Headers Row */}
         <div className="flex border-b" style={{ borderColor: brandTheme.border.light }}>
                      {/* User Names Column Header */}
@@ -485,7 +502,7 @@ const FlowChartContainer: React.FC = () => {
         </div>
 
         {/* User Rows */}
-        <div className="flex flex-1 overflow-y-auto">
+        <div className="flex flex-1 min-h-0">
           {/* User Names Column */}
           <div 
             className="w-64 border-r flex-shrink-0"
@@ -578,11 +595,11 @@ const FlowChartContainer: React.FC = () => {
           {/* Scrollable Content Area */}
           <div 
             ref={contentScrollRef}
-            className="flex-1 overflow-x-auto" 
+            className="flex-1 overflow-x-auto overflow-y-auto" 
             id="content-scroll-container"
             onScroll={handleContentScroll}
           >
-            <div style={{ minWidth: 'max-content' }}>
+            <div style={{ minWidth: 'max-content', height: 'max-content' }}>
               {/* User Rows */}
               {users.map((user) => {
                 const userProjects = projects.filter(project => project.assigneeId === user.id);
