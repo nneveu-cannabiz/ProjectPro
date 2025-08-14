@@ -1,21 +1,26 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { parseISO } from 'date-fns';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { brandTheme } from '../../../../styles/brandTheme';
 import { fetchUsersByDepartment, fetchFlowChartProjects, updateProjectAssignee, fetchTasks } from '../../../../data/supabase-store';
 import { User, Task } from '../../../../types';
+import { useAppContext } from '../../../../context/AppContext';
+import { useAuth } from '../../../../context/AuthContext';
 import PageChange from './Filters/PageChange';
 import ProjectBar from './utils/Project Bar/projectbar';
 import ProjectDetailsModal from './utils/ProjectDetailsModal';
+import TaskDetailsModal from './utils/TaskDetailsModal';
+import UpdatesDetailsModal from './utils/UpdatesDetailsModal';
 import { calculateRowHeight } from './utils/heightUtils';
 import { 
-  generateWeekDates, 
-  getCurrentWeekMonday, 
-  getWeekLabel, 
-  addWeeks,
+  generateWorkDates, 
+  getCurrentDay, 
+  getDateRangeLabel, 
+  addWorkDays,
   formatDate,
   formatDayName,
-  isToday
+  isToday,
+  isWeekendDay
 } from './utils/dateUtils';
 
 interface FlowProject {
@@ -82,10 +87,12 @@ const calculateProjectStacking = (projects: FlowProject[], weekStart: Date, week
 
 
 const FlowChartContainer: React.FC = () => {
+  const { getUpdatesForEntity } = useAppContext();
+  const { currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentWeekDates, setCurrentWeekDates] = useState<Date[]>([]);
-  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getCurrentWeekMonday());
+  const [currentDates, setCurrentDates] = useState<Date[]>([]);
+  const [currentStartDate, setCurrentStartDate] = useState<Date>(getCurrentDay());
   const [projects, setProjects] = useState<FlowProject[]>([]);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedProject, setSelectedProject] = useState<FlowProject | null>(null);
@@ -93,6 +100,16 @@ const FlowChartContainer: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [showProjectDetailsModal, setShowProjectDetailsModal] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [showTaskDetailsModal, setShowTaskDetailsModal] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [showUpdatesModal, setShowUpdatesModal] = useState(false);
+  const [selectedUpdatesProjectId, setSelectedUpdatesProjectId] = useState<string | null>(null);
+  const [showTaskUpdatesModal, setShowTaskUpdatesModal] = useState(false);
+  const [selectedUpdatesTaskId, setSelectedUpdatesTaskId] = useState<string | null>(null);
+  
+  // Refs for scroll synchronization
+  const dateScrollRef = useRef<HTMLDivElement>(null);
+  const contentScrollRef = useRef<HTMLDivElement>(null);
 
   const loadData = async (isRefresh = false) => {
     if (isRefresh) {
@@ -145,29 +162,65 @@ const FlowChartContainer: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Generate week dates based on current week start
-    const weekDates = generateWeekDates(currentWeekStart);
-    setCurrentWeekDates(weekDates);
-  }, [currentWeekStart]);
+    // Generate work dates based on current start date
+    const workDates = generateWorkDates(currentStartDate);
+    setCurrentDates(workDates);
+  }, [currentStartDate]);
 
-  const handlePreviousWeek = () => {
-    const previousWeek = addWeeks(currentWeekStart, -1);
-    setCurrentWeekStart(previousWeek);
+  const handlePreviousDay = () => {
+    const previousDay = addWorkDays(currentStartDate, -1);
+    setCurrentStartDate(previousDay);
   };
 
-  const handleNextWeek = () => {
-    const nextWeek = addWeeks(currentWeekStart, 1);
-    setCurrentWeekStart(nextWeek);
+  const handleNextDay = () => {
+    const nextDay = addWorkDays(currentStartDate, 1);
+    setCurrentStartDate(nextDay);
   };
 
-  const isCurrentWeek = () => {
-    const currentWeekMonday = getCurrentWeekMonday();
-    return currentWeekStart.toDateString() === currentWeekMonday.toDateString();
+  const isCurrentDay = () => {
+    const today = getCurrentDay();
+    return currentStartDate.toDateString() === today.toDateString();
   };
 
-  const handleJumpToCurrentWeek = () => {
-    const currentWeekMonday = getCurrentWeekMonday();
-    setCurrentWeekStart(currentWeekMonday);
+  const handleJumpToCurrentDay = () => {
+    const today = getCurrentDay();
+    setCurrentStartDate(today);
+  };
+
+  // Scroll synchronization functions
+  const syncScrollLeft = (scrollLeft: number) => {
+    if (dateScrollRef.current) {
+      dateScrollRef.current.scrollLeft = scrollLeft;
+    }
+    if (contentScrollRef.current) {
+      contentScrollRef.current.scrollLeft = scrollLeft;
+    }
+  };
+
+  const handleDateScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const scrollLeft = e.currentTarget.scrollLeft;
+    if (contentScrollRef.current) {
+      contentScrollRef.current.scrollLeft = scrollLeft;
+    }
+  };
+
+  const handleContentScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const scrollLeft = e.currentTarget.scrollLeft;
+    if (dateScrollRef.current) {
+      dateScrollRef.current.scrollLeft = scrollLeft;
+    }
+  };
+
+  const handleScrollLeft = () => {
+    const scrollAmount = 120; // Width of one work day column
+    const currentScroll = contentScrollRef.current?.scrollLeft || 0;
+    syncScrollLeft(Math.max(0, currentScroll - scrollAmount));
+  };
+
+  const handleScrollRight = () => {
+    const scrollAmount = 120; // Width of one work day column
+    const currentScroll = contentScrollRef.current?.scrollLeft || 0;
+    syncScrollLeft(currentScroll + scrollAmount);
   };
 
   const handleRefresh = async () => {
@@ -197,9 +250,13 @@ const FlowChartContainer: React.FC = () => {
   };
 
   const handleTaskClick = (taskId: string) => {
-    // For now, just log the task click - could open a task details modal in the future
-    console.log('Task clicked:', taskId);
-    // TODO: Implement task details modal or inline editing
+    setSelectedTaskId(taskId);
+    setShowTaskDetailsModal(true);
+  };
+
+  const handleCloseTaskDetailsModal = () => {
+    setShowTaskDetailsModal(false);
+    setSelectedTaskId(null);
   };
 
   const handleAssignProject = async (userId: string) => {
@@ -219,6 +276,46 @@ const FlowChartContainer: React.FC = () => {
     } finally {
       setAssigningProject(false);
     }
+  };
+
+  const handleUpdatesClick = (projectId: string) => {
+    setSelectedUpdatesProjectId(projectId);
+    setShowUpdatesModal(true);
+  };
+
+  const handleCloseUpdatesModal = () => {
+    setShowUpdatesModal(false);
+    setSelectedUpdatesProjectId(null);
+  };
+
+  const handleTaskUpdatesClick = (taskId: string) => {
+    setSelectedUpdatesTaskId(taskId);
+    setShowTaskUpdatesModal(true);
+  };
+
+  const handleCloseTaskUpdatesModal = () => {
+    setShowTaskUpdatesModal(false);
+    setSelectedUpdatesTaskId(null);
+  };
+
+  // Helper function to get updates counts for a project
+  const getUpdatesCountsForProject = (projectId: string) => {
+    const updates = getUpdatesForEntity('project', projectId);
+    const totalCount = updates.length;
+    const unreadCount = currentUser ? 
+      updates.filter(update => !update.isReadBy?.includes(currentUser.id)).length : 0;
+    
+    return { totalCount, unreadCount };
+  };
+
+  // Helper function to get updates counts for a task
+  const getUpdatesCountsForTask = (taskId: string) => {
+    const updates = getUpdatesForEntity('task', taskId);
+    const totalCount = updates.length;
+    const unreadCount = currentUser ? 
+      updates.filter(update => !update.isReadBy?.includes(currentUser.id)).length : 0;
+    
+    return { totalCount, unreadCount };
   };
 
   if (loading) {
@@ -257,6 +354,34 @@ const FlowChartContainer: React.FC = () => {
            </div>
            
            <div className="flex items-center space-x-4">
+             {/* Horizontal Scroll Controls */}
+             <div className="flex items-center space-x-2">
+               <button
+                 onClick={handleScrollLeft}
+                 className="p-2 rounded-lg border transition-colors hover:bg-gray-50"
+                 style={{
+                   borderColor: brandTheme.border.light,
+                   color: brandTheme.text.primary,
+                   backgroundColor: brandTheme.background.primary
+                 }}
+                 title="Scroll left"
+               >
+                 <ChevronLeft size={18} />
+               </button>
+               <button
+                 onClick={handleScrollRight}
+                 className="p-2 rounded-lg border transition-colors hover:bg-gray-50"
+                 style={{
+                   borderColor: brandTheme.border.light,
+                   color: brandTheme.text.primary,
+                   backgroundColor: brandTheme.background.primary
+                 }}
+                 title="Scroll right"
+               >
+                 <ChevronRight size={18} />
+               </button>
+             </div>
+             
              {/* Refresh Button */}
              <button
                onClick={handleRefresh}
@@ -278,16 +403,16 @@ const FlowChartContainer: React.FC = () => {
                />
              </button>
              
-             {/* Page Change Navigation */}
-             <PageChange
-              onPreviousWeek={handlePreviousWeek}
-              onNextWeek={handleNextWeek}
-              onJumpToCurrentWeek={handleJumpToCurrentWeek}
-              currentWeekLabel={getWeekLabel(currentWeekStart)}
-              canGoPrevious={!isCurrentWeek()}
-              canGoNext={true}
-              isCurrentWeek={isCurrentWeek()}
-            />
+                         {/* Page Change Navigation */}
+            <PageChange
+             onPreviousWeek={handlePreviousDay}
+             onNextWeek={handleNextDay}
+             onJumpToCurrentWeek={handleJumpToCurrentDay}
+             currentWeekLabel={getDateRangeLabel(currentStartDate)}
+             canGoPrevious={true}
+             canGoNext={true}
+             isCurrentWeek={isCurrentDay()}
+           />
            </div>
          </div>
        </div>
@@ -313,41 +438,54 @@ const FlowChartContainer: React.FC = () => {
            </div>
 
                      {/* Scrollable Date Headers */}
-           <div className="flex-1 overflow-x-auto">
-             <div className="flex w-full">
-               {currentWeekDates.map((date, index) => (
-                 <div
-                   key={index}
-                   className={`flex-1 p-4 border-r flex-shrink-0 text-center ${
-                     isToday(date) ? '' : ''
-                   }`}
-                   style={{
-                     backgroundColor: isToday(date) 
-                       ? brandTheme.primary.paleBlue 
-                       : brandTheme.background.primary,
-                     borderColor: brandTheme.border.light
-                   }}
-                 >
-                   <div 
-                     className="font-semibold text-base"
-                     style={{ color: brandTheme.text.primary }}
+           <div 
+             ref={dateScrollRef}
+             className="flex-1 overflow-x-auto" 
+             id="date-scroll-container"
+             onScroll={handleDateScroll}
+           >
+             <div className="flex" style={{ minWidth: 'max-content' }}>
+               {currentDates.map((date, index) => {
+                 const isWeekend = isWeekendDay(date);
+                 return (
+                   <div
+                     key={index}
+                     className={`p-4 border-r flex-shrink-0 text-center ${
+                       isWeekend ? 'w-12' : 'flex-1'
+                     }`}
+                                         style={{
+                      backgroundColor: isToday(date) 
+                        ? brandTheme.primary.paleBlue 
+                        : isWeekend 
+                        ? '#f3f4f6'
+                        : brandTheme.background.primary,
+                      borderColor: brandTheme.border.light,
+                      minWidth: isWeekend ? '48px' : '120px'
+                    }}
                    >
-                     {formatDayName(date)}
+                     <div 
+                       className="font-semibold text-base"
+                       style={{ color: isWeekend ? brandTheme.text.muted : brandTheme.text.primary }}
+                     >
+                       {isWeekend ? 'S' : formatDayName(date)}
+                     </div>
+                     {!isWeekend && (
+                       <div 
+                         className="text-sm mt-1"
+                         style={{ color: brandTheme.text.muted }}
+                       >
+                         {formatDate(date)}
+                       </div>
+                     )}
                    </div>
-                   <div 
-                     className="text-sm mt-1"
-                     style={{ color: brandTheme.text.muted }}
-                   >
-                     {formatDate(date)}
-                   </div>
-                 </div>
-               ))}
+                 );
+               })}
              </div>
            </div>
         </div>
 
         {/* User Rows */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 overflow-y-auto">
           {/* User Names Column */}
           <div 
             className="w-64 border-r flex-shrink-0"
@@ -365,9 +503,11 @@ const FlowChartContainer: React.FC = () => {
             ) : (
               users.map((user) => {
                 const userProjects = projects.filter(project => project.assigneeId === user.id);
-                const weekEnd = new Date(currentWeekStart.getTime() + 4 * 24 * 60 * 60 * 1000);
-                const stackedProjects = calculateProjectStacking(userProjects, currentWeekStart, weekEnd);
-                const rowHeight = calculateRowHeight(userProjects, currentWeekStart, weekEnd, stackedProjects);
+                const dateRangeStart = currentDates[0];
+                const dateRangeEnd = currentDates[currentDates.length - 1];
+                const stackedProjects = calculateProjectStacking(userProjects, dateRangeStart, dateRangeEnd);
+                const baseRowHeight = calculateRowHeight(userProjects, dateRangeStart, dateRangeEnd, stackedProjects);
+                const rowHeight = baseRowHeight + 16; // Add 8px buffer on top and bottom
                 
                 return (
                 <div
@@ -401,9 +541,11 @@ const FlowChartContainer: React.FC = () => {
             {/* Unassigned Projects Row */}
             {(() => {
               const unassignedProjects = projects.filter(project => !project.assigneeId);
-              const weekEnd = new Date(currentWeekStart.getTime() + 4 * 24 * 60 * 60 * 1000);
-              const stackedUnassignedProjects = calculateProjectStacking(unassignedProjects, currentWeekStart, weekEnd);
-              const unassignedRowHeight = calculateRowHeight(unassignedProjects, currentWeekStart, weekEnd, stackedUnassignedProjects);
+              const dateRangeStart = currentDates[0];
+              const dateRangeEnd = currentDates[currentDates.length - 1];
+              const stackedUnassignedProjects = calculateProjectStacking(unassignedProjects, dateRangeStart, dateRangeEnd);
+              const baseUnassignedRowHeight = calculateRowHeight(unassignedProjects, dateRangeStart, dateRangeEnd, stackedUnassignedProjects);
+              const unassignedRowHeight = baseUnassignedRowHeight + 16; // Add 8px buffer on top and bottom
               
               return (
                 <div
@@ -434,14 +576,21 @@ const FlowChartContainer: React.FC = () => {
           </div>
 
           {/* Scrollable Content Area */}
-          <div className="flex-1 overflow-x-auto">
-            <div className="w-full">
+          <div 
+            ref={contentScrollRef}
+            className="flex-1 overflow-x-auto" 
+            id="content-scroll-container"
+            onScroll={handleContentScroll}
+          >
+            <div style={{ minWidth: 'max-content' }}>
               {/* User Rows */}
               {users.map((user) => {
                 const userProjects = projects.filter(project => project.assigneeId === user.id);
-                const weekEnd = new Date(currentWeekStart.getTime() + 4 * 24 * 60 * 60 * 1000);
-                const stackedProjects = calculateProjectStacking(userProjects, currentWeekStart, weekEnd);
-                const rowHeight = calculateRowHeight(userProjects, currentWeekStart, weekEnd, stackedProjects);
+                const dateRangeStart = currentDates[0];
+                const dateRangeEnd = currentDates[currentDates.length - 1];
+                const stackedProjects = calculateProjectStacking(userProjects, dateRangeStart, dateRangeEnd);
+                const baseRowHeight = calculateRowHeight(userProjects, dateRangeStart, dateRangeEnd, stackedProjects);
+                const rowHeight = baseRowHeight + 16; // Add 8px buffer on top and bottom
                 
                 return (
                 <div 
@@ -456,53 +605,67 @@ const FlowChartContainer: React.FC = () => {
                 >
                   {/* Background day columns */}
                   <div className="absolute inset-0 flex">
-                    {currentWeekDates.map((date, idx) => (
-                      <div
-                        key={idx}
-                        className="flex-1 border-r"
-                        style={{
-                          backgroundColor: isToday(date) 
-                            ? brandTheme.primary.paleBlue 
-                            : brandTheme.background.secondary,
-                          borderColor: brandTheme.border.light
-                        }}
-                      />
-                    ))}
+                    {currentDates.map((date, idx) => {
+                      const isWeekend = isWeekendDay(date);
+                      return (
+                        <div
+                          key={idx}
+                          className={`border-r ${isWeekend ? 'w-12' : 'flex-1'}`}
+                          style={{
+                            backgroundColor: isToday(date) 
+                              ? brandTheme.primary.paleBlue 
+                              : isWeekend 
+                              ? '#f3f4f6'
+                              : brandTheme.background.secondary,
+                            borderColor: brandTheme.border.light,
+                            minWidth: isWeekend ? '48px' : '120px'
+                          }}
+                        />
+                      );
+                    })}
                   </div>
                   
                   {/* Project bars for this user - positioned over the entire row */}
                   <div className="absolute inset-0" style={{ overflow: 'visible', zIndex: 10 }}>
                     {(() => {
-                      const weekStart = currentWeekStart;
-                      const weekEnd = new Date(currentWeekStart);
-                      weekEnd.setDate(weekStart.getDate() + 4); // Friday
+                      const dateRangeStart = currentDates[0];
+                      const dateRangeEnd = currentDates[currentDates.length - 1];
                       const today = new Date();
                       
                       // Filter projects assigned to this user
                       const userProjects = projects.filter(project => project.assigneeId === user.id);
                       
                       // Calculate stacking positions to avoid overlaps
-                      const stackedProjects = calculateProjectStacking(userProjects, weekStart, weekEnd);
+                      const stackedProjects = calculateProjectStacking(userProjects, dateRangeStart, dateRangeEnd);
                       
-                      return stackedProjects.map((stackedProject) => (
-                        <ProjectBar
-                          key={stackedProject.project.id}
-                          projectId={stackedProject.project.id}
-                          projectName={stackedProject.project.name}
-                          weekStart={weekStart}
-                          weekEnd={weekEnd}
-                          projectStart={stackedProject.project.startDate}
-                          projectEnd={stackedProject.project.endDate}
-                          projectDeadline={stackedProject.project.deadline}
-                          projectProgress={stackedProject.project.progress}
-                          projectTasks={stackedProject.project.tasks}
-                          today={today}
-                          barHeightPx={48} // Smaller height to allow more stacking
-                          stackLevel={stackedProject.stackLevel}
-                          onProjectNameClick={handleProjectNameClick}
-                          onTaskClick={handleTaskClick}
-                        />
-                      ));
+                      return stackedProjects.map((stackedProject) => {
+                        const { totalCount, unreadCount } = getUpdatesCountsForProject(stackedProject.project.id);
+                        
+                        return (
+                          <ProjectBar
+                            key={stackedProject.project.id}
+                            projectId={stackedProject.project.id}
+                            projectName={stackedProject.project.name}
+                            weekStart={dateRangeStart}
+                            weekEnd={dateRangeEnd}
+                            projectStart={stackedProject.project.startDate}
+                            projectEnd={stackedProject.project.endDate}
+                            projectDeadline={stackedProject.project.deadline}
+                            projectProgress={stackedProject.project.progress}
+                            projectTasks={stackedProject.project.tasks}
+                            today={today}
+                            barHeightPx={48} // Smaller height to allow more stacking
+                            stackLevel={stackedProject.stackLevel}
+                            onProjectNameClick={handleProjectNameClick}
+                            onTaskClick={handleTaskClick}
+                            onUpdatesClick={handleUpdatesClick}
+                            onTaskUpdatesClick={handleTaskUpdatesClick}
+                            getTaskUpdatesCount={getUpdatesCountsForTask}
+                            unreadUpdatesCount={unreadCount}
+                            totalUpdatesCount={totalCount}
+                          />
+                        );
+                      });
                     })()}
                   </div>
                 </div>
@@ -512,9 +675,11 @@ const FlowChartContainer: React.FC = () => {
               {/* Unassigned Projects Row */}
               {(() => {
                 const unassignedProjects = projects.filter(project => !project.assigneeId);
-                const weekEnd = new Date(currentWeekStart.getTime() + 4 * 24 * 60 * 60 * 1000);
-                const stackedUnassignedProjects = calculateProjectStacking(unassignedProjects, currentWeekStart, weekEnd);
-                const unassignedRowHeight = calculateRowHeight(unassignedProjects, currentWeekStart, weekEnd, stackedUnassignedProjects);
+                const dateRangeStart = currentDates[0];
+                const dateRangeEnd = currentDates[currentDates.length - 1];
+                const stackedUnassignedProjects = calculateProjectStacking(unassignedProjects, dateRangeStart, dateRangeEnd);
+                const baseUnassignedRowHeight = calculateRowHeight(unassignedProjects, dateRangeStart, dateRangeEnd, stackedUnassignedProjects);
+                const unassignedRowHeight = baseUnassignedRowHeight + 16; // Add 8px buffer on top and bottom
                 
                 return (
                   <div 
@@ -528,55 +693,69 @@ const FlowChartContainer: React.FC = () => {
                   >
                 {/* Background day columns */}
                 <div className="absolute inset-0 flex">
-                  {currentWeekDates.map((date, idx) => (
-                    <div
-                      key={idx}
-                      className="flex-1 border-r"
-                      style={{
-                        backgroundColor: isToday(date) 
-                          ? brandTheme.primary.paleBlue 
-                          : brandTheme.background.secondary,
-                        borderColor: brandTheme.border.light
-                      }}
-                    />
-                  ))}
+                  {currentDates.map((date, idx) => {
+                    const isWeekend = isWeekendDay(date);
+                    return (
+                      <div
+                        key={idx}
+                        className={`border-r ${isWeekend ? 'w-12' : 'flex-1'}`}
+                        style={{
+                          backgroundColor: isToday(date) 
+                            ? brandTheme.primary.paleBlue 
+                            : isWeekend 
+                            ? '#f3f4f6'
+                            : brandTheme.background.secondary,
+                          borderColor: brandTheme.border.light,
+                          minWidth: isWeekend ? '48px' : '120px'
+                        }}
+                      />
+                    );
+                  })}
                 </div>
                 
                 {/* Project bars for unassigned projects - positioned over the entire row */}
                 <div className="absolute inset-0" style={{ overflow: 'visible', zIndex: 10 }}>
                   {(() => {
-                    const weekStart = currentWeekStart;
-                    const weekEnd = new Date(currentWeekStart);
-                    weekEnd.setDate(weekStart.getDate() + 4); // Friday
+                    const dateRangeStart = currentDates[0];
+                    const dateRangeEnd = currentDates[currentDates.length - 1];
                     const today = new Date();
                     
                     // Only show projects without an assignee
                     const unassignedProjects = projects.filter(project => !project.assigneeId);
                     
                     // Calculate stacking positions to avoid overlaps
-                    const stackedUnassignedProjects = calculateProjectStacking(unassignedProjects, weekStart, weekEnd);
+                    const stackedUnassignedProjects = calculateProjectStacking(unassignedProjects, dateRangeStart, dateRangeEnd);
                     
-                    return stackedUnassignedProjects.map((stackedProject) => (
-                      <ProjectBar
-                        key={stackedProject.project.id}
-                        projectId={stackedProject.project.id}
-                        projectName={stackedProject.project.name}
-                        weekStart={weekStart}
-                        weekEnd={weekEnd}
-                        projectStart={stackedProject.project.startDate}
-                        projectEnd={stackedProject.project.endDate}
-                        projectDeadline={stackedProject.project.deadline}
-                        projectProgress={stackedProject.project.progress}
-                        projectTasks={stackedProject.project.tasks}
-                        today={today}
-                        barHeightPx={48} // Smaller height to allow more stacking
-                        stackLevel={stackedProject.stackLevel}
-                        isClickable={true}
-                        onClick={() => handleProjectClick(stackedProject.project)}
-                        onProjectNameClick={handleProjectNameClick}
-                        onTaskClick={handleTaskClick}
-                      />
-                    ));
+                    return stackedUnassignedProjects.map((stackedProject) => {
+                      const { totalCount, unreadCount } = getUpdatesCountsForProject(stackedProject.project.id);
+                      
+                      return (
+                        <ProjectBar
+                          key={stackedProject.project.id}
+                          projectId={stackedProject.project.id}
+                          projectName={stackedProject.project.name}
+                          weekStart={dateRangeStart}
+                          weekEnd={dateRangeEnd}
+                          projectStart={stackedProject.project.startDate}
+                          projectEnd={stackedProject.project.endDate}
+                          projectDeadline={stackedProject.project.deadline}
+                          projectProgress={stackedProject.project.progress}
+                          projectTasks={stackedProject.project.tasks}
+                          today={today}
+                          barHeightPx={48} // Smaller height to allow more stacking
+                          stackLevel={stackedProject.stackLevel}
+                          isClickable={true}
+                          onClick={() => handleProjectClick(stackedProject.project)}
+                          onProjectNameClick={handleProjectNameClick}
+                          onTaskClick={handleTaskClick}
+                          onUpdatesClick={handleUpdatesClick}
+                          onTaskUpdatesClick={handleTaskUpdatesClick}
+                          getTaskUpdatesCount={getUpdatesCountsForTask}
+                          unreadUpdatesCount={unreadCount}
+                          totalUpdatesCount={totalCount}
+                        />
+                      );
+                    });
                   })()}
                 </div>
               </div>
@@ -665,6 +844,44 @@ const FlowChartContainer: React.FC = () => {
           isOpen={showProjectDetailsModal}
           onClose={handleCloseProjectDetailsModal}
           projectId={selectedProjectId}
+        />
+      )}
+
+      {/* Task Details Modal */}
+      {showTaskDetailsModal && selectedTaskId && (
+        <TaskDetailsModal
+          isOpen={showTaskDetailsModal}
+          onClose={handleCloseTaskDetailsModal}
+          taskId={selectedTaskId}
+        />
+      )}
+
+      {/* Updates Details Modal */}
+      {showUpdatesModal && selectedUpdatesProjectId && (
+        <UpdatesDetailsModal
+          isOpen={showUpdatesModal}
+          onClose={handleCloseUpdatesModal}
+          entityType="project"
+          entityId={selectedUpdatesProjectId}
+          entityName={projects.find(p => p.id === selectedUpdatesProjectId)?.name || 'Unknown Project'}
+        />
+      )}
+
+      {/* Task Updates Details Modal */}
+      {showTaskUpdatesModal && selectedUpdatesTaskId && (
+        <UpdatesDetailsModal
+          isOpen={showTaskUpdatesModal}
+          onClose={handleCloseTaskUpdatesModal}
+          entityType="task"
+          entityId={selectedUpdatesTaskId}
+          entityName={(() => {
+            // Find the task name from all projects
+            for (const project of projects) {
+              const task = project.tasks?.find(t => t.id === selectedUpdatesTaskId);
+              if (task) return task.name;
+            }
+            return 'Unknown Task';
+          })()}
         />
       )}
     </div>

@@ -1,7 +1,9 @@
 import React from 'react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { brandTheme } from '../../../../../../styles/brandTheme';
 import { Task } from '../../../../../../types';
+import { generateWorkDates, isWeekendDay } from '../dateUtils';
+import TaskUpdateIcon from './taskupdateicon';
 
 export interface TaskBarProps {
   task: Task;
@@ -11,18 +13,121 @@ export interface TaskBarProps {
   projectWeekEnd: Date;
   stackLevel: number;
   onTaskClick?: (taskId: string) => void;
+  onUpdatesClick?: (taskId: string) => void;
+  unreadUpdatesCount?: number;
+  totalUpdatesCount?: number;
   isClickable?: boolean;
 }
 
-const diffDays = (startDate: Date, endDate: Date): number => {
-  const msPerDay = 24 * 60 * 60 * 1000;
-  const start = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()).getTime();
-  const end = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate()).getTime();
-  return Math.floor((end - start) / msPerDay);
+
+
+// Calculate positioning that accounts for weekend columns having fixed width
+const calculatePositionInFlexLayout = (
+  taskStart: Date,
+  taskEnd: Date,
+  weekStart: Date
+): { leftPercent: number; widthPercent: number } => {
+  // Generate all dates in the current week view
+  const allDates = generateWorkDates(weekStart);
+  
+  // Find the column indices for task start and end
+  let startColumnIndex = -1;
+  let endColumnIndex = -1;
+  
+  for (let i = 0; i < allDates.length; i++) {
+    const currentDate = allDates[i];
+    
+    // Find the start column
+    if (startColumnIndex === -1 && currentDate >= taskStart) {
+      startColumnIndex = i;
+    }
+    
+    // Find the end column - we want to include the full day that contains the end date
+    if (currentDate.toDateString() === taskEnd.toDateString()) {
+      endColumnIndex = i;
+      break;
+    } else if (currentDate > taskEnd) {
+      // If we've passed the end date, use the previous column
+      endColumnIndex = Math.max(0, i - 1);
+      break;
+    }
+  }
+  
+  // Handle edge cases
+  if (startColumnIndex === -1) {
+    startColumnIndex = 0;
+  }
+  if (endColumnIndex === -1) {
+    endColumnIndex = allDates.length - 1;
+  }
+  
+  // Ensure we span at least one column
+  if (endColumnIndex < startColumnIndex) {
+    endColumnIndex = startColumnIndex;
+  }
+  
+  // Calculate position based on actual CSS layout:
+  // Weekend columns: w-12 (48px fixed)
+  // Working day columns: flex-1 (share remaining space equally)
+  
+  // Count total flex units and fixed pixels
+  let totalFlexUnits = 0;
+  let totalFixedWidth = 0;
+  let leftFlexUnits = 0;
+  let leftFixedWidth = 0;
+  let spannedFlexUnits = 0;
+  let spannedFixedWidth = 0;
+  
+  allDates.forEach((date, index) => {
+    const isWeekend = isWeekendDay(date);
+    
+    if (isWeekend) {
+      totalFixedWidth += 48; // w-12 = 48px
+      if (index < startColumnIndex) {
+        leftFixedWidth += 48;
+      }
+      if (index >= startColumnIndex && index <= endColumnIndex) {
+        spannedFixedWidth += 48;
+      }
+    } else {
+      totalFlexUnits += 1; // flex-1 = 1 flex unit
+      if (index < startColumnIndex) {
+        leftFlexUnits += 1;
+      }
+      if (index >= startColumnIndex && index <= endColumnIndex) {
+        spannedFlexUnits += 1;
+      }
+    }
+  });
+  
+  // Calculate actual pixel positions
+  const assumedContainerWidth = 1000; // Assume 1000px container for calculation
+  const remainingWidth = assumedContainerWidth - totalFixedWidth;
+  const flexUnitWidth = totalFlexUnits > 0 ? remainingWidth / totalFlexUnits : 0;
+  
+  const leftPixels = leftFixedWidth + (leftFlexUnits * flexUnitWidth);
+  const spannedPixels = spannedFixedWidth + (spannedFlexUnits * flexUnitWidth);
+  
+  // Convert to percentages
+  const leftPercent = (leftPixels / assumedContainerWidth) * 100;
+  const widthPercent = (spannedPixels / assumedContainerWidth) * 100;
+  
+  // Add a small buffer to ensure we reach the end of the end column
+  const bufferedWidthPercent = widthPercent + 0.1; // Small buffer
+  const finalWidthPercent = Math.min(100 - leftPercent, bufferedWidthPercent);
+  
+  return { leftPercent, widthPercent: finalWidthPercent };
 };
 
 const formatShortDate = (date: Date): string => {
   return format(date, 'MMM dd');
+};
+
+const calculateDaysFromToday = (targetDate: Date): number => {
+  const today = new Date();
+  const todayTime = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const targetTime = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate()).getTime();
+  return Math.ceil((targetTime - todayTime) / (24 * 60 * 60 * 1000));
 };
 
 
@@ -59,43 +164,40 @@ const TaskBar: React.FC<TaskBarProps> = ({
   projectWeekEnd,
   stackLevel,
   onTaskClick,
+  onUpdatesClick,
+  unreadUpdatesCount = 0,
+  totalUpdatesCount = 0,
   isClickable = true
 }) => {
   // Calculate task dates - use project dates if task dates are not available
-  const taskStartDate = task.startDate ? new Date(task.startDate) : projectStart;
-  const taskEndDate = task.endDate ? new Date(task.endDate) : projectEnd;
-  const taskDeadline = task.deadline ? new Date(task.deadline) : undefined;
+  // Ensure we parse ISO dates correctly and normalize to start of day
+  const taskStartDate = task.startDate ? 
+    new Date(parseISO(task.startDate).getFullYear(), parseISO(task.startDate).getMonth(), parseISO(task.startDate).getDate()) : 
+    projectStart;
+  const taskEndDate = task.endDate ? 
+    new Date(parseISO(task.endDate).getFullYear(), parseISO(task.endDate).getMonth(), parseISO(task.endDate).getDate()) : 
+    projectEnd;
+  const taskDeadline = task.deadline ? parseISO(task.deadline) : undefined;
 
   // Check if task overlaps with current week view
   if (taskEndDate < projectWeekStart || taskStartDate > projectWeekEnd) {
     return null;
   }
 
-  // Calculate the visible project boundaries within the current week
-  const visibleProjectStart = projectStart < projectWeekStart ? projectWeekStart : projectStart;
-  const visibleProjectEnd = projectEnd > projectWeekEnd ? projectWeekEnd : projectEnd;
+  // Calculate positioning using the flex layout logic that accounts for weekends
+  const { leftPercent, widthPercent } = calculatePositionInFlexLayout(
+    taskStartDate,
+    taskEndDate,
+    projectWeekStart
+  );
   
-  // Calculate task boundaries constrained to the visible project area
-  const constrainedTaskStart = taskStartDate < visibleProjectStart ? visibleProjectStart : taskStartDate;
-  const constrainedTaskEnd = taskEndDate > visibleProjectEnd ? visibleProjectEnd : taskEndDate;
-  
-  // Calculate positioning based on the visible project timeline
-  const totalVisibleDays = Math.max(1, diffDays(visibleProjectStart, visibleProjectEnd));
-  const taskStartOffset = Math.max(0, diffDays(visibleProjectStart, constrainedTaskStart));
-  const taskEndOffset = Math.min(totalVisibleDays, diffDays(visibleProjectStart, constrainedTaskEnd));
-  
-  // Calculate positioning as percentage of visible project width
-  const leftPercent = (taskStartOffset / totalVisibleDays) * 100;
-  const rightPercent = ((taskEndOffset + 1) / totalVisibleDays) * 100;
-  const widthPercent = Math.max(5, rightPercent - leftPercent); // Minimum 5% width for visibility
-  
-  // Ensure the task bar stays within 0-100% bounds
+  // Ensure minimum width for visibility and bounds checking
+  const finalWidthPercent = Math.max(5, Math.min(100 - leftPercent, widthPercent));
   const clampedLeftPercent = Math.max(0, Math.min(95, leftPercent));
-  const clampedWidthPercent = Math.min(100 - clampedLeftPercent, widthPercent);
 
   // Task bar height
-  const taskBarHeight = 24; // Compact height for tasks
-  const taskBarMargin = 2; // Small margin between task bars
+  const taskBarHeight = 32; // Increased height for tasks
+  const taskBarMargin = 3; // Slightly larger margin between task bars
 
   return (
     <div
@@ -107,15 +209,15 @@ const TaskBar: React.FC<TaskBarProps> = ({
       style={{
         top: `${stackLevel * (taskBarHeight + taskBarMargin)}px`,
         left: `${clampedLeftPercent}%`,
-        width: `${clampedWidthPercent}%`,
+        width: `${finalWidthPercent}%`,
         height: `${taskBarHeight}px`,
         backgroundColor: brandTheme.primary.paleBlue, // Light blue background
         border: `1px solid ${brandTheme.primary.lightBlue}`, // Medium blue border
         borderRadius: '4px',
         display: 'flex',
         alignItems: 'center',
-        paddingLeft: '6px',
-        paddingRight: '6px',
+        paddingLeft: '8px',
+        paddingRight: '8px',
         overflow: 'hidden',
         zIndex: 25, // Higher than project bar
         transition: 'opacity 0.2s ease',
@@ -126,20 +228,20 @@ Progress: ${task.progress}%` : ''}
 Start: ${formatShortDate(taskStartDate)}
 End: ${formatShortDate(taskEndDate)}${taskDeadline ? `
 Deadline: ${formatShortDate(taskDeadline)}` : ''}${
-        taskStartDate < visibleProjectStart || taskEndDate > visibleProjectEnd 
-          ? '\n(Task extends beyond visible project timeline)' 
+        taskStartDate < projectWeekStart || taskEndDate > projectWeekEnd 
+          ? '\n(Task extends beyond visible week timeline)' 
           : ''
       }`}
     >
       {/* Task content - All info in one line */}
       <div className="flex items-center w-full min-w-0 space-x-1">
         {/* Left arrow if task starts before visible area */}
-        {taskStartDate < visibleProjectStart && (
+        {taskStartDate < projectWeekStart && (
           <span 
             className="flex-shrink-0"
             style={{ 
               color: brandTheme.primary.navy,
-              fontSize: '8px'
+              fontSize: '10px'
             }}
           >
             ←
@@ -151,118 +253,107 @@ Deadline: ${formatShortDate(taskDeadline)}` : ''}${
           className="flex-shrink-0"
           style={{ 
             color: brandTheme.primary.navy,
-            fontSize: '10px',
+            fontSize: '12px',
             fontWeight: 'bold'
           }}
         >
           {getStatusIcon(task.status)}
         </span>
 
-        {/* Task name */}
-        <span 
-          className="truncate font-medium min-w-0"
-          style={{ 
-            color: brandTheme.primary.navy,
-            fontSize: '10px'
-          }}
-        >
-          {task.name}
-        </span>
-
-        {/* Status */}
-        <span 
-          className="flex-shrink-0 px-1 rounded"
-          style={{ 
-            color: brandTheme.primary.navy,
-            fontSize: '8px',
-            backgroundColor: 'rgba(255,255,255,0.3)',
-            fontWeight: '500'
-          }}
-        >
-          {task.status.toUpperCase()}
-        </span>
-
-        {/* Progress */}
-        {typeof task.progress === 'number' && (
+        {/* Task name and updates icon container - left aligned */}
+        <div className="flex items-center min-w-0 flex-1">
           <span 
-            className="flex-shrink-0 px-1 rounded font-bold"
+            className="truncate font-semibold"
             style={{ 
-              backgroundColor: getProgressColor(task.progress),
-              color: 'white',
-              fontSize: '8px',
-              minWidth: '18px',
-              textAlign: 'center'
+              color: brandTheme.primary.navy,
+              fontSize: '15px'
             }}
           >
-            {task.progress}%
+            {task.name}
           </span>
-        )}
 
-        {/* Start Date */}
-        <span 
-          className="flex-shrink-0"
-          style={{ 
-            color: brandTheme.primary.navy,
-            fontSize: '8px'
-          }}
-        >
-          {formatShortDate(taskStartDate)}
-        </span>
+          {/* Updates Icon - immediately to the right of task name */}
+          {onUpdatesClick && (
+            <div className="flex-shrink-0 ml-1.5">
+              <TaskUpdateIcon
+                taskId={task.id}
+                unreadCount={unreadUpdatesCount}
+                totalCount={totalUpdatesCount}
+                onClick={onUpdatesClick}
+              />
+            </div>
+          )}
+        </div>
 
-        {/* Separator */}
-        <span 
-          className="flex-shrink-0"
-          style={{ 
-            color: brandTheme.primary.navy,
-            fontSize: '8px'
-          }}
-        >
-          →
-        </span>
+                 {/* Days counter - centered */}
+         <div className="flex-shrink-0 mx-4">
+           <span 
+             className="font-medium"
+             style={{ 
+               color: brandTheme.primary.navy,
+               fontSize: '15px',
+               whiteSpace: 'nowrap'
+             }}
+           >
+            {(() => {
+              const daysToStart = calculateDaysFromToday(taskStartDate);
+              const daysToEnd = calculateDaysFromToday(taskEndDate);
+              
+              if (daysToStart > 0) {
+                return `Starts in: ${daysToStart}d`;
+              } else if (daysToEnd >= 0) {
+                return `${daysToEnd}d Left`;
+              } else {
+                return 'Overdue';
+              }
+            })()}
+          </span>
+        </div>
 
-        {/* End Date */}
-        <span 
-          className="flex-shrink-0"
-          style={{ 
-            color: brandTheme.primary.navy,
-            fontSize: '8px'
-          }}
-        >
-          {formatShortDate(taskEndDate)}
-        </span>
+        {/* Spacer between days and progress */}
+        <div className="flex-shrink-0" style={{ width: '16px' }} />
 
-        {/* Deadline (if different from end date) */}
-        {taskDeadline && taskDeadline.getTime() !== taskEndDate.getTime() && (
-          <>
-            <span 
-              className="flex-shrink-0"
-              style={{ 
-                color: brandTheme.status.error,
-                fontSize: '8px'
-              }}
-            >
-              ⚠
-            </span>
-            <span 
-              className="flex-shrink-0"
-              style={{ 
-                color: brandTheme.status.error,
-                fontSize: '8px',
-                fontWeight: 'bold'
-              }}
-            >
-              {formatShortDate(taskDeadline)}
-            </span>
-          </>
-        )}
+                {/* Progress bar and percentage - grouped and aligned right */}
+        <div className="flex items-center space-x-2 flex-shrink-0">
+                     {/* Progress bar */}
+          <div 
+            className="rounded-full overflow-hidden"
+            style={{ 
+              width: '48px',
+              height: '6px',
+              backgroundColor: 'rgba(255,255,255,0.4)'
+            }}
+          >
+           <div
+             className="h-full rounded-full transition-all duration-300"
+             style={{
+               width: `${task.progress || 0}%`,
+               backgroundColor: getProgressColor(task.progress || 0)
+             }}
+           />
+         </div>
+         
+                     {/* Progress percentage */}
+          <span 
+            className="font-bold"
+            style={{ 
+              color: brandTheme.primary.navy,
+              fontSize: '15px',
+              minWidth: '36px',
+              textAlign: 'right'
+            }}
+          >
+            {task.progress || 0}%
+          </span>
+        </div>
 
         {/* Right arrow if task ends after visible area */}
-        {taskEndDate > visibleProjectEnd && (
+        {taskEndDate > projectWeekEnd && (
           <span 
             className="flex-shrink-0"
             style={{ 
               color: brandTheme.primary.navy,
-              fontSize: '8px'
+              fontSize: '10px'
             }}
           >
             →

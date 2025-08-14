@@ -387,7 +387,11 @@ export const fetchUpdates = async (): Promise<Update[]> => {
         userId: u.user_id,
         entityType: u.entity_type,
         entityId: u.entity_id,
-        createdAt: u.created_at
+        createdAt: u.created_at,
+        isReadBy: u.is_read_by || [],
+        commentTo: u.comment_to,
+        taggedUserIds: u.tagged_user_id || [],
+        isRequest: u.is_request
       }));
     },
     'Error fetching updates',
@@ -407,7 +411,11 @@ export const addUpdate = async (update: Omit<Update, 'id' | 'createdAt'>): Promi
       user_id: update.userId,
       entity_type: update.entityType,
       entity_id: update.entityId,
-      created_at: timestamp
+      created_at: timestamp,
+      is_read_by: update.isReadBy || [],
+      comment_to: update.commentTo,
+      tagged_user_id: update.taggedUserIds || [],
+      is_request: update.isRequest
     });
   
   if (error) {
@@ -416,6 +424,73 @@ export const addUpdate = async (update: Omit<Update, 'id' | 'createdAt'>): Promi
   }
   
   return id;
+};
+
+export const markUpdateAsRead = async (updateId: string, userId: string): Promise<void> => {
+  const { data: currentUpdate, error: fetchError } = await supabase
+    .from('PMA_Updates')
+    .select('is_read_by')
+    .eq('id', updateId)
+    .single();
+  
+  if (fetchError) {
+    console.error('Error fetching update for read status:', fetchError);
+    throw fetchError;
+  }
+  
+  const currentReadBy = currentUpdate.is_read_by || [];
+  let newReadBy;
+  
+  if (currentReadBy.includes(userId)) {
+    // Remove user from read list (mark as unread)
+    newReadBy = currentReadBy.filter((id: string) => id !== userId);
+  } else {
+    // Add user to read list (mark as read)
+    newReadBy = [...currentReadBy, userId];
+  }
+  
+  const { error } = await supabase
+    .from('PMA_Updates')
+    .update({ is_read_by: newReadBy })
+    .eq('id', updateId);
+  
+  if (error) {
+    console.error('Error updating read status:', error);
+    throw error;
+  }
+};
+
+export const updateRequestStatus = async (updateId: string, responseUpdateId: string): Promise<void> => {
+  const { data: currentUpdate, error: fetchError } = await supabase
+    .from('PMA_Updates')
+    .select('is_request')
+    .eq('id', updateId)
+    .single();
+
+  if (fetchError) {
+    console.error('Error fetching update for request status:', fetchError);
+    throw fetchError;
+  }
+
+  if (!currentUpdate.is_request) {
+    throw new Error('Update is not a request');
+  }
+
+  const updatedRequest = {
+    ...currentUpdate.is_request,
+    respondedAt: new Date().toISOString(),
+    responseUpdateId: responseUpdateId,
+  };
+
+  const { error } = await supabase
+    .from('PMA_Updates')
+    .update({ is_request: updatedRequest })
+    .eq('id', updateId);
+
+  if (error) {
+    console.error('Error updating request status:', error);
+    throw error;
+  }
 };
 
 // User operations

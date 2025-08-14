@@ -439,8 +439,8 @@ const ProjectsFlowChart: React.FC = () => {
 
 
 
-       {/* Flow Chart Container - Takes full remaining height */}
-       <div className="flex-1 h-[calc(100vh-120px)]">
+       {/* Flow Chart Container - Takes remaining height */}
+       <div className="flex-1" style={{ height: 'calc(100vh - 400px)', minHeight: '500px' }}>
          <FlowChartContainer />
        </div>
      </div>

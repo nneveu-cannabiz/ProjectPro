@@ -28,6 +28,8 @@ interface AppContextType {
   updateTaskType: (taskType: TaskType) => Promise<void>;
   deleteTaskType: (id: string) => Promise<void>;
   addUpdate: (update: Omit<Update, 'id' | 'createdAt'>) => Promise<string>;
+  markUpdateAsRead: (updateId: string, userId: string) => Promise<void>;
+  updateRequestStatus: (updateId: string, responseUpdateId: string) => Promise<void>;
   getUpdatesForEntity: (entityType: 'project' | 'task' | 'subtask', entityId: string) => Update[];
   getRelatedUpdates: (entityType: 'project' | 'task', entityId: string) => Update[];
   isLoading: boolean;
@@ -515,6 +517,61 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsLoading(false);
     }
   };
+
+  const markUpdateAsRead = async (updateId: string, userId: string) => {
+    try {
+      setIsLoading(true);
+      await supabaseStore.markUpdateAsRead(updateId, userId);
+      
+      // Update local state
+      setUpdates(prev => 
+        prev.map(update => {
+          if (update.id === updateId) {
+            const currentReadBy = update.isReadBy || [];
+            const newReadBy = currentReadBy.includes(userId)
+              ? currentReadBy.filter(id => id !== userId)
+              : [...currentReadBy, userId];
+            return { ...update, isReadBy: newReadBy };
+          }
+          return update;
+        })
+      );
+    } catch (error) {
+      console.error('Error marking update as read:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateRequestStatus = async (updateId: string, responseUpdateId: string) => {
+    try {
+      setIsLoading(true);
+      await supabaseStore.updateRequestStatus(updateId, responseUpdateId);
+      
+      // Update local state
+      setUpdates(prev => 
+        prev.map(update => {
+          if (update.id === updateId && update.isRequest) {
+            return { 
+              ...update, 
+              isRequest: {
+                ...update.isRequest,
+                respondedAt: new Date().toISOString(),
+                responseUpdateId: responseUpdateId,
+              }
+            };
+          }
+          return update;
+        })
+      );
+    } catch (error) {
+      console.error('Error updating request status:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   const getUpdatesForEntity = (entityType: 'project' | 'task' | 'subtask', entityId: string) => {
     return updates
@@ -591,6 +648,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateTaskType,
         deleteTaskType,
         addUpdate,
+        markUpdateAsRead,
+        updateRequestStatus,
         getUpdatesForEntity,
         getRelatedUpdates,
         isLoading,

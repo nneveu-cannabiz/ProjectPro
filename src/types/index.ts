@@ -76,4 +76,14 @@ export interface Update {
   createdAt: string;
   entityType: 'project' | 'task' | 'subtask';
   entityId: string;
+  isReadBy?: string[]; // Array of user IDs who have read this update
+  commentTo?: string; // ID of the update this is a comment/reply to
+  taggedUserIds?: string[]; // Array of user IDs tagged in this update
+  isRequest?: {
+    requestedUserId: string;
+    deadline?: string;
+    notes?: string;
+    respondedAt?: string;
+    responseUpdateId?: string;
+  }; // Request information if this update is a request
 }

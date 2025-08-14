@@ -71,3 +71,120 @@ create index IF not exists idx_pma_subtasks_end_date on public."PMA_SubTasks" us
 create index IF not exists idx_pma_subtasks_deadline on public."PMA_SubTasks" using btree (deadline) TABLESPACE pg_default;
 create index IF not exists idx_pma_subtasks_tags on public."PMA_SubTasks" using gin (tags) TABLESPACE pg_default;
 create index IF not exists idx_pma_subtasks_progress on public."PMA_SubTasks" using btree (progress) TABLESPACE pg_default;
+
+
+---------------------------------------------------------------------------------
+
+create table public."PMA_Updates" (
+  id uuid not null,
+  message text not null,
+  user_id text not null,
+  entity_type text not null,
+  entity_id uuid not null,
+  created_at timestamp with time zone not null default now(),
+  "memberId" text null,
+  "customerListId" text null,
+  is_read_by jsonb null,
+  comment_to text null,
+  tagged_user_id jsonb null,
+  is_request jsonb null,
+  constraint PMA_Updates_pkey primary key (id),
+  constraint PMA_Updates_customerListId_fkey foreign KEY ("customerListId") references "CustomerList_duplicate" (id),
+  constraint PMA_Updates_memberId_fkey foreign KEY ("memberId") references "Member" ("memberId")
+) TABLESPACE pg_default;
+
+create index IF not exists idx_updates_entity on public."PMA_Updates" using btree (entity_type, entity_id) TABLESPACE pg_default;
+
+-- Additional indexes for new PMA_Updates columns
+create index IF not exists idx_updates_is_read_by on public."PMA_Updates" using gin (is_read_by) TABLESPACE pg_default;
+create index IF not exists idx_updates_tagged_user_id on public."PMA_Updates" using gin (tagged_user_id) TABLESPACE pg_default;
+create index IF not exists idx_updates_comment_to on public."PMA_Updates" using btree (comment_to) TABLESPACE pg_default;
+create index IF not exists idx_updates_is_request on public."PMA_Updates" using gin (is_request) TABLESPACE pg_default;
+----------------------------------------------------------
+
+
+create table public."PMA_Tasks" (
+  id uuid not null,
+  project_id uuid not null,
+  name text not null,
+  description text null,
+  task_type text not null,
+  status text not null,
+  assignee_id text null,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  start_date date null,
+  end_date date null,
+  deadline date null,
+  tags jsonb null,
+  progress smallint null,
+  constraint PMA_Tasks_pkey primary key (id),
+  constraint PMA_Tasks_project_id_fkey foreign KEY (project_id) references "PMA_Projects" (id) on delete CASCADE,
+  constraint PMA_Tasks_status_check check (
+    (
+      status = any (
+        array['todo'::text, 'in-progress'::text, 'done'::text]
+      )
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists idx_tasks_project_id on public."PMA_Tasks" using btree (project_id) TABLESPACE pg_default;
+
+
+
+--------------------------------------------------
+
+create table public."PMA_SubTasks" (
+  id uuid not null,
+  task_id uuid not null,
+  name text not null,
+  description text null,
+  task_type text not null,
+  status text not null,
+  assignee_id text null,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  start_date date null,
+  end_date date null,
+  deadline date null,
+  tags jsonb null,
+  progress smallint null,
+  constraint PMA_SubTasks_pkey primary key (id),
+  constraint PMA_SubTasks_task_id_fkey foreign KEY (task_id) references "PMA_Tasks" (id) on delete CASCADE,
+  constraint PMA_SubTasks_status_check check (
+    (
+      status = any (
+        array['todo'::text, 'in-progress'::text, 'done'::text]
+      )
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists idx_subtasks_task_id on public."PMA_SubTasks" using btree (task_id) TABLESPACE pg_default;
+
+--------------------------------------------------
+
+
+
+
+create table public."PMA_Users" (
+  id uuid not null,
+  first_name text null,
+  last_name text null,
+  email text not null,
+  profile_color text not null default '#2563eb'::text,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  role_id uuid null,
+  manager_id uuid null,
+  department text null,
+  constraint PMA_Users_pkey primary key (id),
+  constraint PMA_Users_id_fkey foreign KEY (id) references auth.users (id),
+  constraint PMA_Users_manager_id_fkey foreign KEY (manager_id) references "PMA_Users" (id) on delete set null,
+  constraint PMA_Users_role_id_fkey foreign KEY (role_id) references "PMA_Roles" (id) on delete set null
+) TABLESPACE pg_default;
+
+create index IF not exists idx_pma_users_role_id on public."PMA_Users" using btree (role_id) TABLESPACE pg_default;
+
+create index IF not exists idx_pma_users_manager_id on public."PMA_Users" using btree (manager_id) TABLESPACE pg_default;
