@@ -44,6 +44,7 @@ export const fetchProjects = async (): Promise<Project[]> => {
         status: p.status,
         projectType: p.project_type || 'Active',
         assigneeId: p.assignee_id,
+        flowChart: p.flow_chart,
         createdAt: p.created_at,
         updatedAt: p.updated_at,
         startDate: p.start_date,
@@ -72,6 +73,7 @@ export const addProject = async (project: Omit<Project, 'id' | 'createdAt' | 'up
       status: project.status,
       project_type: project.projectType,
       assignee_id: project.assigneeId,
+      flow_chart: project.flowChart,
       created_at: timestamp,
       updated_at: timestamp
     });
@@ -96,6 +98,7 @@ export const updateProject = async (project: Project): Promise<void> => {
       status: project.status,
       project_type: project.projectType,
       assignee_id: project.assigneeId,
+      flow_chart: project.flowChart,
       start_date: project.startDate,
       end_date: project.endDate,
       deadline: project.deadline,
@@ -496,6 +499,18 @@ export const updateRequestStatus = async (updateId: string, responseUpdateId: st
   }
 };
 
+export const deleteUpdate = async (id: string): Promise<void> => {
+  const { error } = await supabase
+    .from('PMA_Updates')
+    .delete()
+    .eq('id', id);
+  
+  if (error) {
+    console.error('Error deleting update:', error);
+    throw error;
+  }
+};
+
 // User operations
 export const fetchUsers = async (): Promise<User[]> => {
   return safeSupabaseCall(
@@ -647,16 +662,242 @@ export const fetchOKRProjects = async (flowChart: string): Promise<any[]> => {
   );
 };
 
-export const updateProjectDates = async (projectId: string, startDate: string, endDate: string): Promise<void> => {
+export const fetchIDSTasks = async (flowChart: string): Promise<any[]> => {
+  return safeSupabaseCall(
+    async () => {
+      // Try multiple approaches to find IDS tasks, as JSONB queries can be finicky
+      let finalData = null;
+      let finalError = null;
+      
+      // Approach 1: contains with array (standard approach)
+      try {
+        const { data: result1, error: error1 } = await supabase
+          .from('PMA_Tasks')
+          .select(`
+            *,
+            project:PMA_Projects(
+              id,
+              name,
+              flow_chart
+            )
+          `)
+          .contains('tags', ['IDS']);
+        
+        if (!error1 && result1 && result1.length > 0) {
+          finalData = result1;
+        }
+      } catch (e) {
+        console.log('Approach 1 failed:', e);
+      }
+      
+      // Approach 2: contains with string (if approach 1 didn't work)
+      if (!finalData || finalData.length === 0) {
+        try {
+          const { data: result2, error: error2 } = await supabase
+            .from('PMA_Tasks')
+            .select(`
+              *,
+              project:PMA_Projects(
+                id,
+                name,
+                flow_chart
+              )
+            `)
+            .contains('tags', 'IDS');
+          
+          if (!error2 && result2 && result2.length > 0) {
+            finalData = result2;
+          }
+        } catch (e) {
+          console.log('Approach 2 failed:', e);
+        }
+      }
+      
+      // Approach 3: filter with cs (contains) if others failed
+      if (!finalData || finalData.length === 0) {
+        try {
+          const { data: result3, error: error3 } = await supabase
+            .from('PMA_Tasks')
+            .select(`
+              *,
+              project:PMA_Projects(
+                id,
+                name,
+                flow_chart
+              )
+            `)
+            .filter('tags', 'cs', '["IDS"]');
+          
+          if (!error3 && result3 && result3.length > 0) {
+            finalData = result3;
+          }
+        } catch (e) {
+          console.log('Approach 3 failed:', e);
+        }
+      }
+      
+      // Approach 4: Two-step process (find tasks first, then join)
+      if (!finalData || finalData.length === 0) {
+        try {
+          // First, find tasks with IDS tags
+          const { data: tasksOnly, error: tasksError } = await supabase
+            .from('PMA_Tasks')
+            .select('*')
+            .contains('tags', ['IDS']);
+          
+          if (!tasksError && tasksOnly && tasksOnly.length > 0) {
+            // Then get the full data with project join
+            const taskIds = tasksOnly.map(t => t.id);
+            const { data: result4, error: error4 } = await supabase
+              .from('PMA_Tasks')
+              .select(`
+                *,
+                project:PMA_Projects(
+                  id,
+                  name,
+                  flow_chart
+                )
+              `)
+              .in('id', taskIds);
+            
+            if (!error4 && result4) {
+              finalData = result4;
+            }
+          }
+        } catch (e) {
+          console.log('Approach 4 failed:', e);
+        }
+      }
+      
+      if (finalError) {
+        console.error('Error fetching IDS tasks:', finalError);
+        throw finalError;
+      }
+      
+      return finalData || [];
+    },
+    'Error fetching IDS tasks',
+    []
+  );
+};
+
+// Function to remove IDS tag from a project
+export const removeIDSTagFromProject = async (projectId: string): Promise<void> => {
+  try {
+    // First get the current project to see its existing tags
+    const { data: currentProject, error: fetchError } = await supabase
+      .from('PMA_Projects')
+      .select('tags')
+      .eq('id', projectId)
+      .single();
+    
+    if (fetchError) {
+      console.error('Error fetching current project:', fetchError);
+      throw fetchError;
+    }
+    
+    // Remove IDS from existing tags
+    let newTags = [];
+    if (currentProject.tags && Array.isArray(currentProject.tags)) {
+      newTags = currentProject.tags.filter(tag => tag !== 'IDS');
+    }
+    
+    // Update the project with new tags (or null if no tags left)
+    const { error: updateError } = await supabase
+      .from('PMA_Projects')
+      .update({ 
+        tags: newTags.length > 0 ? newTags : null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', projectId);
+    
+    if (updateError) {
+      console.error('Error updating project tags:', updateError);
+      throw updateError;
+    }
+  } catch (error) {
+    console.error('Error in removeIDSTagFromProject:', error);
+    throw error;
+  }
+};
+
+// Function to remove IDS tag from a task
+export const removeIDSTagFromTask = async (taskId: string): Promise<void> => {
+  try {
+    // First get the current task to see its existing tags
+    const { data: currentTask, error: fetchError } = await supabase
+      .from('PMA_Tasks')
+      .select('tags')
+      .eq('id', taskId)
+      .single();
+    
+    if (fetchError) {
+      console.error('Error fetching current task:', fetchError);
+      throw fetchError;
+    }
+    
+    // Remove IDS from existing tags
+    let newTags = [];
+    if (currentTask.tags && Array.isArray(currentTask.tags)) {
+      newTags = currentTask.tags.filter(tag => tag !== 'IDS');
+    }
+    
+    // Update the task with new tags (or null if no tags left)
+    const { error: updateError } = await supabase
+      .from('PMA_Tasks')
+      .update({ 
+        tags: newTags.length > 0 ? newTags : null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', taskId);
+    
+    if (updateError) {
+      console.error('Error updating task tags:', updateError);
+      throw updateError;
+    }
+  } catch (error) {
+    console.error('Error in removeIDSTagFromTask:', error);
+    throw error;
+  }
+};
+
+export const fetchIDSProjects = async (flowChart: string): Promise<any[]> => {
+  return safeSupabaseCall(
+    async () => {
+      const { data, error } = await supabase
+        .from('PMA_Projects')
+        .select('*')
+        .eq('flow_chart', flowChart)
+        .contains('tags', ['IDS']);
+      
+      if (error) {
+        console.error('Error fetching IDS projects:', error);
+        throw error;
+      }
+      
+      return data;
+    },
+    'Error fetching IDS projects',
+    []
+  );
+};
+
+export const updateProjectDates = async (projectId: string, startDate: string, endDate?: string): Promise<void> => {
   const timestamp = new Date().toISOString();
+  
+  const updateData: any = {
+    start_date: startDate,
+    updated_at: timestamp
+  };
+  
+  // Only include end_date if it's provided
+  if (endDate) {
+    updateData.end_date = endDate;
+  }
   
   const { error } = await supabase
     .from('PMA_Projects')
-    .update({
-      start_date: startDate,
-      end_date: endDate,
-      updated_at: timestamp
-    })
+    .update(updateData)
     .eq('id', projectId);
   
   if (error) {

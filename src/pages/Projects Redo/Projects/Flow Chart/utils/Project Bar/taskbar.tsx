@@ -194,59 +194,69 @@ const TaskBar: React.FC<TaskBarProps> = ({
   totalUpdatesCount = 0,
   isClickable = true
 }) => {
+  // Check if project has no end date (same as start date means no real end date was set)
+  const projectHasNoEndDate = projectStart.getTime() === projectEnd.getTime();
+  
   // Calculate task dates - use project dates if task dates are not available
-  // Ensure we parse ISO dates correctly and normalize to start of day
+  // For projects with no end date, default tasks without dates to project start date
   const taskStartDate = task.startDate ? 
     new Date(parseISO(task.startDate).getFullYear(), parseISO(task.startDate).getMonth(), parseISO(task.startDate).getDate()) : 
     projectStart;
   const taskEndDate = task.endDate ? 
     new Date(parseISO(task.endDate).getFullYear(), parseISO(task.endDate).getMonth(), parseISO(task.endDate).getDate()) : 
-    projectEnd;
+    (projectHasNoEndDate ? projectStart : projectEnd); // Use project start if project has no end date
   const taskDeadline = task.deadline ? parseISO(task.deadline) : undefined;
+  
+  // Check if task has no real dates (both start and end default to project start for ongoing projects)
+  const taskHasNoDates = !task.startDate && !task.endDate && projectHasNoEndDate;
 
   // Check if task overlaps with current week view
-  if (taskEndDate < projectWeekStart || taskStartDate > projectWeekEnd) {
+  // For ongoing tasks (no specific dates), always show them since they're ongoing
+  if (!taskHasNoDates && (taskEndDate < projectWeekStart || taskStartDate > projectWeekEnd)) {
     return null;
   }
 
-  // Calculate task positioning relative to the full timeline (same as project bars)
-  // This fixes the positioning context issue where tasks were positioned relative to project bar width
-  const taskPosition = calculatePositionInFlexLayout(
-    taskStartDate,
-    taskEndDate,
-    projectWeekStart
-  );
+  // For ongoing tasks (no dates), span the full width of the project
+  let clampedLeftPercent, finalWidthPercent;
   
-  // Calculate project positioning relative to the full timeline
-  const projectPosition = calculatePositionInFlexLayout(
-    projectStart,
-    projectEnd,
-    projectWeekStart
-  );
+  if (taskHasNoDates) {
+    // Ongoing tasks span the full width of the project bar
+    clampedLeftPercent = 0;
+    finalWidthPercent = 100;
+  } else {
+    // Calculate task positioning relative to the full timeline (same as project bars)
+    const taskPosition = calculatePositionInFlexLayout(
+      taskStartDate,
+      taskEndDate,
+      projectWeekStart
+    );
+    
+    // Calculate project positioning relative to the full timeline
+    const projectPosition = calculatePositionInFlexLayout(
+      projectStart,
+      projectEnd,
+      projectWeekStart
+    );
+    
+    // Convert task position from project-relative to timeline-relative
+    const timelineLeftPercent = taskPosition.leftPercent;
+    const timelineWidthPercent = taskPosition.widthPercent;
+    
+    // Convert to project-relative coordinates for rendering within the project bar
+    const relativeLeftPercent = ((timelineLeftPercent - projectPosition.leftPercent) / projectPosition.widthPercent) * 100;
+    const relativeWidthPercent = (timelineWidthPercent / projectPosition.widthPercent) * 100;
+    
+    // Ensure minimum width for visibility and bounds checking
+    const calculatedWidth = Math.min(100 - relativeLeftPercent, relativeWidthPercent);
+    finalWidthPercent = Math.max(15, calculatedWidth);
+    clampedLeftPercent = Math.max(0, Math.min(85, relativeLeftPercent));
+  }
   
-  // Convert task position from project-relative to timeline-relative
-  // Tasks should be positioned relative to the full timeline, not the project bar
-  const timelineLeftPercent = taskPosition.leftPercent;
-  const timelineWidthPercent = taskPosition.widthPercent;
-  
-  // Convert to project-relative coordinates for rendering within the project bar
-  // Calculate where this task should appear within the project bar container
-  const relativeLeftPercent = ((timelineLeftPercent - projectPosition.leftPercent) / projectPosition.widthPercent) * 100;
-  const relativeWidthPercent = (timelineWidthPercent / projectPosition.widthPercent) * 100;
-  
-  // Ensure minimum width for visibility and bounds checking
-  const calculatedWidth = Math.min(100 - relativeLeftPercent, relativeWidthPercent);
-  const finalWidthPercent = Math.max(15, calculatedWidth);
-  const clampedLeftPercent = Math.max(0, Math.min(85, relativeLeftPercent));
-  
-  // Debug logging for task positioning
-  if (task.name.includes("Left")) {
+  // Debug logging for task positioning (only for tasks with dates)
+  if (!taskHasNoDates && task.name.includes("Left")) {
     console.log(`Task: ${task.name}`, {
       taskStartDate: taskStartDate.toDateString(),
       taskEndDate: taskEndDate.toDateString(),
-      timelinePosition: { left: timelineLeftPercent, width: timelineWidthPercent },
-      projectPosition: { left: projectPosition.leftPercent, width: projectPosition.widthPercent },
-      relativePosition: { left: relativeLeftPercent, width: relativeWidthPercent },
       finalPosition: { left: clampedLeftPercent, width: finalWidthPercent }
     });
   }
@@ -280,19 +290,22 @@ const TaskBar: React.FC<TaskBarProps> = ({
       }}
       title={`${task.name}
 Status: ${task.status.toUpperCase()}${task.progress ? `
-Progress: ${task.progress}%` : ''}
-Start: ${formatShortDate(taskStartDate)}
-End: ${formatShortDate(taskEndDate)}${taskDeadline ? `
+Progress: ${task.progress}%` : ''}${
+        taskHasNoDates 
+          ? `\nOngoing task (no specific dates set)`
+          : `\nStart: ${formatShortDate(taskStartDate)}
+End: ${formatShortDate(taskEndDate)}`
+      }${taskDeadline ? `
 Deadline: ${formatShortDate(taskDeadline)}` : ''}${
-        taskStartDate < projectWeekStart || taskEndDate > projectWeekEnd 
+        !taskHasNoDates && (taskStartDate < projectWeekStart || taskEndDate > projectWeekEnd)
           ? '\n(Task extends beyond visible week timeline)' 
           : ''
       }`}
     >
       {/* Task content - All info in one line */}
       <div className="flex items-center w-full min-w-0 space-x-1">
-        {/* Left arrow if task starts before visible area */}
-        {taskStartDate < projectWeekStart && (
+        {/* Left arrow if task starts before visible area (not for ongoing tasks) */}
+        {!taskHasNoDates && taskStartDate < projectWeekStart && (
           <span 
             className="flex-shrink-0"
             style={{ 
@@ -353,6 +366,11 @@ Deadline: ${formatShortDate(taskDeadline)}` : ''}${
              }}
            >
             {(() => {
+              // If task has no dates and project has no end date, show "Ongoing"
+              if (taskHasNoDates) {
+                return 'Ongoing';
+              }
+              
               const daysToStart = calculateDaysFromToday(taskStartDate);
               const daysToEnd = calculateDaysFromToday(taskEndDate);
               
@@ -404,8 +422,8 @@ Deadline: ${formatShortDate(taskDeadline)}` : ''}${
           </span>
         </div>
 
-        {/* Right arrow if task ends after visible area */}
-        {taskEndDate > projectWeekEnd && (
+        {/* Right arrow if task ends after visible area (not for ongoing tasks) */}
+        {!taskHasNoDates && taskEndDate > projectWeekEnd && (
           <span 
             className="flex-shrink-0"
             style={{ 

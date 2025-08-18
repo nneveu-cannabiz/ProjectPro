@@ -20,7 +20,7 @@ export const calculateDynamicHeight = (tasks: Task[], baseHeight: number = 80): 
 };
 
 // Calculate the required height for a row based on stacked projects and their tasks
-export const calculateRowHeight = (projects: any[], weekStart: Date, weekEnd: Date, stackedProjects: any[]): number => {
+export const calculateRowHeight = (_projects: any[], _weekStart: Date, _weekEnd: Date, stackedProjects: any[], baseProjectHeight: number = 48): number => {
   if (stackedProjects.length === 0) {
     return 96; // Minimum height when no projects
   }
@@ -30,8 +30,12 @@ export const calculateRowHeight = (projects: any[], weekStart: Date, weekEnd: Da
   
   stackedProjects.forEach((stackedProject) => {
     const projectTasks = stackedProject.project.tasks || [];
-    const projectHeight = calculateDynamicHeight(projectTasks, 80);
-    const stackedHeight = 8 + stackedProject.stackLevel * (projectHeight + 8) + projectHeight;
+    const baseDynamicHeight = calculateDynamicHeight(projectTasks, baseProjectHeight);
+    // Apply minimum height to ensure proper spacing without excessive gaps
+    const projectHeight = Math.max(baseDynamicHeight, 65);
+    // Start with margin (16px) for first project, then 65px spacing between projects
+    const stackedHeight = 16 + stackedProject.stackLevel * (projectHeight + 65) + projectHeight;
+
     maxHeight = Math.max(maxHeight, stackedHeight);
   });
   

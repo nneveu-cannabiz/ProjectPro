@@ -181,25 +181,29 @@ const ProjectBar: React.FC<ProjectBarProps> = ({
   totalUpdatesCount = 0,
   stackLevel = 0,
 }) => {
+  // Check if this project has no end date (same as start date means no real end date was set)
+  const hasNoEndDate = projectStart.getTime() === projectEnd.getTime();
+  
+
+  
+
   // Calculate dynamic height based on task content
   const baseDynamicHeight = calculateDynamicHeight(projectTasks || [], barHeightPx);
   
   // Ensure minimum height for new vertical layout (project name + dates + padding)
-  const minVerticalLayoutHeight = 100; // Further increased to accommodate task spacing
+  const minVerticalLayoutHeight = 65; // Balanced height to prevent overlap without excessive spacing
   const dynamicHeight = Math.max(baseDynamicHeight, minVerticalLayoutHeight);
   
-  // Debug: Log height calculation
-  if (projectTasks && projectTasks.length > 0) {
-    console.log(`Project: ${projectName}, Tasks: ${projectTasks.length}, Dynamic Height: ${dynamicHeight}px`);
-  }
+
   // Check if project overlaps with current week view at all
-  if (projectEnd < weekStart || projectStart > weekEnd) {
+  // For projects with no end date, only check if start is after the week end
+  if ((!hasNoEndDate && projectEnd < weekStart) || projectStart > weekEnd) {
     return null;
   }
 
   // Determine visual boundaries and arrow indicators
   const projectStartsBeforeWeek = projectStart < weekStart;
-  const projectEndsAfterWeek = projectEnd > weekEnd;
+  const projectEndsAfterWeek = hasNoEndDate ? true : projectEnd > weekEnd; // If no end date, always show right arrow
   const showOriginalStartDate = projectStart < today;
   
   // Calculate the visual start date for rendering checks
@@ -212,7 +216,7 @@ const ProjectBar: React.FC<ProjectBarProps> = ({
 
   // Calculate positioning using the new layout system
   const barStartDate = projectStartsBeforeWeek ? weekStart : projectStart;
-  const barEndDate = projectEndsAfterWeek ? weekEnd : projectEnd;
+  const barEndDate = hasNoEndDate ? weekEnd : (projectEndsAfterWeek ? weekEnd : projectEnd);
   
   // Use the new positioning calculation that accounts for weekend columns
   const { leftPercent, widthPercent } = calculatePositionInFlexLayout(
@@ -225,15 +229,15 @@ const ProjectBar: React.FC<ProjectBarProps> = ({
   const clampedLeftPercent = Math.max(-100, leftPercent); // Allow up to 100% off-screen to the left
   const adjustedWidthPercent = widthPercent + (leftPercent - clampedLeftPercent);
   
-  // Calculate remaining days from today to project end
-  const remainingDays = calculateRemainingDays(projectEnd, today);
+  // Calculate remaining days from today to project end (or show as ongoing if no end date)
+  const remainingDays = hasNoEndDate ? null : calculateRemainingDays(projectEnd, today);
 
   return (
     <div
       className={`absolute ${isClickable ? 'cursor-pointer hover:opacity-80' : ''}`}
       onClick={isClickable && onClick ? () => onClick(projectId) : undefined}
       style={{
-        top: `${8 + stackLevel * (dynamicHeight + 8)}px`,
+        top: `${16 + stackLevel * (dynamicHeight + 65)}px`,
         left: `${clampedLeftPercent}%`,
         width: `${adjustedWidthPercent}%`,
         height: `${dynamicHeight}px`,
@@ -307,14 +311,14 @@ const ProjectBar: React.FC<ProjectBarProps> = ({
             />
           )}
           <span className="text-sm font-medium" style={{ color: brandTheme.text.secondary }}>
-            {remainingDays}d left
+            {hasNoEndDate ? 'Ongoing' : `${remainingDays}d left`}
           </span>
         </div>
       </div>
       
       {/* Middle section - Task Bars */}
       <div className="relative flex-1" style={{ minHeight: (projectTasks || []).length > 0 ? '40px' : '10px', marginBottom: '6px' }}>
-        {(projectTasks || []).slice(0, 3).map((task, index) => {
+        {(projectTasks || []).map((task, index) => {
           const taskUpdatesCount = getTaskUpdatesCount ? getTaskUpdatesCount(task.id) : { unreadCount: 0, totalCount: 0 };
           
           return (
@@ -334,20 +338,6 @@ const ProjectBar: React.FC<ProjectBarProps> = ({
             />
           );
         })}
-        {(projectTasks || []).length > 3 && (
-          <div 
-            className="absolute bottom-0 right-0 text-xs italic"
-            style={{ 
-              color: brandTheme.text.muted,
-              fontSize: '10px',
-              backgroundColor: brandTheme.background.primary,
-              padding: '2px 4px',
-              borderRadius: '2px'
-            }}
-          >
-            +{(projectTasks || []).length - 3} more
-          </div>
-        )}
       </div>
       
       {/* Bottom section - Start and End dates */}
@@ -368,7 +358,9 @@ const ProjectBar: React.FC<ProjectBarProps> = ({
               Deadline: {formatShortDate(projectDeadline)}
             </span>
           )}
-          <span>End: {formatShortDate(projectEnd)}</span>
+          <span>
+            {hasNoEndDate ? 'No end date set' : `End: ${formatShortDate(projectEnd)}`}
+          </span>
         </div>
       </div>
     </div>

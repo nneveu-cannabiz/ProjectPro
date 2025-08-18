@@ -13,7 +13,7 @@ interface ProjectFormProps {
 }
 
 const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSubmit }) => {
-  const { categories, addProject, updateProject, getUsers } = useAppContext();
+  const { categories, addProject, updateProject, getUsers, getProductDevUsers, projects: allProjects, addCategory } = useAppContext();
   
   const [name, setName] = useState(project?.name || '');
   const [description, setDescription] = useState(project?.description || '');
@@ -23,12 +23,66 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSubmit }) => {
   const [assigneeId, setAssigneeId] = useState(project?.assigneeId || '');
   const [errors, setErrors] = useState<Record<string, string>>({});
   
-  const users = getUsers();
+  // Custom category state
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
   
-  const categoryOptions = categories.map((cat) => ({
-    value: cat.name,
-    label: cat.name,
-  }));
+  const users = getProductDevUsers();
+  
+  // Get unique categories from existing projects plus database categories
+  const getAvailableCategories = () => {
+    const projectCategories = new Set(allProjects.map(p => p.category).filter(Boolean));
+    const dbCategories = new Set(categories.map(c => c.name));
+    
+    // Also include the currently selected category if it exists
+    if (category) {
+      projectCategories.add(category);
+    }
+    
+    // Combine and deduplicate
+    const allCategories = Array.from(new Set([...dbCategories, ...projectCategories]));
+    return allCategories.sort();
+  };
+
+  const handleCategoryChange = (value: string) => {
+    if (value === 'ADD_NEW_CATEGORY') {
+      setShowAddCategory(true);
+    } else {
+      setCategory(value);
+      setShowAddCategory(false);
+    }
+  };
+
+  const handleAddNewCategory = async () => {
+    if (!newCategoryName.trim()) return;
+    
+    try {
+      setIsAddingCategory(true);
+      const categoryName = newCategoryName.trim();
+      
+      await addCategory(categoryName);
+      
+      // Hide the add form first
+      setShowAddCategory(false);
+      setNewCategoryName('');
+      
+      // Use setTimeout to ensure the context has updated before setting the category
+      setTimeout(() => {
+        setCategory(categoryName);
+      }, 0);
+      
+    } catch (error) {
+      console.error('Error adding category:', error);
+    } finally {
+      setIsAddingCategory(false);
+    }
+  };
+
+  const handleCancelAddCategory = () => {
+    setShowAddCategory(false);
+    setNewCategoryName('');
+  };
   
   const statusOptions = [
     { value: 'todo', label: 'To Do' },
@@ -115,13 +169,56 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSubmit }) => {
         placeholder="Enter project description"
       />
       
-      <Select
-        label="Category"
-        options={categoryOptions}
-        value={category}
-        onChange={setCategory}
-        error={errors.category}
-      />
+      {!showAddCategory ? (
+        <Select
+          label="Category"
+          options={[
+            ...getAvailableCategories().map((catName) => ({
+              value: catName,
+              label: catName,
+            })),
+            { value: 'ADD_NEW_CATEGORY', label: '+ Add New Category' }
+          ]}
+          value={category}
+          onChange={handleCategoryChange}
+          error={errors.category}
+        />
+      ) : (
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Add New Category
+          </label>
+          <div className="flex space-x-2">
+            <Input
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              placeholder="Enter category name"
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddNewCategory();
+                }
+              }}
+            />
+            <Button
+              type="button"
+              onClick={handleAddNewCategory}
+              disabled={!newCategoryName.trim() || isAddingCategory}
+              className="whitespace-nowrap"
+            >
+              {isAddingCategory ? 'Adding...' : 'Add'}
+            </Button>
+            <Button
+              type="button"
+              onClick={handleCancelAddCategory}
+              variant="outline"
+              className="whitespace-nowrap"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
       
       <Select
         label="Status"

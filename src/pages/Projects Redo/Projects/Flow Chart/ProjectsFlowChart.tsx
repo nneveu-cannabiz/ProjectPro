@@ -11,6 +11,7 @@ import { User } from '../../../../types';
 import FlowChartContainer from './FlowChartContainer';
 import OutstandingList from './Outstanding Projects/outstandinglist';
 import OKRPriorities from './OKRs/OKRPriorities';
+import IDSSection from './IDS/IDSSection';
 import { createMenuItems, getMenuButtonStyle, getMenuDropdownStyle, getMenuItemStyle } from './utils/menu';
 
 const ProjectsFlowChart: React.FC = () => {
@@ -442,6 +443,11 @@ const ProjectsFlowChart: React.FC = () => {
        {/* Flow Chart Container - Takes remaining height */}
        <div className="flex-1 overflow-hidden">
          <FlowChartContainer />
+       </div>
+
+       {/* IDS Section */}
+       <div className="p-6">
+         <IDSSection />
        </div>
      </div>
    );

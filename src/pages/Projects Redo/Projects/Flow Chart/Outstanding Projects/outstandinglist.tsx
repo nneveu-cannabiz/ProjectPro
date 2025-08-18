@@ -60,9 +60,9 @@ const OutstandingList: React.FC = () => {
       await refreshData();
       
       const flowChartProjects = await fetchFlowChartProjects('Product Development');
-      // Filter projects that don't have start_date or end_date
+      // Filter projects that don't have start_date (end_date is optional)
       const outstandingProjects = flowChartProjects.filter(
-        (project: OutstandingProject) => !project.start_date || !project.end_date
+        (project: OutstandingProject) => !project.start_date
       );
       setProjects(outstandingProjects);
     } catch (error) {
@@ -95,11 +95,15 @@ const OutstandingList: React.FC = () => {
 
   const handleFinishSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedProject || !finishFormData.startDate || !finishFormData.endDate) return;
+    if (!selectedProject || !finishFormData.startDate) return;
 
     setUpdatingProject(selectedProject.id);
     try {
-      await updateProjectDates(selectedProject.id, finishFormData.startDate, finishFormData.endDate);
+      await updateProjectDates(
+        selectedProject.id, 
+        finishFormData.startDate, 
+        finishFormData.endDate || undefined
+      );
       // TODO: Add assignee update when that functionality is available
       await loadOutstandingProjects();
       setShowFinishModal(false);
@@ -176,7 +180,7 @@ const OutstandingList: React.FC = () => {
             Outstanding Projects
           </h2>
           <p className="text-sm" style={{ color: brandTheme.text.muted }}>
-            Projects that need start and end dates. Click project names to view details.
+            Projects that need a start date to appear in the flow chart. Click project names to view details.
           </p>
         </div>
 
@@ -190,7 +194,7 @@ const OutstandingList: React.FC = () => {
             }}
           >
             <p className="text-sm" style={{ color: brandTheme.text.muted }}>
-              No outstanding projects found. All projects have start and end dates assigned.
+              No outstanding projects found. All projects have start dates assigned.
             </p>
           </div>
         ) : (
@@ -250,7 +254,7 @@ const OutstandingList: React.FC = () => {
                       className="block text-sm font-medium mb-2"
                       style={{ color: brandTheme.text.primary }}
                     >
-                      End Date
+                      End Date (optional)
                     </label>
                     <input
                       type="date"
@@ -261,7 +265,6 @@ const OutstandingList: React.FC = () => {
                         borderColor: brandTheme.border.light,
                         backgroundColor: brandTheme.background.secondary
                       }}
-                      required
                     />
                   </div>
                   
@@ -308,7 +311,7 @@ const OutstandingList: React.FC = () => {
                   </button>
                   <button
                     type="submit"
-                    disabled={updatingProject === selectedProject.id || !finishFormData.startDate || !finishFormData.endDate}
+                    disabled={updatingProject === selectedProject.id || !finishFormData.startDate}
                     className="px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
                     style={{
                       backgroundColor: brandTheme.primary.navy,

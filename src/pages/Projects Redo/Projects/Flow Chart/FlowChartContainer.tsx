@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { parseISO } from 'date-fns';
-import { RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { RefreshCw, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { brandTheme } from '../../../../styles/brandTheme';
 import { fetchUsersByDepartment, fetchFlowChartProjects, updateProjectAssignee, fetchTasks } from '../../../../data/supabase-store';
 import { User, Task } from '../../../../types';
@@ -11,6 +11,12 @@ import ProjectBar from './utils/Project Bar/projectbar';
 import ProjectDetailsModal from './utils/ProjectDetailsModal';
 import TaskDetailsModal from './utils/TaskDetailsModal';
 import UpdatesDetailsModal from './utils/UpdatesDetailsModal';
+import Modal from '../../../../components/ui/Modal';
+import Input from '../../../../components/ui/Input';
+import Textarea from '../../../../components/ui/Textarea';
+import Select from '../../../../components/ui/Select';
+import Button from '../../../../components/ui/Button';
+import UserSelect from '../../../../components/UserSelect';
 import { calculateRowHeight } from './utils/heightUtils';
 import { 
   generateWorkDates, 
@@ -41,6 +47,17 @@ interface StackedProject {
 
 // Helper function to check if two projects overlap in time
 const projectsOverlap = (project1: FlowProject, project2: FlowProject): boolean => {
+  // If either project has no real end date (start === end), consider them as ongoing and overlapping
+  const project1HasNoEndDate = project1.startDate.getTime() === project1.endDate.getTime();
+  const project2HasNoEndDate = project2.startDate.getTime() === project2.endDate.getTime();
+  
+  // If either project has no end date, they should always be considered overlapping
+  // This ensures they stack vertically instead of overlapping horizontally
+  if (project1HasNoEndDate || project2HasNoEndDate) {
+    return true;
+  }
+  
+  // Standard overlap check for projects with defined end dates
   return project1.startDate < project2.endDate && project2.startDate < project1.endDate;
 };
 
@@ -50,9 +67,15 @@ const calculateProjectStacking = (projects: FlowProject[], weekStart: Date, week
   if (projects.length === 0) return [];
   
   // Filter projects that are visible in the current week
-  const visibleProjects = projects.filter(project => 
-    project.endDate >= weekStart && project.startDate <= weekEnd
-  );
+  const visibleProjects = projects.filter(project => {
+    const hasNoEndDate = project.startDate.getTime() === project.endDate.getTime();
+    // For projects with no end date, only check if they start before or during the week
+    if (hasNoEndDate) {
+      return project.startDate <= weekEnd;
+    }
+    // Standard visibility check for projects with defined end dates
+    return project.endDate >= weekStart && project.startDate <= weekEnd;
+  });
   
   // Sort projects by start date, then by end date
   const sortedProjects = [...visibleProjects].sort((a, b) => {
@@ -104,7 +127,7 @@ const calculateProjectStacking = (projects: FlowProject[], weekStart: Date, week
 
 
 const FlowChartContainer: React.FC = () => {
-  const { getUpdatesForEntity } = useAppContext();
+  const { getUpdatesForEntity, categories, addProject, addCategory, getProductDevUsers, projects: allProjects } = useAppContext();
   const { currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,6 +146,27 @@ const FlowChartContainer: React.FC = () => {
   const [selectedUpdatesProjectId, setSelectedUpdatesProjectId] = useState<string | null>(null);
   const [showTaskUpdatesModal, setShowTaskUpdatesModal] = useState(false);
   const [selectedUpdatesTaskId, setSelectedUpdatesTaskId] = useState<string | null>(null);
+  const [showNewProjectModal, setShowNewProjectModal] = useState(false);
+  
+  // New project form state
+  const [newProjectForm, setNewProjectForm] = useState({
+    name: '',
+    description: '',
+    category: '',
+    status: 'todo' as const,
+    projectType: 'Active' as const,
+    assigneeId: '',
+    startDate: new Date().toISOString().split('T')[0], // Today's date
+    endDate: '',
+    deadline: ''
+  });
+  const [newProjectErrors, setNewProjectErrors] = useState<Record<string, string>>({});
+  const [isSubmittingNewProject, setIsSubmittingNewProject] = useState(false);
+  
+  // Custom category state
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
   
   // Refs for scroll synchronization
   const dateScrollRef = useRef<HTMLDivElement>(null);
@@ -146,7 +190,7 @@ const FlowChartContainer: React.FC = () => {
       const allTasks = await fetchTasks();
       
       const parsedProjects: FlowProject[] = (flowChartProjects || [])
-        .filter((p: any) => p.start_date && p.end_date)
+        .filter((p: any) => p.start_date) // Include all projects with start_date (end_date is optional)
         .map((p: any) => {
           // Get tasks for this project
           const projectTasks = allTasks.filter(task => task.projectId === p.id);
@@ -155,7 +199,7 @@ const FlowChartContainer: React.FC = () => {
             id: p.id,
             name: p.name,
             startDate: parseISO(p.start_date),
-            endDate: parseISO(p.end_date),
+            endDate: p.end_date ? parseISO(p.end_date) : parseISO(p.start_date), // Use start_date as end_date if no end_date provided
             assigneeId: p.assignee_id || null,
             tasks: projectTasks,
             progress: p.progress || 0,
@@ -315,6 +359,144 @@ const FlowChartContainer: React.FC = () => {
     setSelectedUpdatesTaskId(null);
   };
 
+  const handleNewProjectClick = () => {
+    setShowNewProjectModal(true);
+  };
+
+  const handleCloseNewProjectModal = () => {
+    setShowNewProjectModal(false);
+    // Reset form
+    setNewProjectForm({
+      name: '',
+      description: '',
+      category: '',
+      status: 'todo',
+      projectType: 'Active',
+      assigneeId: '',
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: '',
+      deadline: ''
+    });
+    setNewProjectErrors({});
+    setShowAddCategory(false);
+    setNewCategoryName('');
+  };
+
+  // Get unique categories from existing projects plus database categories
+  const getAvailableCategories = () => {
+    const projectCategories = new Set(allProjects.map(p => p.category).filter(Boolean));
+    const dbCategories = new Set(categories.map(c => c.name));
+    
+    // Also include the currently selected category if it exists
+    if (newProjectForm.category) {
+      projectCategories.add(newProjectForm.category);
+    }
+    
+    // Combine and deduplicate
+    const allCategories = Array.from(new Set([...dbCategories, ...projectCategories]));
+    return allCategories.sort();
+  };
+
+  const handleCategoryChange = (value: string) => {
+    if (value === 'ADD_NEW_CATEGORY') {
+      setShowAddCategory(true);
+    } else {
+      setNewProjectForm(prev => ({ ...prev, category: value }));
+      setShowAddCategory(false);
+    }
+  };
+
+  const handleAddNewCategory = async () => {
+    if (!newCategoryName.trim()) return;
+    
+    try {
+      setIsAddingCategory(true);
+      const categoryName = newCategoryName.trim();
+      
+      await addCategory(categoryName);
+      
+      // Set the new category as selected and hide the add form
+      setShowAddCategory(false);
+      setNewCategoryName('');
+      
+      // Use setTimeout to ensure the context has updated before setting the category
+      setTimeout(() => {
+        setNewProjectForm(prev => ({ ...prev, category: categoryName }));
+      }, 0);
+      
+    } catch (error) {
+      console.error('Error adding category:', error);
+    } finally {
+      setIsAddingCategory(false);
+    }
+  };
+
+  const handleCancelAddCategory = () => {
+    setShowAddCategory(false);
+    setNewCategoryName('');
+  };
+
+  const validateNewProjectForm = () => {
+    const errors: Record<string, string> = {};
+    
+    if (!newProjectForm.name.trim()) {
+      errors.name = 'Project name is required';
+    }
+    
+    if (!newProjectForm.category) {
+      errors.category = 'Category is required';
+    }
+    
+    setNewProjectErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleNewProjectSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateNewProjectForm()) return;
+    
+    setIsSubmittingNewProject(true);
+    
+    try {
+      await addProject({
+        name: newProjectForm.name,
+        description: newProjectForm.description,
+        category: newProjectForm.category,
+        status: newProjectForm.status,
+        projectType: newProjectForm.projectType,
+        assigneeId: newProjectForm.assigneeId || undefined,
+        flowChart: 'Product Development', // Set flow chart to Product Development
+        startDate: newProjectForm.startDate, // Always include start date (defaults to today)
+        endDate: newProjectForm.endDate || undefined,
+        deadline: newProjectForm.deadline || undefined,
+      });
+      
+      // Refresh data to show the new project
+      await loadData(true);
+      handleCloseNewProjectModal();
+    } catch (error) {
+      console.error('Error creating project:', error);
+    } finally {
+      setIsSubmittingNewProject(false);
+    }
+  };
+
+  const handleNewProjectFormChange = (field: string, value: string) => {
+    setNewProjectForm(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    
+    // Clear error for this field when user starts typing
+    if (newProjectErrors[field]) {
+      setNewProjectErrors(prev => ({
+        ...prev,
+        [field]: ''
+      }));
+    }
+  };
+
   // Helper function to get updates counts for a project
   const getUpdatesCountsForProject = (projectId: string) => {
     const updates = getUpdatesForEntity('project', projectId);
@@ -370,34 +552,49 @@ const FlowChartContainer: React.FC = () => {
              </p>
            </div>
            
-           <div className="flex items-center space-x-4">
-             {/* Horizontal Scroll Controls */}
-             <div className="flex items-center space-x-2">
-               <button
-                 onClick={handleScrollLeft}
-                 className="p-2 rounded-lg border transition-colors hover:bg-gray-50"
-                 style={{
-                   borderColor: brandTheme.border.light,
-                   color: brandTheme.text.primary,
-                   backgroundColor: brandTheme.background.primary
-                 }}
-                 title="Scroll left"
-               >
-                 <ChevronLeft size={18} />
-               </button>
-               <button
-                 onClick={handleScrollRight}
-                 className="p-2 rounded-lg border transition-colors hover:bg-gray-50"
-                 style={{
-                   borderColor: brandTheme.border.light,
-                   color: brandTheme.text.primary,
-                   backgroundColor: brandTheme.background.primary
-                 }}
-                 title="Scroll right"
-               >
-                 <ChevronRight size={18} />
-               </button>
-             </div>
+                     <div className="flex items-center space-x-4">
+            {/* Add New Project Button */}
+            <button
+              onClick={handleNewProjectClick}
+              className="flex items-center px-4 py-2 rounded-lg border transition-colors hover:bg-blue-50"
+              style={{
+                borderColor: brandTheme.primary.navy,
+                color: brandTheme.primary.navy,
+                backgroundColor: brandTheme.background.primary
+              }}
+              title="Add new project"
+            >
+              <Plus size={18} className="mr-2" />
+              New Project
+            </button>
+            
+            {/* Horizontal Scroll Controls */}
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleScrollLeft}
+                className="p-2 rounded-lg border transition-colors hover:bg-gray-50"
+                style={{
+                  borderColor: brandTheme.border.light,
+                  color: brandTheme.text.primary,
+                  backgroundColor: brandTheme.background.primary
+                }}
+                title="Scroll left"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <button
+                onClick={handleScrollRight}
+                className="p-2 rounded-lg border transition-colors hover:bg-gray-50"
+                style={{
+                  borderColor: brandTheme.border.light,
+                  color: brandTheme.text.primary,
+                  backgroundColor: brandTheme.background.primary
+                }}
+                title="Scroll right"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
              
              {/* Refresh Button */}
              <button
@@ -523,7 +720,7 @@ const FlowChartContainer: React.FC = () => {
                 const dateRangeStart = currentDates[0];
                 const dateRangeEnd = currentDates[currentDates.length - 1];
                 const stackedProjects = calculateProjectStacking(userProjects, dateRangeStart, dateRangeEnd);
-                const baseRowHeight = calculateRowHeight(userProjects, dateRangeStart, dateRangeEnd, stackedProjects);
+                const baseRowHeight = calculateRowHeight(userProjects, dateRangeStart, dateRangeEnd, stackedProjects, 48);
                 const rowHeight = baseRowHeight + 16; // Add 8px buffer on top and bottom
                 
                 return (
@@ -555,13 +752,13 @@ const FlowChartContainer: React.FC = () => {
               })
             )}
             
-            {/* Unassigned Projects Row */}
+            {/* Unassigned Projects Row - includes projects with start date only */}
             {(() => {
               const unassignedProjects = projects.filter(project => !project.assigneeId);
               const dateRangeStart = currentDates[0];
               const dateRangeEnd = currentDates[currentDates.length - 1];
               const stackedUnassignedProjects = calculateProjectStacking(unassignedProjects, dateRangeStart, dateRangeEnd);
-              const baseUnassignedRowHeight = calculateRowHeight(unassignedProjects, dateRangeStart, dateRangeEnd, stackedUnassignedProjects);
+              const baseUnassignedRowHeight = calculateRowHeight(unassignedProjects, dateRangeStart, dateRangeEnd, stackedUnassignedProjects, 48);
               const unassignedRowHeight = baseUnassignedRowHeight + 16; // Add 8px buffer on top and bottom
               
               return (
@@ -606,7 +803,7 @@ const FlowChartContainer: React.FC = () => {
                 const dateRangeStart = currentDates[0];
                 const dateRangeEnd = currentDates[currentDates.length - 1];
                 const stackedProjects = calculateProjectStacking(userProjects, dateRangeStart, dateRangeEnd);
-                const baseRowHeight = calculateRowHeight(userProjects, dateRangeStart, dateRangeEnd, stackedProjects);
+                const baseRowHeight = calculateRowHeight(userProjects, dateRangeStart, dateRangeEnd, stackedProjects, 48);
                 const rowHeight = baseRowHeight + 16; // Add 8px buffer on top and bottom
                 
                 return (
@@ -695,7 +892,7 @@ const FlowChartContainer: React.FC = () => {
                 const dateRangeStart = currentDates[0];
                 const dateRangeEnd = currentDates[currentDates.length - 1];
                 const stackedUnassignedProjects = calculateProjectStacking(unassignedProjects, dateRangeStart, dateRangeEnd);
-                const baseUnassignedRowHeight = calculateRowHeight(unassignedProjects, dateRangeStart, dateRangeEnd, stackedUnassignedProjects);
+                const baseUnassignedRowHeight = calculateRowHeight(unassignedProjects, dateRangeStart, dateRangeEnd, stackedUnassignedProjects, 48);
                 const unassignedRowHeight = baseUnassignedRowHeight + 16; // Add 8px buffer on top and bottom
                 
                 return (
@@ -737,7 +934,7 @@ const FlowChartContainer: React.FC = () => {
                     const dateRangeEnd = currentDates[currentDates.length - 1];
                     const today = new Date();
                     
-                    // Only show projects without an assignee
+                    // Show all projects without an assignee (includes projects with start date only)
                     const unassignedProjects = projects.filter(project => !project.assigneeId);
                     
                     // Calculate stacking positions to avoid overlaps
@@ -901,6 +1098,151 @@ const FlowChartContainer: React.FC = () => {
           })()}
         />
       )}
+
+      {/* New Project Modal */}
+      <Modal
+        isOpen={showNewProjectModal}
+        onClose={handleCloseNewProjectModal}
+        title="Create New Project"
+      >
+        <form onSubmit={handleNewProjectSubmit} className="space-y-4">
+          <Input
+            label="Project Name"
+            value={newProjectForm.name}
+            onChange={(e) => handleNewProjectFormChange('name', e.target.value)}
+            error={newProjectErrors.name}
+            placeholder="Enter project name"
+            required
+          />
+          
+          <Textarea
+            label="Description (optional)"
+            value={newProjectForm.description}
+            onChange={(e) => handleNewProjectFormChange('description', e.target.value)}
+            placeholder="Enter project description"
+            rows={3}
+          />
+          
+          {!showAddCategory ? (
+            <Select
+              label="Category"
+              options={[
+                ...getAvailableCategories().map((catName) => ({
+                  value: catName,
+                  label: catName,
+                })),
+                { value: 'ADD_NEW_CATEGORY', label: '+ Add New Category' }
+              ]}
+              value={newProjectForm.category}
+              onChange={(value) => handleCategoryChange(value)}
+              error={newProjectErrors.category}
+              required
+            />
+          ) : (
+            <div>
+              <label className="block text-sm font-medium mb-2" style={{ color: brandTheme.text.primary }}>
+                Add New Category
+              </label>
+              <div className="flex space-x-2">
+                <Input
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  placeholder="Enter category name"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddNewCategory();
+                    }
+                  }}
+                />
+                <Button
+                  onClick={handleAddNewCategory}
+                  disabled={!newCategoryName.trim() || isAddingCategory}
+                  className="whitespace-nowrap"
+                >
+                  {isAddingCategory ? 'Adding...' : 'Add'}
+                </Button>
+                <Button
+                  onClick={handleCancelAddCategory}
+                  variant="outline"
+                  className="whitespace-nowrap"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+          
+          <Select
+            label="Status"
+            options={[
+              { value: 'todo', label: 'To Do' },
+              { value: 'in-progress', label: 'In Progress' },
+              { value: 'done', label: 'Done' },
+            ]}
+            value={newProjectForm.status}
+            onChange={(value) => handleNewProjectFormChange('status', value)}
+          />
+          
+          <Select
+            label="Project Type"
+            options={[
+              { value: 'Active', label: 'Active' },
+              { value: 'Upcoming', label: 'Upcoming' },
+              { value: 'Future', label: 'Future' },
+              { value: 'On Hold', label: 'On Hold' },
+            ]}
+            value={newProjectForm.projectType}
+            onChange={(value) => handleNewProjectFormChange('projectType', value)}
+          />
+          
+          <UserSelect
+            label="Project Assignee (optional)"
+            selectedUserId={newProjectForm.assigneeId}
+            onChange={(value) => handleNewProjectFormChange('assigneeId', value)}
+            users={getProductDevUsers()}
+            placeholder="Unassigned"
+          />
+          
+          <Input
+            type="date"
+            label="Start Date"
+            value={newProjectForm.startDate}
+            onChange={(e) => handleNewProjectFormChange('startDate', e.target.value)}
+          />
+          
+          <Input
+            type="date"
+            label="End Date (optional)"
+            value={newProjectForm.endDate}
+            onChange={(e) => handleNewProjectFormChange('endDate', e.target.value)}
+          />
+          
+          <Input
+            type="date"
+            label="Deadline (optional)"
+            value={newProjectForm.deadline}
+            onChange={(e) => handleNewProjectFormChange('deadline', e.target.value)}
+          />
+          
+          <div className="flex justify-end space-x-3 pt-4">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={handleCloseNewProjectModal}
+              disabled={isSubmittingNewProject}
+            >
+              Cancel
+            </Button>
+            <Button 
+              type="submit"
+              disabled={isSubmittingNewProject}
+            >
+              {isSubmittingNewProject ? 'Creating...' : 'Create Project'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

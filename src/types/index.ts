@@ -7,6 +7,7 @@ export interface Project {
   status: 'todo' | 'in-progress' | 'done';
   projectType: 'Active' | 'Upcoming' | 'Future' | 'On Hold';
   assigneeId?: string; // Optional assignee for the project
+  flowChart?: string; // Flow chart department assignment
   createdAt: string;
   updatedAt: string;
   startDate?: string;

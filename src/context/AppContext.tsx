@@ -12,6 +12,7 @@ interface AppContextType {
   taskTypes: TaskType[];
   updates: Update[];
   getUsers: () => User[];
+  getProductDevUsers: () => User[];
   addProject: (project: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>;
   updateProject: (project: Project) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
@@ -28,6 +29,7 @@ interface AppContextType {
   updateTaskType: (taskType: TaskType) => Promise<void>;
   deleteTaskType: (id: string) => Promise<void>;
   addUpdate: (update: Omit<Update, 'id' | 'createdAt'>) => Promise<string>;
+  deleteUpdate: (id: string) => Promise<void>;
   markUpdateAsRead: (updateId: string, userId: string) => Promise<void>;
   updateRequestStatus: (updateId: string, responseUpdateId: string) => Promise<void>;
   getUpdatesForEntity: (entityType: 'project' | 'task' | 'subtask', entityId: string) => Update[];
@@ -60,6 +62,7 @@ const AppContext = createContext<AppContextType>({
   taskTypes: defaultTaskTypes,
   updates: [],
   getUsers: () => [],
+  getProductDevUsers: () => [],
   addProject: async () => '',
   updateProject: async () => {},
   deleteProject: async () => {},
@@ -76,6 +79,7 @@ const AppContext = createContext<AppContextType>({
   updateTaskType: async () => {},
   deleteTaskType: async () => {},
   addUpdate: async () => '',
+  deleteUpdate: async () => {},
   getUpdatesForEntity: () => [],
   getRelatedUpdates: () => [],
   isLoading: false,
@@ -518,6 +522,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const deleteUpdate = async (id: string) => {
+    try {
+      setIsLoading(true);
+      await supabaseStore.deleteUpdate(id);
+      
+      // Update local state
+      setUpdates(prev => prev.filter(u => u.id !== id));
+    } catch (error) {
+      console.error('Error deleting update:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const markUpdateAsRead = async (updateId: string, userId: string) => {
     try {
       setIsLoading(true);
@@ -622,6 +641,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return users;
   };
 
+  // Get only product development users
+  const getProductDevUsers = () => {
+    return users.filter(user => user.department === 'Product Development');
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -632,6 +656,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         taskTypes,
         updates,
         getUsers,
+        getProductDevUsers,
         addProject,
         updateProject,
         deleteProject,
@@ -648,6 +673,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateTaskType,
         deleteTaskType,
         addUpdate,
+        deleteUpdate,
         markUpdateAsRead,
         updateRequestStatus,
         getUpdatesForEntity,

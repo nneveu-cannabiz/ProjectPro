@@ -35,6 +35,7 @@ interface RequestUpdateItemProps {
   currentUserId: string;
   users: User[];
   onRespondToRequest: (requestId: string, response: string) => void;
+  onUndoRequest: (requestId: string) => void;
   onReply: (updateId: string) => void;
   isReplying: boolean;
   replyForm?: React.ReactNode;
@@ -203,6 +204,7 @@ const RequestUpdateItem: React.FC<RequestUpdateItemProps> = ({
   currentUserId,
   users,
   onRespondToRequest,
+  onUndoRequest,
   onReply,
   isReplying,
   replyForm
@@ -214,6 +216,7 @@ const RequestUpdateItem: React.FC<RequestUpdateItemProps> = ({
 
   const requestedUser = users.find(u => u.id === update.isRequest!.requestedUserId);
   const isRequestedUser = currentUserId === update.isRequest!.requestedUserId;
+  const isRequester = currentUserId === update.userId;
   const hasResponded = update.isRequest!.respondedAt;
 
   const formatDate = (dateString: string) => {
@@ -314,6 +317,29 @@ const RequestUpdateItem: React.FC<RequestUpdateItemProps> = ({
             </button>
           )}
 
+          {/* Undo Request Button - only show if user is the requester and hasn't been responded to */}
+          {isRequester && !hasResponded && (
+            <button
+              onClick={() => onUndoRequest(update.id)}
+              className="px-3 py-1 text-sm rounded transition-colors border"
+              style={{
+                backgroundColor: brandTheme.background.primary,
+                color: brandTheme.status.warning,
+                borderColor: brandTheme.status.warning
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = brandTheme.status.warning;
+                e.currentTarget.style.color = 'white';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = brandTheme.background.primary;
+                e.currentTarget.style.color = brandTheme.status.warning;
+              }}
+            >
+              Undo Request
+            </button>
+          )}
+
           {/* Comment on Request */}
           <button
             onClick={() => onReply(update.id)}
@@ -392,7 +418,7 @@ const UpdatesDetailsModal: React.FC<UpdatesDetailsModalProps> = ({
   entityName,
 }) => {
   const { currentUser } = useAuth();
-  const { getUpdatesForEntity, addUpdate, markUpdateAsRead, updateRequestStatus, getUsers } = useAppContext();
+  const { getUpdatesForEntity, addUpdate, deleteUpdate, markUpdateAsRead, updateRequestStatus, getUsers } = useAppContext();
   const [newMessage, setNewMessage] = useState('');
   const [replyToId, setReplyToId] = useState<string | null>(null);
   const [showUserSuggestions, setShowUserSuggestions] = useState(false);
@@ -585,6 +611,17 @@ const UpdatesDetailsModal: React.FC<UpdatesDetailsModalProps> = ({
       await updateRequestStatus(requestId, responseUpdateId);
     } catch (error) {
       console.error('Error responding to request:', error);
+    }
+  };
+
+  const handleUndoRequest = async (requestId: string) => {
+    if (!currentUser) return;
+
+    try {
+      // Delete the request update
+      await deleteUpdate(requestId);
+    } catch (error) {
+      console.error('Error undoing request:', error);
     }
   };
 
@@ -856,6 +893,7 @@ const UpdatesDetailsModal: React.FC<UpdatesDetailsModalProps> = ({
                       currentUserId={currentUser.id}
                       users={users}
                       onRespondToRequest={handleRespondToRequest}
+                      onUndoRequest={handleUndoRequest}
                       onReply={handleReply}
                       isReplying={replyToId === update.id}
                       replyForm={replyToId === update.id ? createReplyForm(false) : undefined}
