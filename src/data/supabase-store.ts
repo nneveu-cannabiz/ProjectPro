@@ -59,6 +59,53 @@ export const fetchProjects = async (): Promise<Project[]> => {
   );
 };
 
+// Special project ID for standalone tasks
+export const STANDALONE_TASKS_PROJECT_ID = '00000000-0000-0000-0000-000000000001';
+
+// Ensure the standalone tasks project exists
+export const ensureStandaloneTasksProject = async (): Promise<void> => {
+  try {
+    // Check if the standalone project already exists
+    const { data: existingProject, error: checkError } = await supabase
+      .from('PMA_Projects')
+      .select('id')
+      .eq('id', STANDALONE_TASKS_PROJECT_ID)
+      .single();
+
+    if (checkError && checkError.code !== 'PGRST116') {
+      // PGRST116 is "no rows returned", which is expected if project doesn't exist
+      console.error('Error checking for standalone project:', checkError);
+      return;
+    }
+
+    if (!existingProject) {
+      // Create the standalone tasks project
+      const timestamp = new Date().toISOString();
+      const { error: insertError } = await supabase
+        .from('PMA_Projects')
+        .insert({
+          id: STANDALONE_TASKS_PROJECT_ID,
+          name: 'Standalone Tasks',
+          description: 'Container project for standalone tasks in flow charts',
+          category: 'System',
+          status: 'in-progress',
+          project_type: 'Active',
+          flow_chart: 'Product Development',
+          created_at: timestamp,
+          updated_at: timestamp
+        });
+
+      if (insertError) {
+        console.error('Error creating standalone project:', insertError);
+      } else {
+        console.log('Created standalone tasks project');
+      }
+    }
+  } catch (error) {
+    console.error('Error in ensureStandaloneTasksProject:', error);
+  }
+};
+
 export const addProject = async (project: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
   const timestamp = new Date().toISOString();
   const id = uuidv4();
@@ -148,6 +195,8 @@ export const fetchTasks = async (): Promise<Task[]> => {
         taskType: t.task_type,
         status: t.status,
         assigneeId: t.assignee_id,
+        flowChart: t.flow_chart,
+        priority: t.priority,
         createdAt: t.created_at,
         updatedAt: t.updated_at,
         startDate: t.start_date,
@@ -158,6 +207,44 @@ export const fetchTasks = async (): Promise<Task[]> => {
       }));
     },
     'Error fetching tasks',
+    []
+  );
+};
+
+// Fetch tasks by flow chart
+export const fetchFlowChartTasks = async (flowChart: string): Promise<Task[]> => {
+  return safeSupabaseCall(
+    async () => {
+      const { data, error } = await supabase
+        .from('PMA_Tasks')
+        .select('*')
+        .eq('flow_chart', flowChart);
+      
+      if (error) {
+        console.error('Error fetching flow chart tasks:', error);
+        throw error;
+      }
+      
+      return data.map(t => ({
+        id: t.id,
+        projectId: t.project_id,
+        name: t.name,
+        description: t.description || '',
+        taskType: t.task_type,
+        status: t.status,
+        assigneeId: t.assignee_id,
+        flowChart: t.flow_chart,
+        priority: t.priority,
+        createdAt: t.created_at,
+        updatedAt: t.updated_at,
+        startDate: t.start_date,
+        endDate: t.end_date,
+        deadline: t.deadline,
+        tags: t.tags,
+        progress: t.progress
+      }));
+    },
+    'Error fetching flow chart tasks',
     []
   );
 };
@@ -176,6 +263,13 @@ export const addTask = async (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>
       task_type: task.taskType,
       status: task.status,
       assignee_id: task.assigneeId,
+      flow_chart: task.flowChart,
+      priority: task.priority,
+      start_date: task.startDate,
+      end_date: task.endDate,
+      deadline: task.deadline,
+      tags: task.tags,
+      progress: task.progress,
       created_at: timestamp,
       updated_at: timestamp
     });
@@ -200,6 +294,8 @@ export const updateTask = async (task: Task): Promise<void> => {
       task_type: task.taskType,
       status: task.status,
       assignee_id: task.assigneeId,
+      flow_chart: task.flowChart,
+      priority: task.priority,
       start_date: task.startDate,
       end_date: task.endDate,
       deadline: task.deadline,

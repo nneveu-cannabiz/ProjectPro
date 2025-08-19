@@ -1036,6 +1036,7 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
         <TaskForm 
           projectId={projectId} 
           task={currentTask}
+          project={project}
           onSubmit={handleTaskModalClose} 
         />
       </Modal>

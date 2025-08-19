@@ -209,6 +209,65 @@ const CollapsibleTaskItem: React.FC<CollapsibleTaskItemProps> = ({
               </div>
             )}
             
+            {/* Task Dates Section */}
+            <div className="mb-4 pb-3 border-b border-gray-200">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Task Dates:</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                <div>
+                  <span className="text-gray-600 font-medium">Start Date:</span>
+                  <div className="text-gray-800 mt-1">
+                    {task.startDate ? new Date(task.startDate).toLocaleDateString() : 'Not set'}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-gray-600 font-medium">End Date:</span>
+                  <div className="text-gray-800 mt-1">
+                    {task.endDate ? new Date(task.endDate).toLocaleDateString() : 'Not set'}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-gray-600 font-medium">Deadline:</span>
+                  <div className={`mt-1 font-medium ${task.deadline ? 'text-orange-600' : 'text-gray-800'}`}>
+                    {task.deadline ? new Date(task.deadline).toLocaleDateString() : 'Not set'}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Progress and Tags if they exist */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mt-3">
+                {typeof task.progress === 'number' && (
+                  <div>
+                    <span className="text-gray-600 font-medium">Progress:</span>
+                    <div className="flex items-center mt-1">
+                      <div className="flex-1 bg-gray-200 rounded-full h-2 mr-2">
+                        <div
+                          className="h-2 rounded-full transition-all duration-300"
+                          style={{
+                            width: `${task.progress}%`,
+                            backgroundColor: task.progress === 100 ? '#10B981' : '#3B82F6'
+                          }}
+                        />
+                      </div>
+                      <span className="text-gray-800 font-medium text-xs">{task.progress}%</span>
+                    </div>
+                  </div>
+                )}
+                
+                {task.tags && task.tags.length > 0 && (
+                  <div>
+                    <span className="text-gray-600 font-medium">Tags:</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {task.tags.map((tag, index) => (
+                        <Badge key={index} variant="secondary" className="text-xs">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            
             {/* Subtasks section */}
             <div>
               <h4 className="text-sm font-medium text-gray-700 mb-2">Subtasks:</h4>

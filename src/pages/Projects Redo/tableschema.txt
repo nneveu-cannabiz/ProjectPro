@@ -118,6 +118,8 @@ create table public."PMA_Tasks" (
   deadline date null,
   tags jsonb null,
   progress smallint null,
+  flow_chart text null,
+  priority text null,
   constraint PMA_Tasks_pkey primary key (id),
   constraint PMA_Tasks_project_id_fkey foreign KEY (project_id) references "PMA_Projects" (id) on delete CASCADE,
   constraint PMA_Tasks_status_check check (
@@ -130,9 +132,6 @@ create table public."PMA_Tasks" (
 ) TABLESPACE pg_default;
 
 create index IF not exists idx_tasks_project_id on public."PMA_Tasks" using btree (project_id) TABLESPACE pg_default;
-
-
-
 --------------------------------------------------
 
 create table public."PMA_SubTasks" (

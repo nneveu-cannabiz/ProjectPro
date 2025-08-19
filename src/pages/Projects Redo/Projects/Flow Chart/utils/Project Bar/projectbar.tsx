@@ -5,8 +5,10 @@ import { brandTheme } from '../../../../../../styles/brandTheme';
 import { Task } from '../../../../../../types';
 import TaskBar from './taskbar';
 import ProjectUpdateIcon from './projectupdateicon';
+import OverdueTaskBarInsert from './OverdueTaskBarInsert';
 import { calculateDynamicHeight } from '../heightUtils';
-import { generateWorkDates, isWeekendDay } from '../dateUtils';
+import { generateWorkDates } from '../dateUtils';
+import { calculateColumnPosition } from '../columnUtils';
 
 export interface ProjectBarProps {
   projectId?: string;
@@ -30,6 +32,7 @@ export interface ProjectBarProps {
   unreadUpdatesCount?: number;
   totalUpdatesCount?: number;
   stackLevel?: number;
+  topPosition?: number; // Override automatic positioning
 }
 
 
@@ -52,109 +55,8 @@ const getProgressColor = (progress: number): string => {
   return brandTheme.status.success; // Full green for 100%
 };
 
-// Calculate position accounting for mixed flex and fixed width columns
-const calculatePositionInFlexLayout = (
-  startDate: Date,
-  endDate: Date,
-  rangeStart: Date
-): { leftPercent: number; widthPercent: number } => {
-  const allDates = generateWorkDates(rangeStart);
-  
-  // Find start and end column indices
-  let startColumnIndex = -1;
-  let endColumnIndex = -1;
-  
-  for (let i = 0; i < allDates.length; i++) {
-    const currentDate = allDates[i];
-    
-    // Find the start column
-    if (startColumnIndex === -1 && currentDate >= startDate) {
-      startColumnIndex = i;
-    }
-    
-    // Find the end column - we want to include the full day that contains the end date
-    if (currentDate.toDateString() === endDate.toDateString()) {
-      endColumnIndex = i;
-      break;
-    } else if (currentDate > endDate) {
-      // If we've passed the end date, use the previous column
-      endColumnIndex = Math.max(0, i - 1);
-      break;
-    }
-  }
-  
-  // Handle edge cases
-  if (startColumnIndex === -1) {
-    startColumnIndex = 0;
-  }
-  if (endColumnIndex === -1) {
-    endColumnIndex = allDates.length - 1;
-  }
-  
-  // Ensure we span at least one column
-  if (endColumnIndex < startColumnIndex) {
-    endColumnIndex = startColumnIndex;
-  }
-  
-  // Calculate position based on actual CSS layout:
-  // Weekend columns: w-12 (48px fixed)
-  // Working day columns: flex-1 (share remaining space equally)
-  
-  // Count total flex units and fixed pixels
-  let totalFlexUnits = 0;
-  let totalFixedWidth = 0;
-  let leftFlexUnits = 0;
-  let leftFixedWidth = 0;
-  let spannedFlexUnits = 0;
-  let spannedFixedWidth = 0;
-  
-  allDates.forEach((date, index) => {
-    const isWeekend = isWeekendDay(date);
-    
-    if (isWeekend) {
-      totalFixedWidth += 48; // w-12 = 48px
-      if (index < startColumnIndex) {
-        leftFixedWidth += 48;
-      }
-      if (index >= startColumnIndex && index <= endColumnIndex) {
-        spannedFixedWidth += 48;
-      }
-    } else {
-      totalFlexUnits += 1; // flex-1 = 1 flex unit
-      if (index < startColumnIndex) {
-        leftFlexUnits += 1;
-      }
-      if (index >= startColumnIndex && index <= endColumnIndex) {
-        spannedFlexUnits += 1;
-      }
-    }
-  });
-  
-  // In CSS flexbox with mixed flex and fixed items:
-  // 1. Fixed width items (w-12) take their space first
-  // 2. Remaining space is divided equally among flex-1 items
-  // 3. We need to calculate percentages based on this actual distribution
-  
-  // Approximate the actual rendered widths
-  // Assume container is 100% width, weekend columns take minimal space
-  const assumedContainerWidth = 1000; // Assume 1000px container for calculation
-  const remainingWidth = assumedContainerWidth - totalFixedWidth;
-  const flexUnitWidth = totalFlexUnits > 0 ? remainingWidth / totalFlexUnits : 0;
-  
-  // Calculate actual pixel positions
-  const leftPixels = leftFixedWidth + (leftFlexUnits * flexUnitWidth);
-  const spannedPixels = spannedFixedWidth + (spannedFlexUnits * flexUnitWidth);
-  
-  // Convert to percentages
-  const leftPercent = (leftPixels / assumedContainerWidth) * 100;
-  const widthPercent = (spannedPixels / assumedContainerWidth) * 100;
-  
-  // Add a small buffer to ensure we reach the end of the end column
-  const bufferedWidthPercent = widthPercent + 0.1; // Small buffer
-  const finalWidthPercent = Math.min(100 - leftPercent, bufferedWidthPercent);
-  
-  return { leftPercent, widthPercent: finalWidthPercent };
-};
+// Use shared column positioning utility
+const calculatePositionInFlexLayout = calculateColumnPosition;
 
 
 
@@ -180,6 +82,7 @@ const ProjectBar: React.FC<ProjectBarProps> = ({
   unreadUpdatesCount = 0,
   totalUpdatesCount = 0,
   stackLevel = 0,
+  topPosition,
 }) => {
   // Check if this project has no end date (same as start date means no real end date was set)
   const hasNoEndDate = projectStart.getTime() === projectEnd.getTime();
@@ -237,7 +140,7 @@ const ProjectBar: React.FC<ProjectBarProps> = ({
       className={`absolute ${isClickable ? 'cursor-pointer hover:opacity-80' : ''}`}
       onClick={isClickable && onClick ? () => onClick(projectId) : undefined}
       style={{
-        top: `${16 + stackLevel * (dynamicHeight + 65)}px`,
+        top: topPosition !== undefined ? `${topPosition}px` : `${16 + stackLevel * 120}px`, // Use passed position or fallback
         left: `${clampedLeftPercent}%`,
         width: `${adjustedWidthPercent}%`,
         height: `${dynamicHeight}px`,
@@ -318,27 +221,146 @@ const ProjectBar: React.FC<ProjectBarProps> = ({
       
       {/* Middle section - Task Bars */}
       <div className="relative flex-1" style={{ minHeight: (projectTasks || []).length > 0 ? '40px' : '10px', marginBottom: '6px' }}>
-        {(projectTasks || []).map((task, index) => {
-          const taskUpdatesCount = getTaskUpdatesCount ? getTaskUpdatesCount(task.id) : { unreadCount: 0, totalCount: 0 };
+        {(() => {
+          const tasks = projectTasks || [];
           
-          return (
-            <TaskBar
-              key={task.id}
-              task={task}
-              projectStart={projectStart}
-              projectEnd={projectEnd}
-              projectWeekStart={weekStart}
-              projectWeekEnd={weekEnd}
-              stackLevel={index}
-              onTaskClick={onTaskClick}
-              onUpdatesClick={onTaskUpdatesClick}
-              unreadUpdatesCount={taskUpdatesCount.unreadCount}
-              totalUpdatesCount={taskUpdatesCount.totalCount}
-              isClickable={!!onTaskClick}
-            />
-          );
-        })}
+          // Helper function to check if a task is overdue
+          const isTaskOverdue = (task: Task) => {
+            if (task.status === 'done') return false;
+            if (!task.endDate) return false;
+            
+            const today = new Date();
+            const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            const taskEndDate = new Date(task.endDate);
+            const taskEndNormalized = new Date(taskEndDate.getFullYear(), taskEndDate.getMonth(), taskEndDate.getDate());
+            
+            return taskEndNormalized < todayNormalized;
+          };
+          
+          // Helper function to check if a task is visible
+          const isTaskVisible = (task: Task) => {
+            const taskStartDate = task.startDate ? new Date(task.startDate) : projectStart;
+            const originalTaskEndDate = task.endDate ? new Date(task.endDate) : projectEnd;
+            const projectHasNoEndDate = projectStart.getTime() === projectEnd.getTime();
+            const taskHasNoDates = !task.startDate && !task.endDate && projectHasNoEndDate;
+            
+            // For ongoing tasks, always visible
+            if (taskHasNoDates) {
+              return true;
+            }
+            
+            // Check if task is overdue
+            const today = new Date();
+            const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            const isOverdue = isTaskOverdue(task);
+            
+            if (isOverdue) {
+              // Show overdue task if today is within the current week OR if the original task overlaps
+              const todayInWeek = todayNormalized >= weekStart && todayNormalized <= weekEnd;
+              const originalTaskOverlaps = !(originalTaskEndDate < weekStart || taskStartDate > weekEnd);
+              
+              return todayInWeek || originalTaskOverlaps;
+            } else {
+              // Regular visibility check for non-overdue tasks
+              return !(originalTaskEndDate < weekStart || taskStartDate > weekEnd);
+            }
+          };
+          
+          // Separate tasks into overdue and non-overdue, keeping only visible ones
+          const visibleTasks = tasks.filter(isTaskVisible);
+          const nonOverdueTasks = visibleTasks.filter(task => !isTaskOverdue(task));
+          
+          // Render only non-overdue tasks in the regular task area
+          // Overdue tasks will be rendered in the special OverdueTaskBarInsert component
+          return nonOverdueTasks.map((task, index) => {
+            const taskUpdatesCount = getTaskUpdatesCount ? getTaskUpdatesCount(task.id) : { unreadCount: 0, totalCount: 0 };
+            
+            return (
+              <TaskBar
+                key={task.id}
+                task={task}
+                projectStart={projectStart}
+                projectEnd={projectEnd}
+                projectWeekStart={weekStart}
+                projectWeekEnd={weekEnd}
+                stackLevel={index}
+                onTaskClick={onTaskClick}
+                onUpdatesClick={onTaskUpdatesClick}
+                unreadUpdatesCount={taskUpdatesCount.unreadCount}
+                totalUpdatesCount={taskUpdatesCount.totalCount}
+                isClickable={!!onTaskClick}
+              />
+            );
+          });
+        })()}
       </div>
+      
+      {/* Overdue Tasks Container */}
+      {(() => {
+        const tasks = projectTasks || [];
+        const visibleTasks = tasks.filter((task: Task) => {
+          const taskStartDate = task.startDate ? new Date(task.startDate) : projectStart;
+          const originalTaskEndDate = task.endDate ? new Date(task.endDate) : projectEnd;
+          const projectHasNoEndDate = projectStart.getTime() === projectEnd.getTime();
+          const taskHasNoDates = !task.startDate && !task.endDate && projectHasNoEndDate;
+          
+          // For ongoing tasks, always visible
+          if (taskHasNoDates) {
+            return true;
+          }
+          
+          // Check if task is overdue
+          const today = new Date();
+          const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+          const isOverdue = task.status !== 'done' && task.endDate && 
+            new Date(task.endDate).getTime() < todayNormalized.getTime();
+          
+          if (isOverdue) {
+            // Show overdue task if today is within the current week OR if the original task overlaps
+            // Use a more robust check for today being in week - check against the generated dates
+            const allWeekDates = generateWorkDates(weekStart);
+            const todayInWeek = allWeekDates.some(date => {
+              const normalizedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+              return normalizedDate.getTime() === todayNormalized.getTime();
+            });
+            const originalTaskOverlaps = !(originalTaskEndDate < weekStart || taskStartDate > weekEnd);
+            
+
+            
+            return todayInWeek || originalTaskOverlaps;
+          } else {
+            // Regular visibility check for non-overdue tasks
+            return !(originalTaskEndDate < weekStart || taskStartDate > weekEnd);
+          }
+        });
+        
+        const overdueTasks = visibleTasks.filter((task: Task) => {
+          if (task.status === 'done') return false;
+          if (!task.endDate) return false;
+          
+          const today = new Date();
+          const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+          const taskEndDate = new Date(task.endDate);
+          const taskEndNormalized = new Date(taskEndDate.getFullYear(), taskEndDate.getMonth(), taskEndDate.getDate());
+          
+          return taskEndNormalized < todayNormalized;
+        });
+        
+
+        
+        return (
+          <OverdueTaskBarInsert
+            overdueTasks={overdueTasks}
+            projectStart={projectStart}
+            projectEnd={projectEnd}
+            projectWeekStart={weekStart}
+            projectWeekEnd={weekEnd}
+            onTaskClick={onTaskClick}
+            onTaskUpdatesClick={onTaskUpdatesClick}
+            getTaskUpdatesCount={getTaskUpdatesCount}
+          />
+        );
+      })()}
       
       {/* Bottom section - Start and End dates */}
       <div className="flex items-center justify-between mt-1 text-sm">

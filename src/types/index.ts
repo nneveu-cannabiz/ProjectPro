@@ -25,6 +25,8 @@ export interface Task {
   taskType: string;
   status: 'todo' | 'in-progress' | 'done';
   assigneeId?: string; // Optional assignee for the task
+  flowChart?: string; // Flow chart department assignment
+  priority?: 'Critical' | 'High' | 'Medium' | 'Low' | 'Very Low';
   createdAt: string;
   updatedAt: string;
   startDate?: string;

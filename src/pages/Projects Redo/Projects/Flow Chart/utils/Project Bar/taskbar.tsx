@@ -2,7 +2,8 @@ import React from 'react';
 import { format, parseISO } from 'date-fns';
 import { brandTheme } from '../../../../../../styles/brandTheme';
 import { Task } from '../../../../../../types';
-import { generateWorkDates, isWeekendDay } from '../dateUtils';
+
+import { calculateColumnPosition } from '../columnUtils';
 import TaskUpdateIcon from './taskupdateicon';
 
 export interface TaskBarProps {
@@ -21,128 +22,8 @@ export interface TaskBarProps {
 
 
 
-// Calculate positioning that accounts for weekend columns having fixed width
-const calculatePositionInFlexLayout = (
-  taskStart: Date,
-  taskEnd: Date,
-  weekStart: Date
-): { leftPercent: number; widthPercent: number } => {
-  // Generate all dates in the current week view
-  const allDates = generateWorkDates(weekStart);
-  
-  // Find the column indices for task start and end
-  let startColumnIndex = -1;
-  let endColumnIndex = -1;
-  
-  for (let i = 0; i < allDates.length; i++) {
-    const currentDate = allDates[i];
-    
-    // Normalize currentDate to start of day for accurate comparison
-    const normalizedCurrentDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
-    const normalizedTaskStart = new Date(taskStart.getFullYear(), taskStart.getMonth(), taskStart.getDate());
-    const normalizedTaskEnd = new Date(taskEnd.getFullYear(), taskEnd.getMonth(), taskEnd.getDate());
-    
-    // Find the start column
-    if (startColumnIndex === -1 && normalizedCurrentDate >= normalizedTaskStart) {
-      startColumnIndex = i;
-    }
-    
-    // Find the end column - we want to include the full day that contains the end date
-    if (normalizedCurrentDate.getTime() === normalizedTaskEnd.getTime()) {
-      endColumnIndex = i;
-      break;
-    } else if (normalizedCurrentDate > normalizedTaskEnd) {
-      // If we've passed the end date, use the previous column
-      endColumnIndex = Math.max(0, i - 1);
-      break;
-    }
-  }
-  
-  // Handle edge cases
-  if (startColumnIndex === -1) {
-    startColumnIndex = 0;
-  }
-  if (endColumnIndex === -1) {
-    endColumnIndex = allDates.length - 1;
-  }
-  
-  // Ensure we span at least one column
-  if (endColumnIndex < startColumnIndex) {
-    endColumnIndex = startColumnIndex;
-  }
-  
-  // Calculate position based on actual CSS layout:
-  // Weekend columns: w-12 (48px fixed)
-  // Working day columns: flex-1 (share remaining space equally)
-  
-  // Count total flex units and fixed pixels
-  let totalFlexUnits = 0;
-  let totalFixedWidth = 0;
-  let leftFlexUnits = 0;
-  let leftFixedWidth = 0;
-  let spannedFlexUnits = 0;
-  let spannedFixedWidth = 0;
-  
-  allDates.forEach((date, index) => {
-    const isWeekend = isWeekendDay(date);
-    
-    if (isWeekend) {
-      totalFixedWidth += 48; // w-12 = 48px
-      if (index < startColumnIndex) {
-        leftFixedWidth += 48;
-      }
-      if (index >= startColumnIndex && index <= endColumnIndex) {
-        spannedFixedWidth += 48;
-      }
-    } else {
-      totalFlexUnits += 1; // flex-1 = 1 flex unit
-      if (index < startColumnIndex) {
-        leftFlexUnits += 1;
-      }
-      if (index >= startColumnIndex && index <= endColumnIndex) {
-        spannedFlexUnits += 1;
-      }
-    }
-  });
-  
-  // Use a simpler percentage-based approach that works consistently across rows
-  // Calculate based on column ratios instead of pixel assumptions
-  
-  const totalColumns = allDates.length;
-  const weekendColumnCount = allDates.filter(date => isWeekendDay(date)).length;
-  const workdayColumnCount = totalColumns - weekendColumnCount;
-  
-  // Calculate position based on column indices, accounting for different column types
-  let leftPosition = 0;
-  let spannedWidth = 0;
-  
-  // Each weekend column is worth 0.4 units (48px / 120px), each workday is worth 1 unit
-  const weekendWeight = 0.4;
-  const workdayWeight = 1.0;
-  
-  let totalWeight = (weekendColumnCount * weekendWeight) + (workdayColumnCount * workdayWeight);
-  
-  for (let i = 0; i < allDates.length; i++) {
-    const isWeekend = isWeekendDay(allDates[i]);
-    const columnWeight = isWeekend ? weekendWeight : workdayWeight;
-    
-    if (i < startColumnIndex) {
-      leftPosition += columnWeight;
-    }
-    
-    if (i >= startColumnIndex && i <= endColumnIndex) {
-      spannedWidth += columnWeight;
-    }
-  }
-  
-  // Convert to percentages
-  const leftPercent = (leftPosition / totalWeight) * 100;
-  const widthPercent = (spannedWidth / totalWeight) * 100;
-  
-  const finalWidthPercent = Math.max(widthPercent, 0.1); // Ensure minimum visibility
-  
-  return { leftPercent, widthPercent: finalWidthPercent };
-};
+// Use shared column positioning utility
+const calculatePositionInFlexLayout = calculateColumnPosition;
 
 const formatShortDate = (date: Date): string => {
   return format(date, 'MMM dd');
@@ -202,10 +83,21 @@ const TaskBar: React.FC<TaskBarProps> = ({
   const taskStartDate = task.startDate ? 
     new Date(parseISO(task.startDate).getFullYear(), parseISO(task.startDate).getMonth(), parseISO(task.startDate).getDate()) : 
     projectStart;
-  const taskEndDate = task.endDate ? 
+  const originalTaskEndDate = task.endDate ? 
     new Date(parseISO(task.endDate).getFullYear(), parseISO(task.endDate).getMonth(), parseISO(task.endDate).getDate()) : 
     (projectHasNoEndDate ? projectStart : projectEnd); // Use project start if project has no end date
   const taskDeadline = task.deadline ? parseISO(task.deadline) : undefined;
+  
+  // Get current date for overdue calculation
+  const today = new Date();
+  const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  
+  // Check if task is overdue and incomplete
+  const isTaskComplete = task.status === 'done';
+  const isTaskOverdue = originalTaskEndDate < todayNormalized && !isTaskComplete;
+  
+  // Keep original end date for positioning - don't extend overdue tasks visually
+  const taskEndDate = originalTaskEndDate;
   
   // Check if task has no real dates (both start and end default to project start for ongoing projects)
   const taskHasNoDates = !task.startDate && !task.endDate && projectHasNoEndDate;
@@ -277,8 +169,8 @@ const TaskBar: React.FC<TaskBarProps> = ({
         left: `${clampedLeftPercent}%`,
         width: `${finalWidthPercent}%`,
         height: `${taskBarHeight}px`,
-        backgroundColor: brandTheme.primary.paleBlue, // Light blue background
-        border: `1px solid ${brandTheme.primary.lightBlue}`, // Medium blue border
+        backgroundColor: isTaskOverdue ? '#FEF3C7' : brandTheme.primary.paleBlue, // Yellow background for overdue
+        border: `1px solid ${isTaskOverdue ? '#F59E0B' : brandTheme.primary.lightBlue}`, // Orange border for overdue
         borderRadius: '4px',
         display: 'flex',
         alignItems: 'center',
@@ -294,26 +186,27 @@ Progress: ${task.progress}%` : ''}${
         taskHasNoDates 
           ? `\nOngoing task (no specific dates set)`
           : `\nStart: ${formatShortDate(taskStartDate)}
-End: ${formatShortDate(taskEndDate)}`
+End: ${formatShortDate(originalTaskEndDate)}${isTaskOverdue ? ' (OVERDUE)' : ''}`
       }${taskDeadline ? `
 Deadline: ${formatShortDate(taskDeadline)}` : ''}${
         !taskHasNoDates && (taskStartDate < projectWeekStart || taskEndDate > projectWeekEnd)
           ? '\n(Task extends beyond visible week timeline)' 
           : ''
-      }`}
+      }${isTaskOverdue ? '\n⚠️ This task is overdue and incomplete' : ''}`}
     >
       {/* Task content - All info in one line */}
       <div className="flex items-center w-full min-w-0 space-x-1">
-        {/* Left arrow if task starts before visible area (not for ongoing tasks) */}
+        {/* Left indicator if task starts before visible area (not for ongoing tasks) */}
         {!taskHasNoDates && taskStartDate < projectWeekStart && (
           <span 
             className="flex-shrink-0"
             style={{ 
               color: brandTheme.primary.navy,
-              fontSize: '10px'
+              fontSize: '10px',
+              fontWeight: 'bold'
             }}
           >
-            ←
+            ⋯
           </span>
         )}
 
@@ -360,9 +253,10 @@ Deadline: ${formatShortDate(taskDeadline)}` : ''}${
            <span 
              className="font-medium"
              style={{ 
-               color: brandTheme.primary.navy,
+               color: isTaskOverdue ? '#DC2626' : brandTheme.primary.navy, // Red text for overdue
                fontSize: '15px',
-               whiteSpace: 'nowrap'
+               whiteSpace: 'nowrap',
+               fontWeight: isTaskOverdue ? 'bold' : 'medium' // Bold text for overdue
              }}
            >
             {(() => {
@@ -371,8 +265,14 @@ Deadline: ${formatShortDate(taskDeadline)}` : ''}${
                 return 'Ongoing';
               }
               
+              // Show overdue status for incomplete tasks past their original end date
+              if (isTaskOverdue) {
+                const daysOverdue = Math.abs(calculateDaysFromToday(originalTaskEndDate));
+                return `OVERDUE ${daysOverdue}d`;
+              }
+              
               const daysToStart = calculateDaysFromToday(taskStartDate);
-              const daysToEnd = calculateDaysFromToday(taskEndDate);
+              const daysToEnd = calculateDaysFromToday(originalTaskEndDate); // Use original end date for calculation
               
               if (daysToStart > 0) {
                 return `Starts in: ${daysToStart}d`;
@@ -422,16 +322,17 @@ Deadline: ${formatShortDate(taskDeadline)}` : ''}${
           </span>
         </div>
 
-        {/* Right arrow if task ends after visible area (not for ongoing tasks) */}
+        {/* Right indicator if task ends after visible area (not for ongoing tasks) */}
         {!taskHasNoDates && taskEndDate > projectWeekEnd && (
           <span 
             className="flex-shrink-0"
             style={{ 
               color: brandTheme.primary.navy,
-              fontSize: '10px'
+              fontSize: '10px',
+              fontWeight: 'bold'
             }}
           >
-            →
+            ⋯
           </span>
         )}
       </div>
