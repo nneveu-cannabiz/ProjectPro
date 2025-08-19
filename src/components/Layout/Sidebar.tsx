@@ -160,6 +160,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
         />
         
         <SidebarItem
+          to="/product-dev-dashboard"
+          icon={<LayoutDashboard size={20} />}
+          label="Product Dev Dashboard"
+          isActive={location.pathname === '/product-dev-dashboard'}
+          isCollapsed={isCollapsed}
+        />
+        
+        <SidebarItem
           to="/todo"
           icon={<CheckSquare size={20} />}
           label="My To Do List"

@@ -121,6 +121,11 @@ function App() {
                     <OutstandingList />
                   </ErrorBoundaryWrapper>
                 } />
+                <Route path="product-dev-dashboard" element={
+                  <ErrorBoundaryWrapper pageName="Product Dev Dashboard">
+                    <ProjectsFlowChart />
+                  </ErrorBoundaryWrapper>
+                } />
                 <Route path="settings" element={
                   <ErrorBoundaryWrapper pageName="Settings">
                     <Settings />
