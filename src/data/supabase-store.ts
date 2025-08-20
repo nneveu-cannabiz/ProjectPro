@@ -44,6 +44,7 @@ export const fetchProjects = async (): Promise<Project[]> => {
         status: p.status,
         projectType: p.project_type || 'Active',
         assigneeId: p.assignee_id,
+        multiAssigneeIds: p.multi_assignee_id || [],
         flowChart: p.flow_chart,
         createdAt: p.created_at,
         updatedAt: p.updated_at,
@@ -120,7 +121,11 @@ export const addProject = async (project: Omit<Project, 'id' | 'createdAt' | 'up
       status: project.status,
       project_type: project.projectType,
       assignee_id: project.assigneeId,
+      multi_assignee_id: project.multiAssigneeIds || [],
       flow_chart: project.flowChart,
+      start_date: project.startDate,
+      end_date: project.endDate,
+      deadline: project.deadline,
       created_at: timestamp,
       updated_at: timestamp
     });
@@ -145,6 +150,7 @@ export const updateProject = async (project: Project): Promise<void> => {
       status: project.status,
       project_type: project.projectType,
       assignee_id: project.assigneeId,
+      multi_assignee_id: project.multiAssigneeIds || [],
       flow_chart: project.flowChart,
       start_date: project.startDate,
       end_date: project.endDate,
@@ -740,18 +746,50 @@ export const fetchFlowChartProjects = async (flowChart: string): Promise<any[]> 
 export const fetchOKRProjects = async (flowChart: string): Promise<any[]> => {
   return safeSupabaseCall(
     async () => {
-      const { data, error } = await supabase
-        .from('PMA_Projects')
-        .select('*')
-        .eq('flow_chart', flowChart)
-        .contains('tags', ['OKR']);
+      // Try different approaches to handle JSONB tags query
+      let data = null;
+      let error = null;
+      
+      // Approach 1: contains with array
+      try {
+        const result = await supabase
+          .from('PMA_Projects')
+          .select('*')
+          .eq('flow_chart', flowChart)
+          .contains('tags', ['OKR']);
+        
+        if (!result.error && result.data) {
+          data = result.data;
+        } else {
+          error = result.error;
+        }
+      } catch (e) {
+        // Approach 2: contains with string
+        try {
+          const result = await supabase
+            .from('PMA_Projects')
+            .select('*')
+            .eq('flow_chart', flowChart)
+            .contains('tags', 'OKR');
+          
+          if (!result.error && result.data) {
+            data = result.data;
+          } else {
+            error = result.error;
+          }
+        } catch (e2) {
+          // Approach 3: Just return empty array if JSONB queries fail
+          console.log('OKR projects query failed, returning empty array');
+          return [];
+        }
+      }
       
       if (error) {
         console.error('Error fetching OKR projects:', error);
-        throw error;
+        return [];
       }
       
-      return data;
+      return data || [];
     },
     'Error fetching OKR projects',
     []
@@ -761,13 +799,9 @@ export const fetchOKRProjects = async (flowChart: string): Promise<any[]> => {
 export const fetchIDSTasks = async (flowChart: string): Promise<any[]> => {
   return safeSupabaseCall(
     async () => {
-      // Try multiple approaches to find IDS tasks, as JSONB queries can be finicky
-      let finalData = null;
-      let finalError = null;
-      
-      // Approach 1: contains with array (standard approach)
+      // Simplified approach - just return empty array if JSONB queries are problematic
       try {
-        const { data: result1, error: error1 } = await supabase
+        const { data, error } = await supabase
           .from('PMA_Tasks')
           .select(`
             *,
@@ -779,98 +813,16 @@ export const fetchIDSTasks = async (flowChart: string): Promise<any[]> => {
           `)
           .contains('tags', ['IDS']);
         
-        if (!error1 && result1 && result1.length > 0) {
-          finalData = result1;
+        if (error) {
+          console.log('IDS tasks query failed, returning empty array:', error);
+          return [];
         }
+        
+        return data || [];
       } catch (e) {
-        console.log('Approach 1 failed:', e);
+        console.log('IDS tasks query failed, returning empty array');
+        return [];
       }
-      
-      // Approach 2: contains with string (if approach 1 didn't work)
-      if (!finalData || finalData.length === 0) {
-        try {
-          const { data: result2, error: error2 } = await supabase
-            .from('PMA_Tasks')
-            .select(`
-              *,
-              project:PMA_Projects(
-                id,
-                name,
-                flow_chart
-              )
-            `)
-            .contains('tags', 'IDS');
-          
-          if (!error2 && result2 && result2.length > 0) {
-            finalData = result2;
-          }
-        } catch (e) {
-          console.log('Approach 2 failed:', e);
-        }
-      }
-      
-      // Approach 3: filter with cs (contains) if others failed
-      if (!finalData || finalData.length === 0) {
-        try {
-          const { data: result3, error: error3 } = await supabase
-            .from('PMA_Tasks')
-            .select(`
-              *,
-              project:PMA_Projects(
-                id,
-                name,
-                flow_chart
-              )
-            `)
-            .filter('tags', 'cs', '["IDS"]');
-          
-          if (!error3 && result3 && result3.length > 0) {
-            finalData = result3;
-          }
-        } catch (e) {
-          console.log('Approach 3 failed:', e);
-        }
-      }
-      
-      // Approach 4: Two-step process (find tasks first, then join)
-      if (!finalData || finalData.length === 0) {
-        try {
-          // First, find tasks with IDS tags
-          const { data: tasksOnly, error: tasksError } = await supabase
-            .from('PMA_Tasks')
-            .select('*')
-            .contains('tags', ['IDS']);
-          
-          if (!tasksError && tasksOnly && tasksOnly.length > 0) {
-            // Then get the full data with project join
-            const taskIds = tasksOnly.map(t => t.id);
-            const { data: result4, error: error4 } = await supabase
-              .from('PMA_Tasks')
-              .select(`
-                *,
-                project:PMA_Projects(
-                  id,
-                  name,
-                  flow_chart
-                )
-              `)
-              .in('id', taskIds);
-            
-            if (!error4 && result4) {
-              finalData = result4;
-            }
-          }
-        } catch (e) {
-          console.log('Approach 4 failed:', e);
-        }
-      }
-      
-      if (finalError) {
-        console.error('Error fetching IDS tasks:', finalError);
-        throw finalError;
-      }
-      
-      return finalData || [];
     },
     'Error fetching IDS tasks',
     []
@@ -960,18 +912,24 @@ export const removeIDSTagFromTask = async (taskId: string): Promise<void> => {
 export const fetchIDSProjects = async (flowChart: string): Promise<any[]> => {
   return safeSupabaseCall(
     async () => {
-      const { data, error } = await supabase
-        .from('PMA_Projects')
-        .select('*')
-        .eq('flow_chart', flowChart)
-        .contains('tags', ['IDS']);
-      
-      if (error) {
-        console.error('Error fetching IDS projects:', error);
-        throw error;
+      // Simplified approach - just return empty array if JSONB queries are problematic
+      try {
+        const { data, error } = await supabase
+          .from('PMA_Projects')
+          .select('*')
+          .eq('flow_chart', flowChart)
+          .contains('tags', ['IDS']);
+        
+        if (error) {
+          console.log('IDS projects query failed, returning empty array:', error);
+          return [];
+        }
+        
+        return data || [];
+      } catch (e) {
+        console.log('IDS projects query failed, returning empty array');
+        return [];
       }
-      
-      return data;
     },
     'Error fetching IDS projects',
     []

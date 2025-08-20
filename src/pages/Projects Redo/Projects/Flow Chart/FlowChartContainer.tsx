@@ -8,7 +8,7 @@ import { useAppContext } from '../../../../context/AppContext';
 import { useAuth } from '../../../../context/AuthContext';
 import PageChange from './Filters/PageChange';
 import ProjectBar from './utils/Project Bar/projectbar';
-import StandaloneTaskBar from './utils/Project Bar/StandaloneTaskBar';
+
 import ProjectDetailsModal from './utils/ProjectDetailsModal';
 import TaskDetailsModal from './utils/TaskDetailsModal';
 import UpdatesDetailsModal from './utils/UpdatesDetailsModal';
@@ -36,6 +36,7 @@ interface FlowProject {
   startDate: Date;
   endDate: Date;
   assigneeId?: string | null;
+  multiAssigneeIds?: string[];
   tasks?: Task[];
   progress?: number;
   deadline?: Date;
@@ -46,7 +47,7 @@ interface FlowTask {
   name: string;
   startDate: Date;
   endDate: Date;
-  assigneeId?: string | null;
+  assigneeId?: string;
   progress?: number;
   deadline?: Date;
   projectId: string;
@@ -60,10 +61,7 @@ interface StackedProject {
   stackLevel: number;
 }
 
-interface StackedTask {
-  task: FlowTask;
-  stackLevel: number;
-}
+
 
 // Helper function to check if two projects overlap in time
 const projectsOverlap = (project1: FlowProject, project2: FlowProject): boolean => {
@@ -144,101 +142,7 @@ const calculateProjectStacking = (projects: FlowProject[], weekStart: Date, week
   return stackedProjects;
 };
 
-// Helper function to check if two tasks overlap in time
-const tasksOverlap = (task1: FlowTask, task2: FlowTask): boolean => {
-  // If either task has no real end date (start === end), consider them as ongoing and overlapping
-  const task1HasNoEndDate = task1.startDate.getTime() === task1.endDate.getTime();
-  const task2HasNoEndDate = task2.startDate.getTime() === task2.endDate.getTime();
-  
-  // If either task has no end date, they should always be considered overlapping
-  // This ensures they stack vertically instead of overlapping horizontally
-  if (task1HasNoEndDate || task2HasNoEndDate) {
-    return true;
-  }
-  
-  // Standard overlap check for tasks with defined end dates
-  return task1.startDate < task2.endDate && task2.startDate < task1.endDate;
-};
 
-// Calculate stacking positions for tasks to avoid overlaps
-// Tasks with the same assignee will be stacked vertically regardless of time overlap
-const calculateTaskStacking = (tasks: FlowTask[], weekStart: Date, weekEnd: Date): StackedTask[] => {
-  if (tasks.length === 0) return [];
-  
-  // Filter tasks that are visible in the current week
-  const visibleTasks = tasks.filter(task => {
-    const hasNoEndDate = task.startDate.getTime() === task.endDate.getTime();
-    // For tasks with no end date, show them if they start on or before the week end
-    // This ensures tasks created today or in the past are visible
-    if (hasNoEndDate) {
-      return task.startDate <= weekEnd;
-    }
-    // Standard visibility check for tasks with defined end dates
-    return task.endDate >= weekStart && task.startDate <= weekEnd;
-  });
-  
-  console.log(`calculateTaskStacking - Input tasks: ${tasks.length}, Visible tasks: ${visibleTasks.length}`, {
-    weekStart: weekStart.toDateString(),
-    weekEnd: weekEnd.toDateString(),
-    tasks: tasks.map(t => ({ 
-      name: t.name, 
-      startDate: t.startDate.toDateString(), 
-      endDate: t.endDate.toDateString(),
-      hasNoEndDate: t.startDate.getTime() === t.endDate.getTime()
-    })),
-    visibleTasks: visibleTasks.map(t => ({ 
-      name: t.name, 
-      startDate: t.startDate.toDateString(), 
-      endDate: t.endDate.toDateString() 
-    }))
-  });
-  
-  // Sort tasks by start date, then by end date
-  const sortedTasks = [...visibleTasks].sort((a, b) => {
-    const startDiff = a.startDate.getTime() - b.startDate.getTime();
-    if (startDiff !== 0) return startDiff;
-    return a.endDate.getTime() - b.endDate.getTime();
-  });
-  
-  const stackedTasks: StackedTask[] = [];
-  // Track the highest stack level used for each assignee
-  const assigneeStackLevels: Map<string, number> = new Map();
-  
-  for (const task of sortedTasks) {
-    let stackLevel = 0;
-    let foundLevel = false;
-    
-    // If this task has an assignee, ensure it stacks below other tasks with the same assignee
-    if (task.assigneeId) {
-      const lastAssigneeLevel = assigneeStackLevels.get(task.assigneeId);
-      if (lastAssigneeLevel !== undefined) {
-        // Start checking from the level after the last task with this assignee
-        stackLevel = lastAssigneeLevel + 1;
-      }
-    }
-    
-    // Find the lowest stack level where this task doesn't overlap with others
-    while (!foundLevel) {
-      const tasksAtLevel = stackedTasks.filter(st => st.stackLevel === stackLevel);
-      const hasOverlap = tasksAtLevel.some(st => tasksOverlap(task, st.task));
-      
-      if (!hasOverlap) {
-        foundLevel = true;
-      } else {
-        stackLevel++;
-      }
-    }
-    
-    // Update the highest stack level for this assignee
-    if (task.assigneeId) {
-      assigneeStackLevels.set(task.assigneeId, stackLevel);
-    }
-    
-    stackedTasks.push({ task, stackLevel });
-  }
-  
-  return stackedTasks;
-};
 
 
 
@@ -249,7 +153,7 @@ const FlowChartContainer: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [currentDates, setCurrentDates] = useState<Date[]>([]);
   const [currentStartDate, setCurrentStartDate] = useState<Date>(getCurrentDay());
-  const [projects, setProjects] = useState<FlowProject[]>([]);
+  const [parsedProjects, setParsedProjects] = useState<FlowProject[]>([]);
   const [standaloneTasks, setStandaloneTasks] = useState<FlowTask[]>([]);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedProject, setSelectedProject] = useState<FlowProject | null>(null);
@@ -306,6 +210,8 @@ const FlowChartContainer: React.FC = () => {
   const dateScrollRef = useRef<HTMLDivElement>(null);
   const contentScrollRef = useRef<HTMLDivElement>(null);
 
+
+
   const loadData = async (isRefresh = false) => {
     if (isRefresh) {
       setRefreshing(true);
@@ -329,13 +235,11 @@ const FlowChartContainer: React.FC = () => {
       // Load standalone tasks that are in the Product Development flow chart
       const flowChartTasks = await fetchFlowChartTasks('Product Development');
       
-      const parsedProjects: FlowProject[] = (flowChartProjects || [])
-        .filter((p: any) => p.start_date) // Include all projects with start_date (end_date is optional)
+      const projectsWithTasks: FlowProject[] = (flowChartProjects || [])
+        .filter((p: any) => p.start_date && p.id !== STANDALONE_TASKS_PROJECT_ID) // Exclude standalone project from regular projects
         .map((p: any) => {
-          // Get tasks for this project (excluding standalone tasks)
-          const projectTasks = allTasks.filter(task => 
-            task.projectId === p.id && task.projectId !== STANDALONE_TASKS_PROJECT_ID
-          );
+          // Get tasks for this project
+          const projectTasks = allTasks.filter(task => task.projectId === p.id);
           
           return {
             id: p.id,
@@ -343,24 +247,19 @@ const FlowChartContainer: React.FC = () => {
             startDate: parseISO(p.start_date),
             endDate: p.end_date ? parseISO(p.end_date) : parseISO(p.start_date), // Use start_date as end_date if no end_date provided
             assigneeId: p.assignee_id || null,
+            multiAssigneeIds: p.multi_assignee_id || [],
             tasks: projectTasks,
             progress: p.progress || 0,
             deadline: p.deadline ? parseISO(p.deadline) : undefined,
           };
         });
-      setProjects(parsedProjects);
+      setParsedProjects(projectsWithTasks);
+      
+
 
       // Parse standalone tasks (tasks with flow_chart set and using the special standalone project ID)
-      console.log('All flow chart tasks:', flowChartTasks);
-      console.log('Filtering for standalone project ID:', STANDALONE_TASKS_PROJECT_ID);
-      
       const filteredStandaloneTasks = (flowChartTasks || [])
-        .filter((t: any) => {
-          console.log('Task:', t.id, 'project_id:', t.project_id, 'matches:', t.project_id === STANDALONE_TASKS_PROJECT_ID);
-          return t.start_date && t.project_id === STANDALONE_TASKS_PROJECT_ID;
-        });
-      
-      console.log('Filtered standalone tasks:', filteredStandaloneTasks);
+        .filter((t: any) => t.start_date && t.project_id === STANDALONE_TASKS_PROJECT_ID);
       
       const parsedStandaloneTasks: FlowTask[] = filteredStandaloneTasks
         .map((t: any) => ({
@@ -368,7 +267,7 @@ const FlowChartContainer: React.FC = () => {
           name: t.name,
           startDate: parseISO(t.start_date),
           endDate: t.end_date ? parseISO(t.end_date) : parseISO(t.start_date), // Use start_date as end_date if no end_date provided
-          assigneeId: t.assignee_id || null,
+          assigneeId: t.assignee_id || undefined,
           progress: t.progress || 0,
           deadline: t.deadline ? parseISO(t.deadline) : undefined,
           projectId: t.project_id,
@@ -377,7 +276,6 @@ const FlowChartContainer: React.FC = () => {
           priority: t.priority,
         }));
       
-      console.log('Parsed standalone tasks:', parsedStandaloneTasks);
       setStandaloneTasks(parsedStandaloneTasks);
     } catch (error) {
       console.error('Error loading flow chart data:', error);
@@ -945,14 +843,65 @@ const FlowChartContainer: React.FC = () => {
               </div>
             ) : (
               users.map((user) => {
-                const userProjects = projects.filter(project => project.assigneeId === user.id);
+                // Show project if either the project is assigned to user OR any task in project is assigned to user
+                const userProjectsWithTasks = (parsedProjects || []).filter(project => {
+                  // Check if project is assigned to this user
+                  const projectAssignedToUser = project.assigneeId === user.id;
+                  
+                  // Check if user is in multi-assignee list
+                  const userInMultiAssignees = (project.multiAssigneeIds || []).includes(user.id);
+                  
+                  // Check if any task in this project is assigned to this user
+                  const userTasksInProject = (project.tasks || []).filter(task => task.assigneeId === user.id);
+                  const hasTasksForUser = userTasksInProject.length > 0;
+                  
+
+                  
+                  // Show if project is assigned to user OR user is multi-assignee OR user has tasks in project
+                  return projectAssignedToUser || userInMultiAssignees || hasTasksForUser;
+                });
+                
+
                 const userTasks = standaloneTasks.filter(task => task.assigneeId === user.id);
+                
+                // Create virtual "Standalone Tasks" project for this user if they have standalone tasks
+                const allUserProjects = [...userProjectsWithTasks];
+                if (userTasks.length > 0) {
+                  const virtualStandaloneProject: FlowProject = {
+                    id: `virtual-standalone-${user.id}`,
+                    name: 'Standalone Tasks',
+                    startDate: new Date(Math.min(...userTasks.map(t => t.startDate.getTime()))),
+                    endDate: new Date(Math.max(...userTasks.map(t => t.endDate.getTime()))),
+                    assigneeId: user.id,
+                    tasks: userTasks.map(t => ({
+                      id: t.id,
+                      projectId: t.projectId,
+                      name: t.name,
+                      description: '',
+                      taskType: t.taskType,
+                      status: t.status,
+                      assigneeId: t.assigneeId || undefined,
+                      flowChart: 'Product Development',
+                      priority: t.priority,
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                      startDate: t.startDate.toISOString(),
+                      endDate: t.endDate.toISOString(),
+                      deadline: t.deadline?.toISOString(),
+                      progress: t.progress
+                    })),
+                    progress: Math.round(userTasks.reduce((acc, t) => acc + (t.progress || 0), 0) / userTasks.length) || 0
+                  };
+                  allUserProjects.push(virtualStandaloneProject);
+                }
+                
                 const dateRangeStart = currentDates[0];
                 const dateRangeEnd = currentDates[currentDates.length - 1];
-                const stackedProjects = calculateProjectStacking(userProjects, dateRangeStart, dateRangeEnd);
-                const stackedTasks = calculateTaskStacking(userTasks, dateRangeStart, dateRangeEnd);
-                const baseRowHeight = calculateRowHeight(userProjects, dateRangeStart, dateRangeEnd, stackedProjects, 48, stackedTasks);
-                const rowHeight = baseRowHeight + 16; // Add 8px buffer on top and bottom
+                const stackedProjects = calculateProjectStacking(allUserProjects, dateRangeStart, dateRangeEnd);
+                const rowHeight = calculateRowHeight(allUserProjects, dateRangeStart, dateRangeEnd, stackedProjects, 48, []);
+                
+
+
                 
                 return (
                 <div
@@ -986,14 +935,44 @@ const FlowChartContainer: React.FC = () => {
             
             {/* Unassigned Projects and Tasks Row - includes projects and tasks with start date only */}
             {(() => {
-              const unassignedProjects = projects.filter(project => !project.assigneeId);
+              const unassignedProjects = (parsedProjects || []).filter(project => !project.assigneeId);
               const unassignedTasks = standaloneTasks.filter(task => !task.assigneeId);
+              
+              // Create virtual "Standalone Tasks" project for unassigned tasks
+              const allUnassignedProjects = [...unassignedProjects];
+              if (unassignedTasks.length > 0) {
+                const virtualStandaloneProject: FlowProject = {
+                  id: 'virtual-standalone-unassigned',
+                  name: 'Standalone Tasks',
+                  startDate: new Date(Math.min(...unassignedTasks.map(t => t.startDate.getTime()))),
+                  endDate: new Date(Math.max(...unassignedTasks.map(t => t.endDate.getTime()))),
+                  assigneeId: null,
+                  tasks: unassignedTasks.map(t => ({
+                    id: t.id,
+                    projectId: t.projectId,
+                    name: t.name,
+                    description: '',
+                    taskType: t.taskType,
+                    status: t.status,
+                    assigneeId: t.assigneeId,
+                    flowChart: 'Product Development',
+                    priority: t.priority,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    startDate: t.startDate.toISOString(),
+                    endDate: t.endDate.toISOString(),
+                    deadline: t.deadline?.toISOString(),
+                    progress: t.progress
+                  })),
+                  progress: Math.round(unassignedTasks.reduce((acc, t) => acc + (t.progress || 0), 0) / unassignedTasks.length) || 0
+                };
+                allUnassignedProjects.push(virtualStandaloneProject);
+              }
+              
               const dateRangeStart = currentDates[0];
               const dateRangeEnd = currentDates[currentDates.length - 1];
-              const stackedUnassignedProjects = calculateProjectStacking(unassignedProjects, dateRangeStart, dateRangeEnd);
-              const stackedUnassignedTasks = calculateTaskStacking(unassignedTasks, dateRangeStart, dateRangeEnd);
-              const baseUnassignedRowHeight = calculateRowHeight(unassignedProjects, dateRangeStart, dateRangeEnd, stackedUnassignedProjects, 48, stackedUnassignedTasks);
-              const unassignedRowHeight = baseUnassignedRowHeight + 16; // Add 8px buffer on top and bottom
+              const stackedUnassignedProjects = calculateProjectStacking(allUnassignedProjects, dateRangeStart, dateRangeEnd);
+              const unassignedRowHeight = calculateRowHeight(allUnassignedProjects, dateRangeStart, dateRangeEnd, stackedUnassignedProjects, 48, []);
               
               return (
                 <div
@@ -1031,17 +1010,64 @@ const FlowChartContainer: React.FC = () => {
             id="content-scroll-container"
             onScroll={handleContentScroll}
           >
-            <div style={{ minWidth: 'max-content', height: 'max-content' }}>
+            <div style={{ minWidth: 'max-content', minHeight: 'max-content' }}>
               {/* User Rows */}
               {users.map((user) => {
-                const userProjects = projects.filter(project => project.assigneeId === user.id);
+                // Show project if either the project is assigned to user OR any task in project is assigned to user
+                const userProjectsWithTasks = (parsedProjects || []).filter(project => {
+                  // Check if project is assigned to this user
+                  const projectAssignedToUser = project.assigneeId === user.id;
+                  
+                  // Check if user is in multi-assignee list
+                  const userInMultiAssignees = (project.multiAssigneeIds || []).includes(user.id);
+                  
+                  // Check if any task in this project is assigned to this user
+                  const userTasksInProject = (project.tasks || []).filter(task => task.assigneeId === user.id);
+                  const hasTasksForUser = userTasksInProject.length > 0;
+                  
+                  // Show if project is assigned to user OR user is multi-assignee OR user has tasks in project
+                  return projectAssignedToUser || userInMultiAssignees || hasTasksForUser;
+                });
+                
                 const userTasks = standaloneTasks.filter(task => task.assigneeId === user.id);
+                
+                // Create virtual "Standalone Tasks" project for this user if they have standalone tasks
+                const allUserProjects = [...userProjectsWithTasks];
+                if (userTasks.length > 0) {
+                  const virtualStandaloneProject: FlowProject = {
+                    id: `virtual-standalone-${user.id}`,
+                    name: 'Standalone Tasks',
+                    startDate: new Date(Math.min(...userTasks.map(t => t.startDate.getTime()))),
+                    endDate: new Date(Math.max(...userTasks.map(t => t.endDate.getTime()))),
+                    assigneeId: user.id,
+                    tasks: userTasks.map(t => ({
+                      id: t.id,
+                      projectId: t.projectId,
+                      name: t.name,
+                      description: '',
+                      taskType: t.taskType,
+                      status: t.status,
+                      assigneeId: t.assigneeId || undefined,
+                      flowChart: 'Product Development',
+                      priority: t.priority,
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                      startDate: t.startDate.toISOString(),
+                      endDate: t.endDate.toISOString(),
+                      deadline: t.deadline?.toISOString(),
+                      progress: t.progress
+                    })),
+                    progress: Math.round(userTasks.reduce((acc, t) => acc + (t.progress || 0), 0) / userTasks.length) || 0
+                  };
+                  allUserProjects.push(virtualStandaloneProject);
+                }
+                
                 const dateRangeStart = currentDates[0];
                 const dateRangeEnd = currentDates[currentDates.length - 1];
-                const stackedProjects = calculateProjectStacking(userProjects, dateRangeStart, dateRangeEnd);
-                const stackedTasks = calculateTaskStacking(userTasks, dateRangeStart, dateRangeEnd);
-                const baseRowHeight = calculateRowHeight(userProjects, dateRangeStart, dateRangeEnd, stackedProjects, 48, stackedTasks);
-                const rowHeight = baseRowHeight + 16; // Add 8px buffer on top and bottom
+                const stackedProjects = calculateProjectStacking(allUserProjects, dateRangeStart, dateRangeEnd);
+                const rowHeight = calculateRowHeight(allUserProjects, dateRangeStart, dateRangeEnd, stackedProjects, 48, []);
+                
+
                 
                 return (
                 <div 
@@ -1051,7 +1077,7 @@ const FlowChartContainer: React.FC = () => {
                     borderColor: brandTheme.border.light, 
                     overflow: 'visible',
                     height: `${rowHeight}px`,
-                    minHeight: '96px'
+                    minHeight: `${rowHeight}px` // Ensure minHeight matches calculated height
                   }}
                 >
                   {/* Background day columns */}
@@ -1079,15 +1105,7 @@ const FlowChartContainer: React.FC = () => {
                   {/* Project bars for this user - positioned over the entire row */}
                   <div className="absolute inset-0" style={{ overflow: 'visible', zIndex: 10 }}>
                     {(() => {
-                      const dateRangeStart = currentDates[0];
-                      const dateRangeEnd = currentDates[currentDates.length - 1];
                       const today = new Date();
-                      
-                      // Filter projects assigned to this user
-                      const userProjects = projects.filter(project => project.assigneeId === user.id);
-                      
-                      // Calculate stacking positions to avoid overlaps
-                      const stackedProjects = calculateProjectStacking(userProjects, dateRangeStart, dateRangeEnd);
                       
                       // Calculate precise positions for each project
                       const projectPositions = calculateProjectPositions(stackedProjects, 48);
@@ -1118,57 +1136,13 @@ const FlowChartContainer: React.FC = () => {
                             getTaskUpdatesCount={getUpdatesCountsForTask}
                             unreadUpdatesCount={unreadCount}
                             totalUpdatesCount={totalCount}
+
                           />
                         );
                       });
                     })()}
 
-                    {/* Standalone task bars for this user */}
-                    {(() => {
-                      const dateRangeStart = currentDates[0];
-                      const dateRangeEnd = currentDates[currentDates.length - 1];
-                      const today = new Date();
-                      console.log('Current date range:', {
-                        start: dateRangeStart?.toDateString(),
-                        end: dateRangeEnd?.toDateString(),
-                        today: today.toDateString()
-                      });
-                      
-                      // Filter standalone tasks assigned to this user
-                      const userTasks = standaloneTasks.filter(task => task.assigneeId === user.id);
-                      console.log(`User ${user.firstName} ${user.lastName} tasks:`, userTasks);
-                      
-                      // Calculate stacking positions to avoid overlaps
-                      const stackedTasks = calculateTaskStacking(userTasks, dateRangeStart, dateRangeEnd);
-                      console.log(`User ${user.firstName} ${user.lastName} stacked tasks:`, stackedTasks);
-                      
-                      return stackedTasks.map((stackedTask) => {
-                        const { totalCount, unreadCount } = getUpdatesCountsForTask(stackedTask.task.id);
-                        
-                        return (
-                          <StandaloneTaskBar
-                            key={stackedTask.task.id}
-                            taskId={stackedTask.task.id}
-                            taskName={stackedTask.task.name}
-                            taskType={stackedTask.task.taskType}
-                            status={stackedTask.task.status}
-                            weekStart={dateRangeStart}
-                            weekEnd={dateRangeEnd}
-                            taskStart={stackedTask.task.startDate}
-                            taskEnd={stackedTask.task.endDate}
-                            taskDeadline={stackedTask.task.deadline}
-                            taskProgress={stackedTask.task.progress}
-                            today={today}
-                            barHeightPx={48}
-                            stackLevel={stackedTask.stackLevel}
-                            onTaskClick={handleTaskClick}
-                            onUpdatesClick={handleTaskUpdatesClick}
-                            unreadUpdatesCount={unreadCount}
-                            totalUpdatesCount={totalCount}
-                          />
-                        );
-                      });
-                    })()}
+
                   </div>
                 </div>
                 );
@@ -1176,14 +1150,44 @@ const FlowChartContainer: React.FC = () => {
               
               {/* Unassigned Projects and Tasks Row */}
               {(() => {
-                const unassignedProjects = projects.filter(project => !project.assigneeId);
+                const unassignedProjects = (parsedProjects || []).filter(project => !project.assigneeId);
                 const unassignedTasks = standaloneTasks.filter(task => !task.assigneeId);
+                
+                // Create virtual "Standalone Tasks" project for unassigned tasks
+                const allUnassignedProjects = [...unassignedProjects];
+                if (unassignedTasks.length > 0) {
+                  const virtualStandaloneProject: FlowProject = {
+                    id: 'virtual-standalone-unassigned',
+                    name: 'Standalone Tasks',
+                    startDate: new Date(Math.min(...unassignedTasks.map(t => t.startDate.getTime()))),
+                    endDate: new Date(Math.max(...unassignedTasks.map(t => t.endDate.getTime()))),
+                    assigneeId: null,
+                    tasks: unassignedTasks.map(t => ({
+                      id: t.id,
+                      projectId: t.projectId,
+                      name: t.name,
+                      description: '',
+                      taskType: t.taskType,
+                      status: t.status,
+                      assigneeId: t.assigneeId || undefined,
+                      flowChart: 'Product Development',
+                      priority: t.priority,
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                      startDate: t.startDate.toISOString(),
+                      endDate: t.endDate.toISOString(),
+                      deadline: t.deadline?.toISOString(),
+                      progress: t.progress
+                    })),
+                    progress: Math.round(unassignedTasks.reduce((acc, t) => acc + (t.progress || 0), 0) / unassignedTasks.length) || 0
+                  };
+                  allUnassignedProjects.push(virtualStandaloneProject);
+                }
+                
                 const dateRangeStart = currentDates[0];
                 const dateRangeEnd = currentDates[currentDates.length - 1];
-                const stackedUnassignedProjects = calculateProjectStacking(unassignedProjects, dateRangeStart, dateRangeEnd);
-                const stackedUnassignedTasks = calculateTaskStacking(unassignedTasks, dateRangeStart, dateRangeEnd);
-                const baseUnassignedRowHeight = calculateRowHeight(unassignedProjects, dateRangeStart, dateRangeEnd, stackedUnassignedProjects, 48, stackedUnassignedTasks);
-                const unassignedRowHeight = baseUnassignedRowHeight + 16; // Add 8px buffer on top and bottom
+                const stackedUnassignedProjects = calculateProjectStacking(allUnassignedProjects, dateRangeStart, dateRangeEnd);
+                const unassignedRowHeight = calculateRowHeight(allUnassignedProjects, dateRangeStart, dateRangeEnd, stackedUnassignedProjects, 48, []);
                 
                 return (
                   <div 
@@ -1192,7 +1196,7 @@ const FlowChartContainer: React.FC = () => {
                       borderColor: brandTheme.border.light, 
                       overflow: 'visible',
                       height: `${unassignedRowHeight}px`,
-                      minHeight: '96px'
+                      minHeight: `${unassignedRowHeight}px` // Ensure minHeight matches calculated height
                     }}
                   >
                 {/* Background day columns */}
@@ -1220,17 +1224,7 @@ const FlowChartContainer: React.FC = () => {
                 {/* Project bars for unassigned projects - positioned over the entire row */}
                 <div className="absolute inset-0" style={{ overflow: 'visible', zIndex: 10 }}>
                   {(() => {
-                    const dateRangeStart = currentDates[0];
-                    const dateRangeEnd = currentDates[currentDates.length - 1];
                     const today = new Date();
-                    
-                    // Show all projects without an assignee (includes projects with start date only)
-                    const unassignedProjects = projects.filter(project => !project.assigneeId);
-                    const unassignedTasks = standaloneTasks.filter(task => !task.assigneeId);
-                    
-                    // Calculate stacking positions to avoid overlaps
-                    const stackedUnassignedProjects = calculateProjectStacking(unassignedProjects, dateRangeStart, dateRangeEnd);
-                    const stackedUnassignedTasks = calculateTaskStacking(unassignedTasks, dateRangeStart, dateRangeEnd);
                     
                     // Calculate precise positions for each project
                     const unassignedProjectPositions = calculateProjectPositions(stackedUnassignedProjects, 48);
@@ -1263,40 +1257,12 @@ const FlowChartContainer: React.FC = () => {
                           getTaskUpdatesCount={getUpdatesCountsForTask}
                           unreadUpdatesCount={unreadCount}
                           totalUpdatesCount={totalCount}
+
                         />
                       );
                     });
                     
-                    const taskBars = stackedUnassignedTasks.map((stackedTask) => {
-                      const { totalCount, unreadCount } = getUpdatesCountsForTask(stackedTask.task.id);
-                      
-                      return (
-                        <StandaloneTaskBar
-                          key={stackedTask.task.id}
-                          taskId={stackedTask.task.id}
-                          taskName={stackedTask.task.name}
-                          taskType={stackedTask.task.taskType}
-                          status={stackedTask.task.status}
-                          weekStart={dateRangeStart}
-                          weekEnd={dateRangeEnd}
-                          taskStart={stackedTask.task.startDate}
-                          taskEnd={stackedTask.task.endDate}
-                          taskDeadline={stackedTask.task.deadline}
-                          taskProgress={stackedTask.task.progress}
-                          today={today}
-                          barHeightPx={48}
-                          stackLevel={stackedTask.stackLevel}
-                          isClickable={true}
-                          onClick={() => console.log('Clicked unassigned task:', stackedTask.task.name)}
-                          onTaskClick={handleTaskClick}
-                          onUpdatesClick={handleTaskUpdatesClick}
-                          unreadUpdatesCount={unreadCount}
-                          totalUpdatesCount={totalCount}
-                        />
-                      );
-                    });
-                    
-                    return [...projectBars, ...taskBars];
+                    return projectBars;
                   })()}
                 </div>
               </div>
@@ -1404,7 +1370,7 @@ const FlowChartContainer: React.FC = () => {
           onClose={handleCloseUpdatesModal}
           entityType="project"
           entityId={selectedUpdatesProjectId}
-          entityName={projects.find(p => p.id === selectedUpdatesProjectId)?.name || 'Unknown Project'}
+          entityName={(parsedProjects || []).find(p => p.id === selectedUpdatesProjectId)?.name || 'Unknown Project'}
         />
       )}
 
@@ -1416,8 +1382,8 @@ const FlowChartContainer: React.FC = () => {
           entityType="task"
           entityId={selectedUpdatesTaskId}
           entityName={(() => {
-            // Find the task name from all projects
-            for (const project of projects) {
+            // Find the task name from all parsed projects
+            for (const project of (parsedProjects || [])) {
               const task = project.tasks?.find(t => t.id === selectedUpdatesTaskId);
               if (task) return task.name;
             }

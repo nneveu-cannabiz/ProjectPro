@@ -25,6 +25,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ projectId, task, project, onSubmit 
   const [status, setStatus] = useState(task?.status || 'todo');
   const [priority, setPriority] = useState(task?.priority || 'Medium');
   const [assigneeId, setAssigneeId] = useState(task?.assigneeId || '');
+  const [progress, setProgress] = useState(task?.progress?.toString() || '0');
   const [startDate, setStartDate] = useState(task?.startDate ? new Date(task.startDate).toISOString().split('T')[0] : '');
   const [endDate, setEndDate] = useState(task?.endDate ? new Date(task.endDate).toISOString().split('T')[0] : '');
   const [deadline, setDeadline] = useState(task?.deadline ? new Date(task.deadline).toISOString().split('T')[0] : '');
@@ -101,6 +102,12 @@ const TaskForm: React.FC<TaskFormProps> = ({ projectId, task, project, onSubmit 
       newErrors.status = 'Status is required';
     }
     
+    // Validate progress
+    const progressNum = parseInt(progress);
+    if (progress && (isNaN(progressNum) || progressNum < 0 || progressNum > 100)) {
+      newErrors.progress = 'Progress must be a number between 0 and 100';
+    }
+    
     // Add date validation
     const dateErrors = validateDates();
     Object.assign(newErrors, dateErrors);
@@ -123,6 +130,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ projectId, task, project, onSubmit 
         status: status as 'todo' | 'in-progress' | 'done',
         priority: priority as 'Critical' | 'High' | 'Medium' | 'Low' | 'Very Low',
         assigneeId: assigneeId || undefined,
+        progress: progress ? parseInt(progress) : undefined,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
         deadline: deadline || undefined,
@@ -136,6 +144,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ projectId, task, project, onSubmit 
         status: status as 'todo' | 'in-progress' | 'done',
         priority: priority as 'Critical' | 'High' | 'Medium' | 'Low' | 'Very Low',
         assigneeId: assigneeId || undefined,
+        progress: progress ? parseInt(progress) : undefined,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
         deadline: deadline || undefined,
@@ -184,6 +193,17 @@ const TaskForm: React.FC<TaskFormProps> = ({ projectId, task, project, onSubmit 
         options={priorityOptions}
         value={priority}
         onChange={setPriority}
+      />
+      
+      <Input
+        type="number"
+        label="Progress %"
+        value={progress}
+        onChange={(e) => setProgress(e.target.value)}
+        error={errors.progress}
+        placeholder="0-100"
+        min="0"
+        max="100"
       />
       
       <UserSelect

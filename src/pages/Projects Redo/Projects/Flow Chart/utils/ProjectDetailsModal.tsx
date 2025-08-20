@@ -14,6 +14,7 @@ import UpdateForm from '../../../../../components/Update/UpdateForm';
 import UpdatesModal from '../../../../../components/Update/UpdatesModal';
 import DropdownMenu from '../../../../../components/ui/DropdownMenu';
 import UserSelect from '../../../../../components/UserSelect';
+import MultiUserSelect from '../../../../../components/ui/MultiUserSelect';
 import { brandTheme } from '../../../../../styles/brandTheme';
 
 interface ProjectDetailsModalProps {
@@ -59,6 +60,9 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
   const [isEditingAssignee, setIsEditingAssignee] = useState(false);
   const [assigneeValue, setAssigneeValue] = useState<string>('');
   const [isUpdatingAssignee, setIsUpdatingAssignee] = useState(false);
+  const [isEditingMultiAssignees, setIsEditingMultiAssignees] = useState(false);
+  const [multiAssigneeValues, setMultiAssigneeValues] = useState<string[]>([]);
+  const [isUpdatingMultiAssignees, setIsUpdatingMultiAssignees] = useState(false);
   
   const project = projects.find((p) => p.id === projectId);
   
@@ -367,6 +371,35 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
       console.error('Error updating assignee:', error);
     } finally {
       setIsUpdatingAssignee(false);
+    }
+  };
+
+  // Multi-assignee management functions
+  const handleEditMultiAssignees = () => {
+    setMultiAssigneeValues(project.multiAssigneeIds || []);
+    setIsEditingMultiAssignees(true);
+  };
+
+  const handleCancelMultiAssigneesEdit = () => {
+    setIsEditingMultiAssignees(false);
+    setMultiAssigneeValues([]);
+  };
+
+  const handleUpdateMultiAssignees = async () => {
+    try {
+      setIsUpdatingMultiAssignees(true);
+      
+      await updateProject({
+        ...project,
+        multiAssigneeIds: multiAssigneeValues
+      });
+      
+      setIsEditingMultiAssignees(false);
+      setMultiAssigneeValues([]);
+    } catch (error) {
+      console.error('Error updating multi-assignees:', error);
+    } finally {
+      setIsUpdatingMultiAssignees(false);
     }
   };
 
@@ -746,6 +779,86 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
                                 variant="outline"
                                 onClick={handleCancelAssigneeEdit}
                                 disabled={isUpdatingAssignee}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="mt-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 
+                            className="text-sm font-medium"
+                            style={{ color: brandTheme.text.primary }}
+                          >
+                            Additional Assignees
+                          </h3>
+                          {!isEditingMultiAssignees && (
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={handleEditMultiAssignees}
+                            >
+                              Edit
+                            </Button>
+                          )}
+                        </div>
+
+                        {!isEditingMultiAssignees ? (
+                          <div className="space-y-2">
+                            {project.multiAssigneeIds && project.multiAssigneeIds.length > 0 ? (
+                              <div className="space-y-2">
+                                {project.multiAssigneeIds.map(userId => {
+                                  const user = users.find(u => u.id === userId);
+                                  return user ? (
+                                    <div key={userId} className="flex items-center p-2 hover:bg-blue-50 rounded-md">
+                                      <UserAvatar user={user} showName />
+                                    </div>
+                                  ) : (
+                                    <span 
+                                      key={userId}
+                                      className="text-sm"
+                                      style={{ color: brandTheme.text.muted }}
+                                    >
+                                      User not found
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <span 
+                                className="text-sm"
+                                style={{ color: brandTheme.text.muted }}
+                              >
+                                No additional assignees
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <MultiUserSelect
+                              selectedUserIds={multiAssigneeValues}
+                              onChange={setMultiAssigneeValues}
+                              users={users.filter(user => user.department === 'Product Development')}
+                              placeholder="Select additional assignees"
+                              className="mb-0"
+                            />
+                            
+                            <div className="flex space-x-2">
+                              <Button 
+                                size="sm" 
+                                onClick={handleUpdateMultiAssignees}
+                                disabled={isUpdatingMultiAssignees}
+                              >
+                                {isUpdatingMultiAssignees ? 'Saving...' : 'Save'}
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={handleCancelMultiAssigneesEdit}
+                                disabled={isUpdatingMultiAssignees}
                               >
                                 Cancel
                               </Button>

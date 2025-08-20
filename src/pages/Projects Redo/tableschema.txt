@@ -15,6 +15,7 @@ create table public."PMA_Projects" (
   deadline date null,
   tags jsonb null,
   progress smallint null,
+  multi_assignee_id jsonb null,
   constraint PMA_Projects_pkey primary key (id),
   constraint pma_projects_assignee_id_fkey foreign KEY (assignee_id) references "PMA_Users" (id) on delete set null,
   constraint PMA_Projects_priority_check check (
@@ -52,25 +53,7 @@ create table public."PMA_Projects" (
 
 create index IF not exists idx_pma_projects_assignee_id on public."PMA_Projects" using btree (assignee_id) TABLESPACE pg_default;
 
-create index IF not exists idx_pma_projects_deadline on public."PMA_Projects" using btree (deadline) TABLESPACE pg_default;
-
-create index IF not exists idx_pma_projects_tags on public."PMA_Projects" using gin (tags) TABLESPACE pg_default;
-
-create index IF not exists idx_pma_projects_progress on public."PMA_Projects" using btree (progress) TABLESPACE pg_default;
-
--- Indexes for PMA_Tasks table
-create index IF not exists idx_pma_tasks_start_date on public."PMA_Tasks" using btree (start_date) TABLESPACE pg_default;
-create index IF not exists idx_pma_tasks_end_date on public."PMA_Tasks" using btree (end_date) TABLESPACE pg_default;
-create index IF not exists idx_pma_tasks_deadline on public."PMA_Tasks" using btree (deadline) TABLESPACE pg_default;
-create index IF not exists idx_pma_tasks_tags on public."PMA_Tasks" using gin (tags) TABLESPACE pg_default;
-create index IF not exists idx_pma_tasks_progress on public."PMA_Tasks" using btree (progress) TABLESPACE pg_default;
-
--- Indexes for PMA_SubTasks table
-create index IF not exists idx_pma_subtasks_start_date on public."PMA_SubTasks" using btree (start_date) TABLESPACE pg_default;
-create index IF not exists idx_pma_subtasks_end_date on public."PMA_SubTasks" using btree (end_date) TABLESPACE pg_default;
-create index IF not exists idx_pma_subtasks_deadline on public."PMA_SubTasks" using btree (deadline) TABLESPACE pg_default;
-create index IF not exists idx_pma_subtasks_tags on public."PMA_SubTasks" using gin (tags) TABLESPACE pg_default;
-create index IF not exists idx_pma_subtasks_progress on public."PMA_SubTasks" using btree (progress) TABLESPACE pg_default;
+create index IF not exists idx_pma_projects_multi_assignee_id on public."PMA_Projects" using gin (multi_assignee_id) TABLESPACE pg_default;
 
 
 ---------------------------------------------------------------------------------

@@ -54,12 +54,14 @@ const OverdueTaskBarInsert: React.FC<OverdueTaskBarInsertProps> = ({
     return null;
   }
   
-  // Calculate container height based on number of overdue tasks
-  const taskBarHeight = 32;
-  const taskBarMargin = 3;
-  const headerHeight = 28;
-  const containerPadding = 8;
-  const totalHeight = headerHeight + (overdueTasks.length * (taskBarHeight + taskBarMargin)) + containerPadding;
+  // Use a fixed, compact height to avoid interfering with project sizing
+  const maxDisplayTasks = 2; // Only show first 2 overdue tasks to keep compact
+  const taskBarHeight = 20; // Smaller task bars
+  const taskBarMargin = 2;
+  const headerHeight = 24; // Smaller header
+  const containerPadding = 6;
+  const displayTaskCount = Math.min(overdueTasks.length, maxDisplayTasks);
+  const totalHeight = headerHeight + (displayTaskCount * (taskBarHeight + taskBarMargin)) + containerPadding;
   
   return (
     <div
@@ -94,10 +96,10 @@ const OverdueTaskBarInsert: React.FC<OverdueTaskBarInsertProps> = ({
           style={{ color: '#DC2626' }}
         />
         <span 
-          className="text-sm font-bold"
+          className="text-xs font-bold"
           style={{ color: '#DC2626' }}
         >
-          {overdueTasks.length} Overdue Task{overdueTasks.length > 1 ? 's' : ''}
+          {overdueTasks.length} Overdue{overdueTasks.length > maxDisplayTasks ? ` (${maxDisplayTasks} shown)` : ''}
         </span>
       </div>
       
@@ -109,7 +111,7 @@ const OverdueTaskBarInsert: React.FC<OverdueTaskBarInsertProps> = ({
           height: `${totalHeight - headerHeight}px`
         }}
       >
-        {overdueTasks.map((task, index) => {
+        {overdueTasks.slice(0, maxDisplayTasks).map((task, index) => {
           return (
             <div
               key={task.id}
@@ -130,10 +132,10 @@ const OverdueTaskBarInsert: React.FC<OverdueTaskBarInsertProps> = ({
             >
               {/* Task Status */}
               <span 
-                className="flex-shrink-0 mr-2"
+                className="flex-shrink-0 mr-1"
                 style={{ 
                   color: '#DC2626',
-                  fontSize: '12px',
+                  fontSize: '10px',
                   fontWeight: 'bold'
                 }}
               >
@@ -142,10 +144,10 @@ const OverdueTaskBarInsert: React.FC<OverdueTaskBarInsertProps> = ({
               
               {/* Task Name */}
               <span 
-                className="flex-1 truncate font-medium mr-2"
+                className="flex-1 truncate font-medium mr-1"
                 style={{ 
                   color: '#DC2626',
-                  fontSize: '12px'
+                  fontSize: '10px'
                 }}
               >
                 {task.name}
@@ -153,10 +155,10 @@ const OverdueTaskBarInsert: React.FC<OverdueTaskBarInsertProps> = ({
               
               {/* Overdue Days */}
               <span 
-                className="flex-shrink-0 mr-2 font-bold"
+                className="flex-shrink-0 mr-1 font-bold"
                 style={{ 
                   color: '#DC2626',
-                  fontSize: '11px'
+                  fontSize: '9px'
                 }}
               >
                 {(() => {
@@ -175,7 +177,7 @@ const OverdueTaskBarInsert: React.FC<OverdueTaskBarInsertProps> = ({
                 className="flex-shrink-0 mr-1 font-bold"
                 style={{ 
                   color: '#DC2626',
-                  fontSize: '11px'
+                  fontSize: '9px'
                 }}
               >
                 {task.progress || 0}%

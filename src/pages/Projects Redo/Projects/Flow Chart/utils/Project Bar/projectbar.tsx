@@ -33,6 +33,7 @@ export interface ProjectBarProps {
   totalUpdatesCount?: number;
   stackLevel?: number;
   topPosition?: number; // Override automatic positioning
+
 }
 
 
@@ -83,6 +84,7 @@ const ProjectBar: React.FC<ProjectBarProps> = ({
   totalUpdatesCount = 0,
   stackLevel = 0,
   topPosition,
+
 }) => {
   // Check if this project has no end date (same as start date means no real end date was set)
   const hasNoEndDate = projectStart.getTime() === projectEnd.getTime();

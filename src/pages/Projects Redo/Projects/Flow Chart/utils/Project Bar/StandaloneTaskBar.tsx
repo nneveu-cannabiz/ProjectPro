@@ -18,6 +18,7 @@ export interface StandaloneTaskBarProps {
   today: Date;
   barHeightPx: number;
   stackLevel: number;
+  topPosition?: number;
   onTaskClick?: (taskId: string) => void;
   onUpdatesClick?: (taskId: string) => void;
   unreadUpdatesCount?: number;
@@ -81,6 +82,7 @@ const StandaloneTaskBar: React.FC<StandaloneTaskBarProps> = ({
   today,
   barHeightPx,
   stackLevel,
+  topPosition,
   onTaskClick,
   onUpdatesClick,
   unreadUpdatesCount = 0,
@@ -88,16 +90,21 @@ const StandaloneTaskBar: React.FC<StandaloneTaskBarProps> = ({
   isClickable = false,
   onClick
 }) => {
+  // Check if task has no end date (start === end)
+  const hasNoEndDate = taskStart.getTime() === taskEnd.getTime();
+  
+  // For tasks with no end date, extend them to the end of the current week for visual display
+  const effectiveEndDate = hasNoEndDate ? weekEnd : taskEnd;
+  
   // Use shared column positioning utility
   const { leftPercent, widthPercent } = calculateColumnPosition(
     taskStart,
-    taskEnd,
+    effectiveEndDate,
     weekStart
   );
 
   // Check if task is visible in the current week
   // For tasks with no real end date (start === end), show them if they start before or during the week
-  const hasNoEndDate = taskStart.getTime() === taskEnd.getTime();
   const isVisible = hasNoEndDate 
     ? taskStart <= weekEnd 
     : taskEnd >= weekStart && taskStart <= weekEnd;
@@ -105,6 +112,8 @@ const StandaloneTaskBar: React.FC<StandaloneTaskBarProps> = ({
   if (!isVisible) {
     return null;
   }
+
+  
 
   const handleTaskNameClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -132,7 +141,7 @@ const StandaloneTaskBar: React.FC<StandaloneTaskBarProps> = ({
       style={{
         left: `${leftPercent}%`,
         width: `${widthPercent}%`,
-        top: `${8 + stackLevel * (barHeightPx + 4)}px`,
+        top: topPosition ? `${topPosition}px` : `${8 + stackLevel * (barHeightPx + 4)}px`,
         height: `${barHeightPx}px`,
         backgroundColor: barColor,
         borderColor: isOverdue ? '#DC2626' : typeColor,
@@ -177,6 +186,7 @@ const StandaloneTaskBar: React.FC<StandaloneTaskBarProps> = ({
           <div className="text-xs opacity-90 mt-1">
             {taskType} • {status.replace('-', ' ')}
             {taskProgress > 0 && ` • ${taskProgress}%`}
+            {hasNoEndDate && ' • Ongoing'}
           </div>
         </div>
 
