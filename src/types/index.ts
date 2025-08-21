@@ -16,6 +16,11 @@ export interface Project {
   deadline?: string;
   tags?: string[];
   progress?: number;
+  documents?: Array<{
+    document_name: string;
+    document_link: string;
+    document_description: string;
+  }>; // Array of project documents/resources
 }
 
 export interface Task {

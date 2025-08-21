@@ -9,15 +9,17 @@ import { useAuth } from '../../../../context/AuthContext';
 import PageChange from './Filters/PageChange';
 import ProjectBar from './utils/Project Bar/projectbar';
 
-import ProjectDetailsModal from './utils/ProjectDetailsModal';
-import TaskDetailsModal from './utils/TaskDetailsModal';
+import ProjectDetailsModal from './utils/Profiles/ProjectDetailsModal';
+import TaskDetailsModal from './utils/Profiles/TaskDetailsModal';
 import UpdatesDetailsModal from './utils/UpdatesDetailsModal';
+import UnassignedProjectsPopUp from './Unassigned Projects/UnassignedProjectsPopUp';
 import Modal from '../../../../components/ui/Modal';
 import Input from '../../../../components/ui/Input';
 import Textarea from '../../../../components/ui/Textarea';
 import Select from '../../../../components/ui/Select';
 import Button from '../../../../components/ui/Button';
 import UserSelect from '../../../../components/UserSelect';
+import MultiUserSelect from '../../../../components/ui/MultiUserSelect';
 import { calculateRowHeight, calculateProjectPositions } from './utils/heightUtils';
 import { 
   generateWorkDates, 
@@ -169,6 +171,7 @@ const FlowChartContainer: React.FC = () => {
   const [selectedUpdatesTaskId, setSelectedUpdatesTaskId] = useState<string | null>(null);
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
+  const [showUnassignedProjectsModal, setShowUnassignedProjectsModal] = useState(false);
   
   // New project form state
   const [newProjectForm, setNewProjectForm] = useState({
@@ -178,6 +181,7 @@ const FlowChartContainer: React.FC = () => {
     status: 'todo' as const,
     projectType: 'Active' as const,
     assigneeId: '',
+    multiAssigneeIds: [] as string[],
     startDate: new Date().toISOString().split('T')[0], // Today's date
     endDate: '',
     deadline: ''
@@ -419,6 +423,14 @@ const FlowChartContainer: React.FC = () => {
     setShowNewTaskModal(true);
   };
 
+  const handleUnassignedProjectsClick = () => {
+    setShowUnassignedProjectsModal(true);
+  };
+
+  const handleCloseUnassignedProjectsModal = () => {
+    setShowUnassignedProjectsModal(false);
+  };
+
   const handleCloseNewProjectModal = () => {
     setShowNewProjectModal(false);
     // Reset form
@@ -429,6 +441,7 @@ const FlowChartContainer: React.FC = () => {
       status: 'todo',
       projectType: 'Active',
       assigneeId: '',
+      multiAssigneeIds: [],
       startDate: new Date().toISOString().split('T')[0],
       endDate: '',
       deadline: ''
@@ -540,6 +553,7 @@ const FlowChartContainer: React.FC = () => {
         status: newProjectForm.status,
         projectType: newProjectForm.projectType,
         assigneeId: newProjectForm.assigneeId || undefined,
+        multiAssigneeIds: newProjectForm.multiAssigneeIds.length > 0 ? newProjectForm.multiAssigneeIds : undefined,
         flowChart: 'Product Development', // Set flow chart to Product Development
         startDate: newProjectForm.startDate, // Always include start date (defaults to today)
         endDate: newProjectForm.endDate || undefined,
@@ -556,7 +570,7 @@ const FlowChartContainer: React.FC = () => {
     }
   };
 
-  const handleNewProjectFormChange = (field: string, value: string) => {
+  const handleNewProjectFormChange = (field: string, value: string | string[]) => {
     setNewProjectForm(prev => ({
       ...prev,
       [field]: value
@@ -906,9 +920,9 @@ const FlowChartContainer: React.FC = () => {
                 return (
                 <div
                   key={user.id}
-                  className="border-b flex flex-col items-center justify-center p-3"
+                  className="flex flex-col items-center justify-center p-3"
                   style={{ 
-                    borderColor: brandTheme.border.light,
+                    borderBottom: `8px solid ${brandTheme.primary.navy}`, // Much thicker dark blue border
                     height: `${rowHeight}px`,
                     minHeight: '96px',
                     width: '160px' // Match w-40 (160px)
@@ -976,9 +990,9 @@ const FlowChartContainer: React.FC = () => {
               
               return (
                 <div
-                  className="border-b flex flex-col items-center justify-center p-3"
+                  className="flex flex-col items-center justify-center p-3"
                   style={{ 
-                    borderColor: brandTheme.border.light,
+                    borderBottom: `8px solid ${brandTheme.primary.navy}`, // Much thicker dark blue border
                     height: `${unassignedRowHeight}px`,
                     minHeight: '96px',
                     width: '160px' // Match w-40 (160px)
@@ -992,11 +1006,24 @@ const FlowChartContainer: React.FC = () => {
               </div>
               <div className="text-center">
                 <div 
-                  className="font-medium text-sm leading-tight"
+                  className="font-medium text-sm leading-tight mb-1"
                   style={{ color: brandTheme.text.primary }}
                 >
                   Unassigned Projects
                 </div>
+                <div 
+                  className="text-xs mb-1"
+                  style={{ color: brandTheme.text.muted }}
+                >
+                  {allUnassignedProjects.length} project{allUnassignedProjects.length !== 1 ? 's' : ''}
+                </div>
+                <button
+                  onClick={handleUnassignedProjectsClick}
+                  className="text-xs underline hover:no-underline transition-all"
+                  style={{ color: brandTheme.primary.navy }}
+                >
+                  Review Unassigned Projects
+                </button>
               </div>
             </div>
             );
@@ -1072,9 +1099,9 @@ const FlowChartContainer: React.FC = () => {
                 return (
                 <div 
                   key={user.id} 
-                  className="relative border-b"
+                  className="relative"
                   style={{ 
-                    borderColor: brandTheme.border.light, 
+                    borderBottom: `8px solid ${brandTheme.primary.navy}`, // Much thicker dark blue border
                     overflow: 'visible',
                     height: `${rowHeight}px`,
                     minHeight: `${rowHeight}px` // Ensure minHeight matches calculated height
@@ -1113,6 +1140,24 @@ const FlowChartContainer: React.FC = () => {
                       return stackedProjects.map((stackedProject) => {
                         const { totalCount, unreadCount } = getUpdatesCountsForProject(stackedProject.project.id);
                         
+                        // Filter tasks based on user's relationship to the project
+                        const isMainAssignee = stackedProject.project.assigneeId === user.id;
+                        const isAdditionalAssignee = (stackedProject.project.multiAssigneeIds || []).includes(user.id);
+                        
+                        let filteredTasks = stackedProject.project.tasks || [];
+                        
+                        if (isMainAssignee) {
+                          // Main assignee sees ALL tasks in the project
+                          filteredTasks = stackedProject.project.tasks || [];
+                        } else if (isAdditionalAssignee) {
+                          // Additional assignee sees ONLY tasks assigned to them
+                          filteredTasks = (stackedProject.project.tasks || []).filter(task => task.assigneeId === user.id);
+                        } else {
+                          // User has tasks in project but is not main or additional assignee
+                          // This handles the case where user has tasks but isn't formally assigned to project
+                          filteredTasks = (stackedProject.project.tasks || []).filter(task => task.assigneeId === user.id);
+                        }
+                        
                         return (
                           <ProjectBar
                             key={stackedProject.project.id}
@@ -1124,7 +1169,7 @@ const FlowChartContainer: React.FC = () => {
                             projectEnd={stackedProject.project.endDate}
                             projectDeadline={stackedProject.project.deadline}
                             projectProgress={stackedProject.project.progress}
-                            projectTasks={stackedProject.project.tasks}
+                            projectTasks={filteredTasks}
                             today={today}
                             barHeightPx={48} // Smaller height to allow more stacking
                             stackLevel={stackedProject.stackLevel}
@@ -1191,9 +1236,9 @@ const FlowChartContainer: React.FC = () => {
                 
                 return (
                   <div 
-                    className="relative border-b"
+                    className="relative"
                     style={{ 
-                      borderColor: brandTheme.border.light, 
+                      borderBottom: `8px solid ${brandTheme.primary.navy}`, // Much thicker dark blue border
                       overflow: 'visible',
                       height: `${unassignedRowHeight}px`,
                       minHeight: `${unassignedRowHeight}px` // Ensure minHeight matches calculated height
@@ -1605,6 +1650,14 @@ const FlowChartContainer: React.FC = () => {
             placeholder="Unassigned"
           />
           
+          <MultiUserSelect
+            label="Additional Assignees (optional)"
+            selectedUserIds={newProjectForm.multiAssigneeIds}
+            onChange={(userIds) => handleNewProjectFormChange('multiAssigneeIds', userIds)}
+            users={getProductDevUsers()}
+            placeholder="Select additional assignees..."
+          />
+          
           <Input
             type="date"
             label="Start Date"
@@ -1644,6 +1697,18 @@ const FlowChartContainer: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Unassigned Projects Modal */}
+      <UnassignedProjectsPopUp
+        isOpen={showUnassignedProjectsModal}
+        onClose={handleCloseUnassignedProjectsModal}
+        unassignedProjects={(parsedProjects || []).filter(project => !project.assigneeId)}
+        users={users}
+        onProjectAssigned={() => {
+          loadData(true); // Refresh data after assignment
+          handleCloseUnassignedProjectsModal(); // Close the modal
+        }}
+      />
     </div>
   );
 };

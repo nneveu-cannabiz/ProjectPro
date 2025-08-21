@@ -6,7 +6,7 @@ import {
   fetchUsersByDepartment
 } from '../../../../../data/supabase-store';
 import { User } from '../../../../../types';
-import ProjectDetailsModal from '../utils/ProjectDetailsModal';
+import ProjectDetailsModal from '../utils/Profiles/ProjectDetailsModal';
 import { useAppContext } from '../../../../../context/AppContext';
 
 interface OutstandingProject {

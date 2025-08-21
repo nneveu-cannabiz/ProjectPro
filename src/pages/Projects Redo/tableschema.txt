@@ -16,6 +16,7 @@ create table public."PMA_Projects" (
   tags jsonb null,
   progress smallint null,
   multi_assignee_id jsonb null,
+  documents jsonb[] null,
   constraint PMA_Projects_pkey primary key (id),
   constraint pma_projects_assignee_id_fkey foreign KEY (assignee_id) references "PMA_Users" (id) on delete set null,
   constraint PMA_Projects_priority_check check (
@@ -52,9 +53,6 @@ create table public."PMA_Projects" (
 ) TABLESPACE pg_default;
 
 create index IF not exists idx_pma_projects_assignee_id on public."PMA_Projects" using btree (assignee_id) TABLESPACE pg_default;
-
-create index IF not exists idx_pma_projects_multi_assignee_id on public."PMA_Projects" using gin (multi_assignee_id) TABLESPACE pg_default;
-
 
 ---------------------------------------------------------------------------------
 
