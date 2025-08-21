@@ -10,7 +10,10 @@ import {
 import { User } from '../../../../types';
 import FlowChartContainer from './FlowChartContainer';
 import OutstandingList from './Outstanding Projects/outstandinglist';
+import ProjectReviewSection from './Projects to Review/ProjectReviewSection';
+import TaskReviewSection from './Projects to Review/TaskReviewSection';
 import OKRPriorities from './OKRs/OKRPriorities';
+import UnassignedProjectsSection from './Unassigned Projects/UnassignedProjectsSection';
 import IDSSection from './IDS/IDSSection';
 import { createMenuItems, getMenuButtonStyle, getMenuDropdownStyle, getMenuItemStyle } from './utils/menu';
 
@@ -242,6 +245,16 @@ const ProjectsFlowChart: React.FC = () => {
           )}
         </div>
 
+        {/* Projects to Review Section */}
+        <div className="mt-4">
+          <ProjectReviewSection />
+        </div>
+
+        {/* Tasks to Review Section */}
+        <div className="mt-4">
+          <TaskReviewSection />
+        </div>
+
         {/* OKR Priorities Section */}
         <div className="mt-4">
           <OKRPriorities />
@@ -443,6 +456,11 @@ const ProjectsFlowChart: React.FC = () => {
        {/* Flow Chart Container - Takes remaining height */}
        <div className="flex-1 overflow-hidden">
          <FlowChartContainer />
+       </div>
+
+       {/* Unassigned Projects Section */}
+       <div className="p-6">
+         <UnassignedProjectsSection />
        </div>
 
        {/* IDS Section */}
