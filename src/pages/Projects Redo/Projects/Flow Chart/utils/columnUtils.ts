@@ -70,9 +70,10 @@ export const calculateColumnPosition = (
   });
   
   // Calculate how much space flex columns get
-  // Use the same assumption as FlowChartContainer's minWidth: '120px' for workdays
+  // Use much smaller weekend columns - just enough for header text
   const assumedContainerWidth = 1000;
-  const totalWeekendWidth = weekendCount * 48; // w-12 = 48px
+  const weekendColumnWidth = 24; // Reduced from 48px to 24px - just enough for "Sat"/"Sun"
+  const totalWeekendWidth = weekendCount * weekendColumnWidth;
   const totalFlexWidth = assumedContainerWidth - totalWeekendWidth;
   const flexColumnWidth = flexCount > 0 ? totalFlexWidth / flexCount : 0;
   
@@ -83,7 +84,7 @@ export const calculateColumnPosition = (
   
   for (let i = 0; i < startColumnIndex; i++) {
     if (isWeekendDay(allDates[i])) {
-      leftPixels += 48; // w-12 = 48px
+      leftPixels += weekendColumnWidth; // Small weekend column
     } else {
       leftPixels += flexColumnWidth; // flex-1 share
     }
@@ -94,7 +95,7 @@ export const calculateColumnPosition = (
   
   for (let i = startColumnIndex; i <= endColumnIndex; i++) {
     if (isWeekendDay(allDates[i])) {
-      spannedPixels += 48;
+      spannedPixels += weekendColumnWidth;
     } else {
       spannedPixels += flexColumnWidth;
     }
@@ -163,14 +164,15 @@ export const calculatePositionFromToday = (
   const weekendCount = allDates.filter(date => isWeekendDay(date)).length;
   const flexCount = allDates.length - weekendCount;
   const assumedContainerWidth = 1000;
-  const totalWeekendWidth = weekendCount * 48;
+  const weekendColumnWidth = 24; // Small weekend columns
+  const totalWeekendWidth = weekendCount * weekendColumnWidth;
   const totalFlexWidth = assumedContainerWidth - totalWeekendWidth;
   const flexColumnWidth = flexCount > 0 ? totalFlexWidth / flexCount : 0;
   
   // Calculate left position (pixels before today's column)
   for (let i = 0; i < todayColumnIndex; i++) {
     if (isWeekendDay(allDates[i])) {
-      leftPixels += 48;
+      leftPixels += weekendColumnWidth;
     } else {
       leftPixels += flexColumnWidth;
     }
@@ -179,7 +181,7 @@ export const calculatePositionFromToday = (
   // Calculate spanned width (from today to end of week)
   for (let i = todayColumnIndex; i < allDates.length; i++) {
     if (isWeekendDay(allDates[i])) {
-      spannedPixels += 48;
+      spannedPixels += weekendColumnWidth;
     } else {
       spannedPixels += flexColumnWidth;
     }

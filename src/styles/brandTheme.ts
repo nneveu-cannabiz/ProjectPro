@@ -25,6 +25,8 @@ export const brandTheme = {
     errorLight: '#FEE2E2', // Light red background
     info: '#2563EB',       // Blue for info
     infoLight: '#DBEAFE',  // Light blue background
+    inProgress: '#F59E0B', // Amber/yellow for in-progress tasks
+    inProgressLight: '#FEF3C7', // Light amber background for in-progress
   },
 
   // Neutral Grays
@@ -136,7 +138,7 @@ export const brandTheme = {
 }
 
 // Utility functions for theme usage
-export const getStatusColor = (type: 'success' | 'warning' | 'error' | 'info') => {
+export const getStatusColor = (type: 'success' | 'warning' | 'error' | 'info' | 'inProgress') => {
   return {
     text: brandTheme.status[type],
     background: brandTheme.status[`${type}Light` as keyof typeof brandTheme.status],

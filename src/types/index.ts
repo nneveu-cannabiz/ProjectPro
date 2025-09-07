@@ -97,3 +97,13 @@ export interface Update {
     responseUpdateId?: string;
   }; // Request information if this update is a request
 }
+
+export interface Hour {
+  id: string;
+  userId: string;
+  taskId: string;
+  hours: number;
+  date: string;
+  createdAt: string;
+  updatedAt: string;
+}

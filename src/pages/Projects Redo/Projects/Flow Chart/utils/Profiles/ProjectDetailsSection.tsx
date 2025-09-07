@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Pencil } from 'lucide-react';
 import Button from '../../../../../../components/ui/Button';
 import Badge from '../../../../../../components/ui/Badge';
 import UserAvatar from '../../../../../../components/UserAvatar';
@@ -118,9 +119,9 @@ const ProjectDetailsSection: React.FC<ProjectDetailsSectionProps> = ({
       
       const updatedProject = {
         ...project,
-        startDate: dateValues.startDate || undefined,
-        endDate: dateValues.endDate || undefined,
-        deadline: dateValues.deadline || undefined
+        startDate: dateValues.startDate || null,
+        endDate: dateValues.endDate || null,
+        deadline: dateValues.deadline || null
       };
 
       await onUpdateProject(updatedProject);
@@ -246,6 +247,30 @@ const ProjectDetailsSection: React.FC<ProjectDetailsSectionProps> = ({
     }
   };
 
+  // Function to add specific tags
+  const handleAddSpecificTag = async (tagToAdd: string) => {
+    try {
+      setIsAddingTag(true);
+      const currentTags = project.tags || [];
+      
+      // Check if tag already exists
+      if (currentTags.includes(tagToAdd)) {
+        return; // Tag already exists, no need to add
+      }
+      
+      const updatedTags = [...currentTags, tagToAdd];
+      
+      await onUpdateProject({
+        ...project,
+        tags: updatedTags
+      });
+    } catch (error) {
+      console.error('Error adding specific tag:', error);
+    } finally {
+      setIsAddingTag(false);
+    }
+  };
+
   // Get project tasks for summary
   const projectTasks = project.tasks || [];
 
@@ -254,31 +279,35 @@ const ProjectDetailsSection: React.FC<ProjectDetailsSectionProps> = ({
       {/* Project Assignee and Additional Assignees */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <div className="flex items-center justify-between mb-2">
+          <div 
+            className="flex items-center justify-between px-3 py-2 mb-2 rounded-md"
+            style={{ backgroundColor: brandTheme.primary.navy }}
+          >
             <h3 
               className="text-sm font-medium"
-              style={{ color: brandTheme.text.primary }}
+              style={{ color: brandTheme.background.primary }}
             >
               Project Assignee
             </h3>
             {!isEditingAssignee && (
-              <Button 
-                size="sm" 
-                variant="outline"
+              <button
                 onClick={handleEditAssignee}
+                className="p-1 rounded-md hover:bg-blue-800 transition-colors"
+                title="Edit assignee"
+                style={{ color: brandTheme.background.primary }}
               >
-                Edit
-              </Button>
+                <Pencil size={14} />
+              </button>
             )}
           </div>
 
           {!isEditingAssignee ? (
-            <div className="flex items-center space-x-2">
+            <div className="px-3 flex justify-end items-center space-x-2">
               {project.assigneeId ? (
                 (() => {
                   const assignee = users.find(user => user.id === project.assigneeId);
                   return assignee ? (
-                    <div className="flex items-center p-2 hover:bg-blue-50 rounded-md">
+                    <div className="flex items-center">
                       <UserAvatar user={assignee} showName />
                     </div>
                   ) : (
@@ -300,7 +329,7 @@ const ProjectDetailsSection: React.FC<ProjectDetailsSectionProps> = ({
               )}
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="px-3 space-y-3">
               <UserSelect
                 selectedUserId={assigneeValue}
                 onChange={setAssigneeValue}
@@ -314,6 +343,10 @@ const ProjectDetailsSection: React.FC<ProjectDetailsSectionProps> = ({
                   size="sm" 
                   onClick={handleUpdateAssignee}
                   disabled={isUpdatingAssignee}
+                  style={{
+                    backgroundColor: brandTheme.primary.lightBlue,
+                    color: brandTheme.primary.navy
+                  }}
                 >
                   {isUpdatingAssignee ? 'Saving...' : 'Save'}
                 </Button>
@@ -322,6 +355,11 @@ const ProjectDetailsSection: React.FC<ProjectDetailsSectionProps> = ({
                   variant="outline"
                   onClick={handleCancelAssigneeEdit}
                   disabled={isUpdatingAssignee}
+                  style={{
+                    backgroundColor: brandTheme.primary.lightBlue,
+                    color: brandTheme.primary.navy,
+                    borderColor: brandTheme.primary.navy
+                  }}
                 >
                   Cancel
                 </Button>
@@ -331,26 +369,30 @@ const ProjectDetailsSection: React.FC<ProjectDetailsSectionProps> = ({
         </div>
         
         <div>
-          <div className="flex items-center justify-between mb-2">
+          <div 
+            className="flex items-center justify-between px-3 py-2 mb-2 rounded-md"
+            style={{ backgroundColor: brandTheme.primary.navy }}
+          >
             <h3 
               className="text-sm font-medium"
-              style={{ color: brandTheme.text.primary }}
+              style={{ color: brandTheme.background.primary }}
             >
               Additional Assignees
             </h3>
             {!isEditingMultiAssignees && (
-              <Button 
-                size="sm" 
-                variant="outline"
+              <button
                 onClick={handleEditMultiAssignees}
+                className="p-1 rounded-md hover:bg-blue-800 transition-colors"
+                title="Edit additional assignees"
+                style={{ color: brandTheme.background.primary }}
               >
-                Edit
-              </Button>
+                <Pencil size={14} />
+              </button>
             )}
           </div>
 
           {!isEditingMultiAssignees ? (
-            <div className="space-y-2">
+            <div className="px-3 space-y-2">
               {project.multiAssigneeIds && project.multiAssigneeIds.length > 0 ? (
                 <div className="space-y-2">
                   {project.multiAssigneeIds.map((userId: any) => {
@@ -380,7 +422,7 @@ const ProjectDetailsSection: React.FC<ProjectDetailsSectionProps> = ({
               )}
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="px-3 space-y-3">
               <MultiUserSelect
                 selectedUserIds={multiAssigneeValues}
                 onChange={setMultiAssigneeValues}
@@ -394,6 +436,10 @@ const ProjectDetailsSection: React.FC<ProjectDetailsSectionProps> = ({
                   size="sm" 
                   onClick={handleUpdateMultiAssignees}
                   disabled={isUpdatingMultiAssignees}
+                  style={{
+                    backgroundColor: brandTheme.primary.lightBlue,
+                    color: brandTheme.primary.navy
+                  }}
                 >
                   {isUpdatingMultiAssignees ? 'Saving...' : 'Save'}
                 </Button>
@@ -402,6 +448,11 @@ const ProjectDetailsSection: React.FC<ProjectDetailsSectionProps> = ({
                   variant="outline"
                   onClick={handleCancelMultiAssigneesEdit}
                   disabled={isUpdatingMultiAssignees}
+                  style={{
+                    backgroundColor: brandTheme.primary.lightBlue,
+                    color: brandTheme.primary.navy,
+                    borderColor: brandTheme.primary.navy
+                  }}
                 >
                   Cancel
                 </Button>
@@ -412,147 +463,244 @@ const ProjectDetailsSection: React.FC<ProjectDetailsSectionProps> = ({
       </div>
 
       {/* Start Date, End Date, and Deadline */}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <div className="flex items-center justify-between mb-2">
+      <div>
+        {/* Connected Header */}
+        <div 
+          className="flex items-center justify-between px-3 py-2 mb-2 rounded-md"
+          style={{ backgroundColor: brandTheme.primary.navy }}
+        >
+          <div className="flex items-center justify-between w-full">
             <h3 
               className="text-sm font-medium"
-              style={{ color: brandTheme.text.primary }}
+              style={{ color: brandTheme.background.primary }}
             >
               Start Date
             </h3>
-            {!isEditingDates && (
-              <Button 
-                size="sm" 
-                variant="outline"
-                onClick={handleEditDates}
-              >
-                Edit
-              </Button>
-            )}
-          </div>
-          {!isEditingDates ? (
-            <span 
+            <h3 
               className="text-sm font-medium"
-              style={{ color: brandTheme.text.primary }}
+              style={{ color: brandTheme.background.primary }}
             >
-              {project.startDate ? new Date(project.startDate).toLocaleDateString() : 'Not set'}
-            </span>
-          ) : (
-            <input
-              type="date"
-              value={dateValues.startDate}
-              onChange={(e) => handleDateChange('startDate', e.target.value)}
-              className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1"
-              style={{
-                borderColor: brandTheme.border.light,
-                backgroundColor: brandTheme.background.secondary
-              }}
-              disabled={isUpdatingDates}
-            />
+              End Date
+            </h3>
+          </div>
+          {!isEditingDates && (
+            <button
+              onClick={handleEditDates}
+              className="ml-2 p-1 rounded-md hover:bg-blue-800 transition-colors"
+              title="Edit dates"
+              style={{ color: brandTheme.background.primary }}
+            >
+              <Pencil size={14} />
+            </button>
           )}
         </div>
         
-        <div>
-          <h3 
-            className="text-sm font-medium mb-2"
-            style={{ color: brandTheme.text.primary }}
-          >
-            End Date
-          </h3>
-          {!isEditingDates ? (
-            <span 
-              className="text-sm font-medium"
-              style={{ color: brandTheme.text.primary }}
-            >
-              {project.endDate ? new Date(project.endDate).toLocaleDateString() : 'Not set'}
-            </span>
-          ) : (
-            <input
-              type="date"
-              value={dateValues.endDate}
-              onChange={(e) => handleDateChange('endDate', e.target.value)}
-              className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1"
-              style={{
-                borderColor: brandTheme.border.light,
-                backgroundColor: brandTheme.background.secondary
-              }}
-              disabled={isUpdatingDates}
-            />
+        {/* Date Values */}
+        <div className="flex justify-between px-3">
+          <div className="flex-1">
+            {!isEditingDates ? (
+              <div>
+                <span 
+                  className="text-sm font-medium"
+                  style={{ color: brandTheme.text.primary }}
+                >
+                  {project.startDate ? new Date(project.startDate).toLocaleDateString() : 'Not set'}
+                </span>
+                {project.startDate && (
+                  <div 
+                    className="text-xs italic mt-1"
+                    style={{ color: '#9CA3AF' }}
+                  >
+                    {(() => {
+                      const startDate = new Date(project.startDate);
+                      const today = new Date();
+                      const diffTime = today.getTime() - startDate.getTime();
+                      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                      
+                      if (diffDays === 0) return 'Started today';
+                      if (diffDays === 1) return '1 day ago';
+                      if (diffDays > 0) return `${diffDays} days ago`;
+                      if (diffDays === -1) return 'Starts tomorrow';
+                      return `Starts in ${Math.abs(diffDays)} days`;
+                    })()}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <input
+                type="date"
+                value={dateValues.startDate}
+                onChange={(e) => handleDateChange('startDate', e.target.value)}
+                className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1"
+                style={{
+                  borderColor: brandTheme.border.light,
+                  backgroundColor: brandTheme.background.secondary
+                }}
+                disabled={isUpdatingDates}
+              />
+            )}
+          </div>
+          
+          {/* Total Days - Center */}
+          {!isEditingDates && project.startDate && project.endDate && (
+            <div className="flex-1 text-center">
+              <div 
+                className="text-xs italic"
+                style={{ color: '#9CA3AF' }}
+              >
+                Total Days
+              </div>
+              <div 
+                className="text-sm font-medium"
+                style={{ color: brandTheme.text.primary }}
+              >
+                {(() => {
+                  const startDate = new Date(project.startDate);
+                  const endDate = new Date(project.endDate);
+                  const diffTime = endDate.getTime() - startDate.getTime();
+                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                  return diffDays === 1 ? '1 day' : `${diffDays} days`;
+                })()}
+              </div>
+            </div>
           )}
+          
+          <div className="flex-1 text-right">
+            {!isEditingDates ? (
+              <div>
+                <span 
+                  className="text-sm font-medium"
+                  style={{ color: brandTheme.text.primary }}
+                >
+                  {project.endDate ? new Date(project.endDate).toLocaleDateString() : 'Not set'}
+                </span>
+                {project.endDate && (
+                  <div 
+                    className="text-xs italic mt-1"
+                    style={{ color: '#9CA3AF' }}
+                  >
+                    {(() => {
+                      const endDate = new Date(project.endDate);
+                      const today = new Date();
+                      const diffTime = endDate.getTime() - today.getTime();
+                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                      
+                      if (diffDays === 0) return 'Due today';
+                      if (diffDays === 1) return '1 day left';
+                      if (diffDays > 0) return `${diffDays} days left`;
+                      if (diffDays === -1) return '1 day overdue';
+                      return `${Math.abs(diffDays)} days overdue`;
+                    })()}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <input
+                type="date"
+                value={dateValues.endDate}
+                onChange={(e) => handleDateChange('endDate', e.target.value)}
+                className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1"
+                style={{
+                  borderColor: brandTheme.border.light,
+                  backgroundColor: brandTheme.background.secondary
+                }}
+                disabled={isUpdatingDates}
+              />
+            )}
+          </div>
         </div>
       </div>
       
       <div className="text-center">
-        <h3 
-          className="text-sm font-medium mb-2"
-          style={{ color: brandTheme.text.primary }}
+        <div 
+          className="px-3 py-2 mb-2 rounded-md text-center"
+          style={{ backgroundColor: brandTheme.primary.navy }}
         >
-          Deadline
-        </h3>
-        {!isEditingDates ? (
-          <span 
+          <h3 
             className="text-sm font-medium"
-            style={{ color: brandTheme.status.warning }}
+            style={{ color: brandTheme.background.primary }}
           >
-            {project.deadline ? new Date(project.deadline).toLocaleDateString() : 'Not set'}
-          </span>
-        ) : (
-          <input
-            type="date"
-            value={dateValues.deadline}
-            onChange={(e) => handleDateChange('deadline', e.target.value)}
-            className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1"
-            style={{
-              borderColor: brandTheme.border.light,
-              backgroundColor: brandTheme.background.secondary
-            }}
-            disabled={isUpdatingDates}
-          />
-        )}
-        
-        {isEditingDates && (
-          <div className="flex space-x-2 pt-2 justify-center">
-            <Button 
-              size="sm" 
-              onClick={handleUpdateDates}
-              disabled={isUpdatingDates}
+            Deadline
+          </h3>
+        </div>
+        <div className="px-3 text-center">
+          {!isEditingDates ? (
+            <span 
+              className="text-sm font-medium"
+              style={{ color: brandTheme.status.warning }}
             >
-              {isUpdatingDates ? 'Saving...' : 'Save'}
-            </Button>
-            <Button 
-              size="sm" 
-              variant="outline"
-              onClick={handleCancelDatesEdit}
+              {project.deadline ? new Date(project.deadline).toLocaleDateString() : 'Not set'}
+            </span>
+          ) : (
+            <input
+              type="date"
+              value={dateValues.deadline}
+              onChange={(e) => handleDateChange('deadline', e.target.value)}
+              className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1"
+              style={{
+                borderColor: brandTheme.border.light,
+                backgroundColor: brandTheme.background.secondary
+              }}
               disabled={isUpdatingDates}
-            >
-              Cancel
-            </Button>
-          </div>
-        )}
+            />
+          )}
+          
+          {isEditingDates && (
+            <div className="flex space-x-2 pt-2 justify-center">
+              <Button 
+                size="sm" 
+                onClick={handleUpdateDates}
+                disabled={isUpdatingDates}
+                style={{
+                  backgroundColor: brandTheme.primary.lightBlue,
+                  color: brandTheme.primary.navy
+                }}
+              >
+                {isUpdatingDates ? 'Saving...' : 'Save'}
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={handleCancelDatesEdit}
+                disabled={isUpdatingDates}
+                style={{
+                  backgroundColor: brandTheme.primary.lightBlue,
+                  color: brandTheme.primary.navy,
+                  borderColor: brandTheme.primary.navy
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Project Progress */}
       <div className="mt-4">
-        <div className="flex items-center justify-between mb-2">
+        <div 
+          className="flex items-center justify-between px-3 py-2 mb-2 rounded-md"
+          style={{ backgroundColor: brandTheme.primary.navy }}
+        >
           <h3 
             className="text-sm font-medium"
-            style={{ color: brandTheme.text.primary }}
+            style={{ color: brandTheme.background.primary }}
           >
             Project Progress
           </h3>
           {!isEditingProgress && (
-            <Button 
-              size="sm" 
-              variant="outline"
+            <button
               onClick={handleEditProgress}
+              className="p-1 rounded-md hover:bg-blue-800 transition-colors"
+              title="Edit progress"
+              style={{ color: brandTheme.background.primary }}
             >
-              Edit
-            </Button>
+              <Pencil size={14} />
+            </button>
           )}
         </div>
         
-        <div className="flex-1">
+        <div className="px-3">
           {!isEditingProgress ? (
             <div className="flex items-center space-x-3">
               <div className="flex-1">
@@ -609,6 +757,10 @@ const ProjectDetailsSection: React.FC<ProjectDetailsSectionProps> = ({
                 size="sm" 
                 onClick={handleUpdateProgress}
                 disabled={isUpdatingProgress}
+                style={{
+                  backgroundColor: brandTheme.primary.lightBlue,
+                  color: brandTheme.primary.navy
+                }}
               >
                 {isUpdatingProgress ? 'Saving...' : 'Save'}
               </Button>
@@ -617,6 +769,11 @@ const ProjectDetailsSection: React.FC<ProjectDetailsSectionProps> = ({
                 variant="outline"
                 onClick={handleCancelProgressEdit}
                 disabled={isUpdatingProgress}
+                style={{
+                  backgroundColor: brandTheme.primary.lightBlue,
+                  color: brandTheme.primary.navy,
+                  borderColor: brandTheme.primary.navy
+                }}
               >
                 Cancel
               </Button>
@@ -636,110 +793,184 @@ const ProjectDetailsSection: React.FC<ProjectDetailsSectionProps> = ({
 
       {/* Project Tags */}
       <div className="mt-4">
-        <h3 
-          className="text-sm font-medium mb-2"
-          style={{ color: brandTheme.text.primary }}
+        <div 
+          className="px-3 py-2 mb-2 rounded-md"
+          style={{ backgroundColor: brandTheme.primary.navy }}
         >
-          Project Tags
-        </h3>
-        
-        {/* Existing Tags */}
-        {project.tags && project.tags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-3">
-            {project.tags.map((tag: any, index: number) => (
-              <div
-                key={index}
-                className="cursor-pointer hover:opacity-80"
-                onClick={() => handleRemoveTag(tag)}
-                title="Click to remove tag"
-              >
-                <Badge 
-                  variant="secondary" 
-                >
-                  {tag} ×
-                </Badge>
-              </div>
-            ))}
-          </div>
-        )}
-        
-        {/* Add New Tag */}
-        <div className="flex items-center space-x-2">
-          <input
-            type="text"
-            value={newTag}
-            onChange={(e) => setNewTag(e.target.value)}
-            onKeyPress={handleTagKeyPress}
-            placeholder="Add a tag..."
-            className="flex-1 px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1"
-            style={{
-              borderColor: brandTheme.border.light,
-              backgroundColor: brandTheme.background.secondary
-            }}
-            disabled={isAddingTag}
-          />
-          <Button 
-            size="sm" 
-            onClick={handleAddTag}
-            disabled={!newTag.trim() || isAddingTag}
+          <h3 
+            className="text-sm font-medium"
+            style={{ color: brandTheme.background.primary }}
           >
-            {isAddingTag ? 'Adding...' : 'Add'}
-          </Button>
+            Project Tags
+          </h3>
         </div>
         
-        {(!project.tags || project.tags.length === 0) && (
-          <p 
-            className="text-xs mt-2"
-            style={{ color: brandTheme.text.muted }}
-          >
-            No tags yet. Add tags to categorize and organize your project.
-          </p>
-        )}
+        <div className="px-3">
+          {/* Existing Tags */}
+          {project.tags && project.tags.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {project.tags.map((tag: any, index: number) => (
+                <div
+                  key={index}
+                  className="cursor-pointer hover:opacity-80"
+                  onClick={() => handleRemoveTag(tag)}
+                  title="Click to remove tag"
+                >
+                  <Badge 
+                    variant="secondary" 
+                  >
+                    {tag} ×
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {/* Add New Tag */}
+          <div className="flex items-center space-x-2">
+            <input
+              type="text"
+              value={newTag}
+              onChange={(e) => setNewTag(e.target.value)}
+              onKeyPress={handleTagKeyPress}
+              placeholder="Add a tag..."
+              className="flex-1 px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1"
+              style={{
+                borderColor: brandTheme.border.light,
+                backgroundColor: brandTheme.background.secondary
+              }}
+              disabled={isAddingTag}
+            />
+            <Button 
+              size="sm" 
+              onClick={handleAddTag}
+              disabled={!newTag.trim() || isAddingTag}
+              style={{
+                backgroundColor: brandTheme.primary.lightBlue,
+                color: brandTheme.primary.navy
+              }}
+            >
+              {isAddingTag ? 'Adding...' : 'Add'}
+            </Button>
+          </div>
+          
+          {(!project.tags || project.tags.length === 0) && (
+            <p 
+              className="text-xs mt-2"
+              style={{ color: brandTheme.text.muted }}
+            >
+              No tags yet. Add tags to categorize and organize your project.
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Tasks Summary */}
       <div className="mt-4">
+        <div 
+          className="px-3 py-2 mb-2 rounded-md"
+          style={{ backgroundColor: brandTheme.primary.navy }}
+        >
+          <h3 
+            className="text-sm font-medium"
+            style={{ color: brandTheme.background.primary }}
+          >
+            Tasks Summary
+          </h3>
+        </div>
+        <div className="px-3">
+          <div className="flex justify-between text-sm">
+            <span style={{ color: brandTheme.text.muted }}>Total Tasks:</span>
+            <span 
+              className="font-medium"
+              style={{ color: brandTheme.text.primary }}
+            >
+              {projectTasks.length}
+            </span>
+          </div>
+          <div className="flex justify-between text-sm mt-1">
+            <span style={{ color: brandTheme.text.muted }}>Completed:</span>
+            <span 
+              className="font-medium"
+              style={{ color: brandTheme.text.primary }}
+            >
+              {projectTasks.filter((task: any) => task.status === 'done').length}
+            </span>
+          </div>
+          <div className="flex justify-between text-sm mt-1">
+            <span style={{ color: brandTheme.text.muted }}>In Progress:</span>
+            <span 
+              className="font-medium"
+              style={{ color: brandTheme.text.primary }}
+            >
+              {projectTasks.filter((task: any) => task.status === 'in-progress').length}
+            </span>
+          </div>
+          <div className="flex justify-between text-sm mt-1">
+            <span style={{ color: brandTheme.text.muted }}>To Do:</span>
+            <span 
+              className="font-medium"
+              style={{ color: brandTheme.text.primary }}
+            >
+              {projectTasks.filter((task: any) => task.status === 'todo').length}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Tag Actions */}
+      <div className="mt-6 pt-4 border-t" style={{ borderColor: brandTheme.border.light }}>
         <h3 
-          className="text-sm font-medium mb-2"
+          className="text-sm font-medium mb-3"
           style={{ color: brandTheme.text.primary }}
         >
-          Tasks Summary
+          Quick Actions
         </h3>
-        <div className="flex justify-between text-sm">
-          <span style={{ color: brandTheme.text.muted }}>Total Tasks:</span>
-          <span 
-            className="font-medium"
-            style={{ color: brandTheme.text.primary }}
+        <div className="grid grid-cols-1 gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleAddSpecificTag('Ready to Assign')}
+            disabled={isAddingTag || (project.tags && project.tags.includes('Ready to Assign'))}
+            className="justify-start"
+            style={{
+              backgroundColor: brandTheme.primary.lightBlue,
+              color: brandTheme.primary.navy,
+              borderColor: brandTheme.primary.navy
+            }}
           >
-            {projectTasks.length}
-          </span>
-        </div>
-        <div className="flex justify-between text-sm mt-1">
-          <span style={{ color: brandTheme.text.muted }}>Completed:</span>
-          <span 
-            className="font-medium"
-            style={{ color: brandTheme.text.primary }}
+            {project.tags && project.tags.includes('Ready to Assign') ? '✓ Ready to Assign' : 'Mark as Ready to Assign'}
+          </Button>
+          
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleAddSpecificTag('Need to Review')}
+            disabled={isAddingTag || (project.tags && project.tags.includes('Need to Review'))}
+            className="justify-start"
+            style={{
+              backgroundColor: brandTheme.primary.lightBlue,
+              color: brandTheme.primary.navy,
+              borderColor: brandTheme.primary.navy
+            }}
           >
-            {projectTasks.filter((task: any) => task.status === 'done').length}
-          </span>
-        </div>
-        <div className="flex justify-between text-sm mt-1">
-          <span style={{ color: brandTheme.text.muted }}>In Progress:</span>
-          <span 
-            className="font-medium"
-            style={{ color: brandTheme.text.primary }}
+            {project.tags && project.tags.includes('Need to Review') ? '✓ Need to Review' : 'Mark as Need to Review'}
+          </Button>
+          
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleAddSpecificTag('IDS')}
+            disabled={isAddingTag || (project.tags && project.tags.includes('IDS'))}
+            className="justify-start"
+            style={{
+              backgroundColor: brandTheme.primary.lightBlue,
+              color: brandTheme.primary.navy,
+              borderColor: brandTheme.primary.navy
+            }}
           >
-            {projectTasks.filter((task: any) => task.status === 'in-progress').length}
-          </span>
-        </div>
-        <div className="flex justify-between text-sm mt-1">
-          <span style={{ color: brandTheme.text.muted }}>To Do:</span>
-          <span 
-            className="font-medium"
-            style={{ color: brandTheme.text.primary }}
-          >
-            {projectTasks.filter((task: any) => task.status === 'todo').length}
-          </span>
+            {project.tags && project.tags.includes('IDS') ? '✓ IDS' : 'Mark as IDS'}
+          </Button>
         </div>
       </div>
     </div>

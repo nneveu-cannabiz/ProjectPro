@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../lib/supabase';
-import { Project, Task, SubTask, Category, TaskType, User, Update } from '../types';
+import { Project, Task, SubTask, Category, TaskType, User, Update, Hour } from '../types';
 
 // Helper function to handle Supabase errors with timeouts
 const safeSupabaseCall = async <T>(
@@ -152,9 +152,9 @@ export const updateProject = async (project: Project): Promise<void> => {
       assignee_id: project.assigneeId,
       multi_assignee_id: project.multiAssigneeIds || [],
       flow_chart: project.flowChart,
-      start_date: project.startDate,
-      end_date: project.endDate,
-      deadline: project.deadline,
+      start_date: project.startDate === null ? null : project.startDate,
+      end_date: project.endDate === null ? null : project.endDate,
+      deadline: project.deadline === null ? null : project.deadline,
       tags: project.tags,
       progress: project.progress,
       updated_at: timestamp
@@ -302,9 +302,9 @@ export const updateTask = async (task: Task): Promise<void> => {
       assignee_id: task.assigneeId,
       flow_chart: task.flowChart,
       priority: task.priority,
-      start_date: task.startDate,
-      end_date: task.endDate,
-      deadline: task.deadline,
+      start_date: task.startDate === null ? null : task.startDate,
+      end_date: task.endDate === null ? null : task.endDate,
+      deadline: task.deadline === null ? null : task.deadline,
       tags: task.tags,
       progress: task.progress,
       updated_at: timestamp
@@ -975,4 +975,169 @@ export const updateProjectAssignee = async (projectId: string, assigneeId: strin
     console.error('Error updating project assignee:', error);
     throw error;
   }
+};
+
+// Hour logging operations
+export const fetchUserHours = async (userId: string): Promise<Hour[]> => {
+  return safeSupabaseCall(
+    async () => {
+      const { data, error } = await supabase
+        .from('PMA_Hours')
+        .select('*')
+        .eq('user_id', userId)
+        .order('date', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching user hours:', error);
+        throw error;
+      }
+      
+      return data.map(h => ({
+        id: h.id,
+        userId: h.user_id,
+        taskId: h.task_id,
+        hours: h.hours,
+        date: h.date,
+        createdAt: h.created_at,
+        updatedAt: h.updated_at
+      }));
+    },
+    'Failed to fetch user hours',
+    []
+  );
+};
+
+export const fetchTasksAssignedToUser = async (userId: string): Promise<Task[]> => {
+  return safeSupabaseCall(
+    async () => {
+      const { data, error } = await supabase
+        .from('PMA_Tasks')
+        .select('*')
+        .eq('assignee_id', userId)
+        .in('status', ['todo', 'in-progress']);
+      
+      if (error) {
+        console.error('Error fetching assigned tasks:', error);
+        throw error;
+      }
+      
+      return data.map(t => ({
+        id: t.id,
+        projectId: t.project_id,
+        name: t.name,
+        description: t.description || '',
+        taskType: t.task_type,
+        status: t.status,
+        assigneeId: t.assignee_id,
+        flowChart: t.flow_chart,
+        priority: t.priority,
+        createdAt: t.created_at,
+        updatedAt: t.updated_at,
+        startDate: t.start_date,
+        endDate: t.end_date,
+        deadline: t.deadline,
+        tags: t.tags || [],
+        progress: t.progress
+      }));
+    },
+    'Failed to fetch assigned tasks',
+    []
+  );
+};
+
+export const logHours = async (userId: string, taskId: string, hours: number, date: string): Promise<void> => {
+  return safeSupabaseCall(
+    async () => {
+      const { error } = await supabase
+        .from('PMA_Hours')
+        .insert({
+          id: uuidv4(),
+          user_id: userId,
+          task_id: taskId,
+          hours: hours,
+          date: date,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+      
+      if (error) {
+        console.error('Error logging hours:', error);
+        throw error;
+      }
+    },
+    'Failed to log hours',
+    undefined
+  );
+};
+
+export const fetchHoursWithTaskDetails = async (userId: string): Promise<(Hour & { task: Task; project: Project })[]> => {
+  return safeSupabaseCall(
+    async () => {
+      const { data, error } = await supabase
+        .from('PMA_Hours')
+        .select(`
+          *,
+          PMA_Tasks!inner(
+            *,
+            PMA_Projects!inner(*)
+          )
+        `)
+        .eq('user_id', userId)
+        .order('date', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching hours with task details:', error);
+        throw error;
+      }
+      
+      return data.map(h => ({
+        id: h.id,
+        userId: h.user_id,
+        taskId: h.task_id,
+        hours: h.hours,
+        date: h.date,
+        createdAt: h.created_at,
+        updatedAt: h.updated_at,
+        task: {
+          id: h.PMA_Tasks.id,
+          projectId: h.PMA_Tasks.project_id,
+          name: h.PMA_Tasks.name,
+          description: h.PMA_Tasks.description || '',
+          taskType: h.PMA_Tasks.task_type,
+          status: h.PMA_Tasks.status,
+          assigneeId: h.PMA_Tasks.assignee_id,
+          flowChart: h.PMA_Tasks.flow_chart,
+          priority: h.PMA_Tasks.priority,
+          createdAt: h.PMA_Tasks.created_at,
+          updatedAt: h.PMA_Tasks.updated_at,
+          startDate: h.PMA_Tasks.start_date,
+          endDate: h.PMA_Tasks.end_date,
+          deadline: h.PMA_Tasks.deadline,
+          tags: h.PMA_Tasks.tags || [],
+          progress: h.PMA_Tasks.progress
+        },
+        project: {
+          id: h.PMA_Tasks.PMA_Projects.id,
+          name: h.PMA_Tasks.PMA_Projects.name,
+          description: h.PMA_Tasks.PMA_Projects.description || '',
+          category: h.PMA_Tasks.PMA_Projects.category,
+          status: h.PMA_Tasks.PMA_Projects.status,
+          projectType: h.PMA_Tasks.PMA_Projects.project_type || 'Active',
+          assigneeId: h.PMA_Tasks.PMA_Projects.assignee_id,
+          multiAssigneeIds: h.PMA_Tasks.PMA_Projects.multi_assignee_id || [],
+          flowChart: h.PMA_Tasks.PMA_Projects.flow_chart,
+          createdAt: h.PMA_Tasks.PMA_Projects.created_at,
+          updatedAt: h.PMA_Tasks.PMA_Projects.updated_at,
+          startDate: h.PMA_Tasks.PMA_Projects.start_date,
+          endDate: h.PMA_Tasks.PMA_Projects.end_date,
+          deadline: h.PMA_Tasks.PMA_Projects.deadline,
+          tags: h.PMA_Tasks.PMA_Projects.tags || [],
+          progress: h.PMA_Tasks.PMA_Projects.progress,
+          documents: h.PMA_Tasks.PMA_Projects.documents || []
+        }
+      }));
+    },
+    'Failed to fetch hours with task details',
+    []
+  );
 };

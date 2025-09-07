@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { UserX, Calendar, Target } from 'lucide-react';
+import { UserX, Calendar, Target, RefreshCw } from 'lucide-react';
 import { brandTheme } from '../../../../../styles/brandTheme';
 import { fetchFlowChartProjects, updateProjectAssignee, fetchUsersByDepartment } from '../../../../../data/supabase-store';
 import { User } from '../../../../../types';
 import ProjectUpdateIcon from '../utils/Project Bar/projectupdateicon';
 import UpdatesDetailsModal from '../utils/UpdatesDetailsModal';
+import ProjectDetailsModal from '../utils/Profiles/ProjectDetailsModal';
 import UserSelect from '../../../../../components/UserSelect';
 import Button from '../../../../../components/ui/Button';
 
@@ -26,19 +27,28 @@ const UnassignedProjectsSection: React.FC = () => {
   const [readyToAssignProjects, setReadyToAssignProjects] = useState<ReadyToAssignProject[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [assigningProjectId, setAssigningProjectId] = useState<string | null>(null);
   const [selectedAssignees, setSelectedAssignees] = useState<Record<string, string>>({});
   
   // Updates modal state
   const [showUpdatesModal, setShowUpdatesModal] = useState(false);
   const [selectedUpdatesProjectId, setSelectedUpdatesProjectId] = useState<string | null>(null);
+  
+  // Project details modal state
+  const [showProjectDetailsModal, setShowProjectDetailsModal] = useState(false);
+  const [selectedProjectDetailsId, setSelectedProjectDetailsId] = useState<string | null>(null);
 
   useEffect(() => {
     loadReadyToAssignData();
   }, []);
 
-  const loadReadyToAssignData = async () => {
-    setLoading(true);
+  const loadReadyToAssignData = async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     try {
       // Fetch projects from Product Development flow chart
       const [flowChartProjects, departmentUsers] = await Promise.all([
@@ -57,8 +67,16 @@ const UnassignedProjectsSection: React.FC = () => {
     } catch (error) {
       console.error('Error loading ready to assign projects data:', error);
     } finally {
-      setLoading(false);
+      if (isRefresh) {
+        setRefreshing(false);
+      } else {
+        setLoading(false);
+      }
     }
+  };
+
+  const handleRefresh = async () => {
+    await loadReadyToAssignData(true);
   };
 
   // Update click handlers
@@ -70,6 +88,17 @@ const UnassignedProjectsSection: React.FC = () => {
   const handleCloseUpdatesModal = () => {
     setShowUpdatesModal(false);
     setSelectedUpdatesProjectId(null);
+  };
+
+  // Project details modal handlers
+  const handleProjectNameClick = (projectId: string) => {
+    setSelectedProjectDetailsId(projectId);
+    setShowProjectDetailsModal(true);
+  };
+
+  const handleCloseProjectDetailsModal = () => {
+    setShowProjectDetailsModal(false);
+    setSelectedProjectDetailsId(null);
   };
 
   // Assignment handlers
@@ -164,14 +193,37 @@ const UnassignedProjectsSection: React.FC = () => {
       <div>
         {/* Header */}
         <div className="mb-4">
-          <div className="flex items-center mb-2">
-            <UserX size={20} className="mr-2" style={{ color: brandTheme.primary.navy }} />
-            <h2 
-              className="text-xl font-bold"
-              style={{ color: brandTheme.primary.navy }}
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center">
+              <UserX size={20} className="mr-2" style={{ color: brandTheme.primary.navy }} />
+              <h2 
+                className="text-xl font-bold"
+                style={{ color: brandTheme.primary.navy }}
+              >
+                Projects Ready to Be Assigned
+              </h2>
+            </div>
+            
+            {/* Refresh Button */}
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing || loading}
+              className={`p-2 rounded-lg border transition-colors disabled:opacity-50 ${
+                refreshing ? 'cursor-not-allowed' : 'hover:bg-gray-50'
+              }`}
+              style={{
+                borderColor: brandTheme.border.light,
+                color: brandTheme.text.primary,
+                backgroundColor: brandTheme.background.primary
+              }}
+              title="Refresh data"
             >
-              Projects Ready to Be Assigned
-            </h2>
+              <RefreshCw 
+                size={18} 
+                className={refreshing ? 'animate-spin' : ''}
+                style={{ color: brandTheme.text.primary }}
+              />
+            </button>
           </div>
           <p className="text-sm" style={{ color: brandTheme.text.muted }}>
             Projects in Product Development tagged as "Ready to Assign"
@@ -193,7 +245,7 @@ const UnassignedProjectsSection: React.FC = () => {
             </p>
           </div>
         ) : (
-          <div className="space-y-4 max-h-96 overflow-y-auto">
+          <div className="space-y-4">
             <h3 
               className="text-md font-semibold mb-3 flex items-center"
               style={{ color: brandTheme.primary.navy }}
@@ -213,6 +265,7 @@ const UnassignedProjectsSection: React.FC = () => {
                   getPriorityColor={getPriorityColor}
                   formatDate={formatDate}
                   onUpdatesClick={handleProjectUpdatesClick}
+                  onProjectNameClick={handleProjectNameClick}
                   onAssigneeChange={handleAssigneeChange}
                   onAssignProject={handleAssignProject}
                 />
@@ -232,6 +285,15 @@ const UnassignedProjectsSection: React.FC = () => {
           entityName={readyToAssignProjects.find(p => p.id === selectedUpdatesProjectId)?.name || 'Unknown Project'}
         />
       )}
+
+      {/* Project Details Modal */}
+      {showProjectDetailsModal && selectedProjectDetailsId && (
+        <ProjectDetailsModal
+          isOpen={showProjectDetailsModal}
+          onClose={handleCloseProjectDetailsModal}
+          projectId={selectedProjectDetailsId}
+        />
+      )}
     </div>
   );
 };
@@ -245,6 +307,7 @@ interface ReadyToAssignProjectCardProps {
   getPriorityColor: (priority: string) => string;
   formatDate: (dateString: string) => string;
   onUpdatesClick: (projectId: string) => void;
+  onProjectNameClick: (projectId: string) => void;
   onAssigneeChange: (projectId: string, userId: string) => void;
   onAssignProject: (projectId: string) => void;
 }
@@ -258,6 +321,7 @@ const ReadyToAssignProjectCard: React.FC<ReadyToAssignProjectCardProps> = ({
   getPriorityColor,
   formatDate,
   onUpdatesClick,
+  onProjectNameClick,
   onAssigneeChange,
   onAssignProject
 }) => {
@@ -271,12 +335,13 @@ const ReadyToAssignProjectCard: React.FC<ReadyToAssignProjectCardProps> = ({
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
-          <h3 
-            className="text-lg font-semibold mb-2"
+          <button
+            onClick={() => onProjectNameClick(project.id)}
+            className="text-lg font-semibold mb-2 text-left hover:underline transition-colors"
             style={{ color: brandTheme.primary.navy }}
           >
             {project.name}
-          </h3>
+          </button>
           {project.description && (
             <p 
               className="mb-2 text-sm"

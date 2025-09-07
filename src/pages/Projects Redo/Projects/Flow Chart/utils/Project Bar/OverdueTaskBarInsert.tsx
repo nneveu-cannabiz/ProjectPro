@@ -2,7 +2,7 @@ import React from 'react';
 import { AlertTriangle } from 'lucide-react';
 
 import { Task } from '../../../../../../types';
-import { calculatePositionFromToday } from '../columnUtils';
+import { calculatePositionFromToday, findTodayColumnIndex } from '../columnUtils';
 
 interface OverdueTaskBarInsertProps {
   overdueTasks: Task[];
@@ -21,17 +21,39 @@ interface OverdueTaskBarInsertProps {
 const calculateOverdueContainerPosition = (
   projectWeekStart: Date
 ): { leftPercent: number; widthPercent: number } => {
-  const result = calculatePositionFromToday(projectWeekStart, 2);
+  // Find today's column index using the existing utility
+  const todayIndex = findTodayColumnIndex(projectWeekStart);
   
   // If today is not in current week, don't show
-  if (result.widthPercent <= 0) {
+  if (todayIndex === -1) {
     return { leftPercent: 0, widthPercent: 0 };
   }
   
-  // Force minimum positioning - if we get here, today IS in the week, so show it
+  // Calculate today's position in the timeline using the column positioning utility
+  const result = calculatePositionFromToday(projectWeekStart, 2);
+  
+  // Special handling for when today is the first column (index 0)
+  // The issue is that the overdue container tries to overhang left, but can't when at index 0
+  if (todayIndex === 0) {
+
+    // Instead of trying to overhang left, position it at the start of today's column
+    // and extend it to the right for visibility
+    return { 
+      leftPercent: 0, // Start exactly at today's column (no negative overhang)
+      widthPercent: 45 // Extend rightward for good visibility
+    };
+  }
+  
+  // For other positions, allow the normal overhang behavior
+  // But ensure we don't go negative on the left
+  if (result.widthPercent <= 0) {
+    return { leftPercent: 0, widthPercent: 40 };
+  }
+  
+  // Force minimum positioning and prevent negative left positioning
   return {
     leftPercent: Math.max(0, result.leftPercent),
-    widthPercent: Math.max(30, result.widthPercent) // Force at least 30% width
+    widthPercent: Math.max(30, result.widthPercent)
   };
 };
 
@@ -48,6 +70,8 @@ const OverdueTaskBarInsert: React.FC<OverdueTaskBarInsertProps> = ({
   
   // Calculate container position
   const { leftPercent, widthPercent } = calculateOverdueContainerPosition(projectWeekStart);
+  
+
   
   // If width is 0, don't render (today not in current week)
   if (widthPercent <= 0) {

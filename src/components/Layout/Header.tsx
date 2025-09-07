@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Bell, User } from 'lucide-react';
+import { Search, Bell, User, MessageSquare } from 'lucide-react';
 import UserProfileCard from '../Profile/UserProfileCard';
+import UpdatePanel from './UpdatePanel';
 import { useAuth } from '../../context/AuthContext';
+import { useAppContext } from '../../context/AppContext';
 import { getUserProfile } from '../../lib/supabase';
+import { brandTheme } from '../../styles/brandTheme';
 
 interface HeaderProps {
   title: string;
@@ -10,7 +13,9 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ title }) => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isUpdatePanelOpen, setIsUpdatePanelOpen] = useState(false);
   const { currentUser } = useAuth();
+  const { getUsers, projects, tasks } = useAppContext();
   const [profileData, setProfileData] = useState<{
     firstName: string;
     lastName: string;
@@ -49,6 +54,42 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
   const handleCloseProfile = () => {
     setIsProfileOpen(false);
   };
+
+  const handleUpdatePanelClick = () => {
+    setIsUpdatePanelOpen(true);
+  };
+
+  const handleCloseUpdatePanel = () => {
+    setIsUpdatePanelOpen(false);
+  };
+
+  // Calculate total unread updates count
+  const getUnreadUpdatesCount = () => {
+    if (!currentUser) return 0;
+    
+    const { getUpdatesForEntity } = useAppContext();
+    let unreadCount = 0;
+
+    // Count unread project updates
+    projects.forEach(project => {
+      const projectUpdates = getUpdatesForEntity('project', project.id);
+      unreadCount += projectUpdates.filter(update => 
+        !update.isReadBy?.includes(currentUser.id)
+      ).length;
+    });
+
+    // Count unread task updates
+    tasks.forEach(task => {
+      const taskUpdates = getUpdatesForEntity('task', task.id);
+      unreadCount += taskUpdates.filter(update => 
+        !update.isReadBy?.includes(currentUser.id)
+      ).length;
+    });
+
+    return unreadCount;
+  };
+
+  const unreadCount = getUnreadUpdatesCount();
   
   // Get user initials for avatar
   const getUserInitials = () => {
@@ -78,6 +119,26 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
         </button>
         
         <button 
+          className="p-2 rounded-full hover:bg-gray-100 relative transition-colors"
+          onClick={handleUpdatePanelClick}
+          title="View updates"
+        >
+          <MessageSquare size={20} style={{ color: brandTheme.text.secondary }} />
+          {unreadCount > 0 && (
+            <span 
+              className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full flex items-center justify-center text-xs font-bold"
+              style={{
+                backgroundColor: brandTheme.status.error,
+                color: 'white',
+                fontSize: '10px'
+              }}
+            >
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </button>
+        
+        <button 
           className="p-2 rounded-full hover:bg-gray-100"
           onClick={handleProfileClick}
         >
@@ -95,6 +156,11 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
         onClose={handleCloseProfile} 
         userProfile={profileData} 
         userId={currentUser?.id}
+      />
+      
+      <UpdatePanel
+        isOpen={isUpdatePanelOpen}
+        onClose={handleCloseUpdatePanel}
       />
     </header>
   );

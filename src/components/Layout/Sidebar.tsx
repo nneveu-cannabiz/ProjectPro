@@ -9,7 +9,8 @@ import {
   LogOut, 
   ChevronLeft, 
   Menu,
-  Sparkles
+  Sparkles,
+  Clock
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getUserProfile } from '../../lib/supabase';
@@ -180,6 +181,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
           icon={<MessageSquare size={20} />}
           label="Updates"
           isActive={location.pathname === '/updates'}
+          isCollapsed={isCollapsed}
+        />
+        
+        <SidebarItem
+          to="/hour-logging"
+          icon={<Clock size={20} />}
+          label="Hour Logging"
+          isActive={location.pathname === '/hour-logging'}
           isCollapsed={isCollapsed}
         />
         

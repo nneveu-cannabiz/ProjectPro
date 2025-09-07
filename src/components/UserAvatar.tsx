@@ -4,14 +4,16 @@ import { getUserProfile } from '../lib/supabase';
 
 interface UserAvatarProps {
   user: User;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg';
   showName?: boolean;
+  className?: string;
 }
 
 const UserAvatar: React.FC<UserAvatarProps> = ({ 
   user, 
   size = 'md',
-  showName = false
+  showName = false,
+  className = ''
 }) => {
   const [profileData, setProfileData] = useState<{
     firstName: string;
@@ -57,6 +59,8 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
   
   const getSizeClasses = () => {
     switch (size) {
+      case 'xs':
+        return 'w-4 h-4 text-[8px]';
       case 'sm':
         return 'w-6 h-6 text-xs';
       case 'lg':
@@ -81,7 +85,7 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
   };
 
   return (
-    <div className="flex items-center">
+    <div className={`flex items-center ${className}`}>
       <div 
         className={`${getSizeClasses()} rounded-full flex items-center justify-center text-white font-semibold`}
         style={{ backgroundColor: (profileData?.profileColor || user.profileColor || '#2563eb') }}

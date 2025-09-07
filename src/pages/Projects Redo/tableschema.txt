@@ -168,3 +168,24 @@ create table public."PMA_Users" (
 create index IF not exists idx_pma_users_role_id on public."PMA_Users" using btree (role_id) TABLESPACE pg_default;
 
 create index IF not exists idx_pma_users_manager_id on public."PMA_Users" using btree (manager_id) TABLESPACE pg_default;
+
+
+create table public."PMA_Hours" (
+  id uuid not null default gen_random_uuid (),
+  user_id uuid not null,
+  task_id uuid not null,
+  hours numeric(5, 2) not null,
+  date date not null,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  constraint PMA_Hours_pkey primary key (id),
+  constraint PMA_Hours_task_id_fkey foreign KEY (task_id) references "PMA_Tasks" (id) on delete CASCADE,
+  constraint PMA_Hours_user_id_fkey foreign KEY (user_id) references "PMA_Users" (id) on delete CASCADE,
+  constraint PMA_Hours_hours_check check ((hours > (0)::numeric))
+) TABLESPACE pg_default;
+
+create index IF not exists idx_hours_user_id on public."PMA_Hours" using btree (user_id) TABLESPACE pg_default;
+
+create index IF not exists idx_hours_task_id on public."PMA_Hours" using btree (task_id) TABLESPACE pg_default;
+
+create index IF not exists idx_hours_date on public."PMA_Hours" using btree (date) TABLESPACE pg_default;

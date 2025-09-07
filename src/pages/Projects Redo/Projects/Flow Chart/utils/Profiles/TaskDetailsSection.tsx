@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { parseISO } from 'date-fns';
+import { Pencil } from 'lucide-react';
 import Button from '../../../../../../components/ui/Button';
 import Badge from '../../../../../../components/ui/Badge';
 import UserAvatar from '../../../../../../components/UserAvatar';
@@ -117,9 +118,9 @@ const TaskDetailsSection: React.FC<TaskDetailsSectionProps> = ({
       
       const updatedTask = {
         ...task,
-        startDate: dateValues.startDate || undefined,
-        endDate: dateValues.endDate || undefined,
-        deadline: dateValues.deadline || undefined
+        startDate: dateValues.startDate || null,
+        endDate: dateValues.endDate || null,
+        deadline: dateValues.deadline || null
       };
 
       await onUpdateTask(updatedTask);
@@ -220,53 +221,56 @@ const TaskDetailsSection: React.FC<TaskDetailsSectionProps> = ({
     <div className="space-y-6">
       {/* Task Assignee */}
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <h3 
-            className="text-sm font-medium"
-            style={{ color: brandTheme.text.primary }}
-          >
-            Task Assignee
-          </h3>
-          {!isEditingAssignee && (
-            <Button 
-              size="sm" 
-              variant="outline"
-              onClick={handleEditAssignee}
-            >
-              Edit
-            </Button>
-          )}
-        </div>
-
         {!isEditingAssignee ? (
-          <div className="flex items-center space-x-2">
-            {task.assigneeId ? (
-              (() => {
-                const assignee = users.find(user => user.id === task.assigneeId);
-                return assignee ? (
-                  <div className="flex items-center p-2 hover:bg-blue-50 rounded-md">
-                    <UserAvatar user={assignee} showName />
-                  </div>
-                ) : (
-                  <span 
-                    className="text-sm"
-                    style={{ color: brandTheme.text.muted }}
-                  >
-                    Assignee not found
-                  </span>
-                );
-              })()
-            ) : (
-              <span 
-                className="text-sm"
-                style={{ color: brandTheme.text.muted }}
+          <div>
+            <div 
+              className="flex items-center justify-between px-3 py-2 mb-2 rounded-md"
+              style={{ backgroundColor: brandTheme.primary.navy }}
+            >
+              <h3 
+                className="text-sm font-medium"
+                style={{ color: brandTheme.background.primary }}
               >
-                No assignee set
-              </span>
-            )}
+                Task Assignee
+              </h3>
+              <button
+                onClick={handleEditAssignee}
+                className="p-1 rounded-md hover:bg-blue-800 transition-colors"
+                title="Edit assignee"
+                style={{ color: brandTheme.background.primary }}
+              >
+                <Pencil size={14} />
+              </button>
+            </div>
+            <div className="px-3 flex justify-end items-center space-x-2">
+              {task.assigneeId ? (
+                (() => {
+                  const assignee = users.find(user => user.id === task.assigneeId);
+                  return assignee ? (
+                    <div className="flex items-center">
+                      <UserAvatar user={assignee} showName />
+                    </div>
+                  ) : (
+                    <span 
+                      className="text-sm"
+                      style={{ color: brandTheme.text.muted }}
+                    >
+                      Assignee not found
+                    </span>
+                  );
+                })()
+              ) : (
+                <span 
+                  className="text-sm"
+                  style={{ color: brandTheme.text.muted }}
+                >
+                  No assignee set
+                </span>
+              )}
+            </div>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="px-3 space-y-3">
             <UserSelect
               selectedUserId={assigneeValue}
               onChange={setAssigneeValue}
@@ -280,6 +284,10 @@ const TaskDetailsSection: React.FC<TaskDetailsSectionProps> = ({
                 size="sm" 
                 onClick={handleUpdateAssignee}
                 disabled={isUpdatingAssignee}
+                style={{
+                  backgroundColor: brandTheme.primary.lightBlue,
+                  color: brandTheme.primary.navy
+                }}
               >
                 {isUpdatingAssignee ? 'Saving...' : 'Save'}
               </Button>
@@ -288,6 +296,11 @@ const TaskDetailsSection: React.FC<TaskDetailsSectionProps> = ({
                 variant="outline"
                 onClick={handleCancelAssigneeEdit}
                 disabled={isUpdatingAssignee}
+                style={{
+                  backgroundColor: brandTheme.primary.lightBlue,
+                  color: brandTheme.primary.navy,
+                  borderColor: brandTheme.primary.navy
+                }}
               >
                 Cancel
               </Button>
@@ -297,147 +310,244 @@ const TaskDetailsSection: React.FC<TaskDetailsSectionProps> = ({
       </div>
       
       {/* Start Date, End Date, and Deadline */}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <div className="flex items-center justify-between mb-2">
+      <div>
+        {/* Connected Header */}
+        <div 
+          className="flex items-center justify-between px-3 py-2 mb-2 rounded-md"
+          style={{ backgroundColor: brandTheme.primary.navy }}
+        >
+          <div className="flex items-center justify-between w-full">
             <h3 
               className="text-sm font-medium"
-              style={{ color: brandTheme.text.primary }}
+              style={{ color: brandTheme.background.primary }}
             >
               Start Date
             </h3>
-            {!isEditingDates && (
-              <Button 
-                size="sm" 
-                variant="outline"
-                onClick={handleEditDates}
-              >
-                Edit
-              </Button>
-            )}
-          </div>
-          {!isEditingDates ? (
-            <span 
+            <h3 
               className="text-sm font-medium"
-              style={{ color: brandTheme.text.primary }}
+              style={{ color: brandTheme.background.primary }}
             >
-              {task.startDate ? parseISO(task.startDate).toLocaleDateString() : 'Not set'}
-            </span>
-          ) : (
-            <input
-              type="date"
-              value={dateValues.startDate}
-              onChange={(e) => handleDateChange('startDate', e.target.value)}
-              className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1"
-              style={{
-                borderColor: brandTheme.border.light,
-                backgroundColor: brandTheme.background.secondary
-              }}
-              disabled={isUpdatingDates}
-            />
+              End Date
+            </h3>
+          </div>
+          {!isEditingDates && (
+            <button
+              onClick={handleEditDates}
+              className="ml-2 p-1 rounded-md hover:bg-blue-800 transition-colors"
+              title="Edit dates"
+              style={{ color: brandTheme.background.primary }}
+            >
+              <Pencil size={14} />
+            </button>
           )}
         </div>
         
-        <div>
-          <h3 
-            className="text-sm font-medium mb-2"
-            style={{ color: brandTheme.text.primary }}
-          >
-            End Date
-          </h3>
-          {!isEditingDates ? (
-            <span 
-              className="text-sm font-medium"
-              style={{ color: brandTheme.text.primary }}
-            >
-              {task.endDate ? parseISO(task.endDate).toLocaleDateString() : 'Not set'}
-            </span>
-          ) : (
-            <input
-              type="date"
-              value={dateValues.endDate}
-              onChange={(e) => handleDateChange('endDate', e.target.value)}
-              className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1"
-              style={{
-                borderColor: brandTheme.border.light,
-                backgroundColor: brandTheme.background.secondary
-              }}
-              disabled={isUpdatingDates}
-            />
+        {/* Date Values */}
+        <div className="flex justify-between px-3">
+          <div className="flex-1">
+            {!isEditingDates ? (
+              <div>
+                <span 
+                  className="text-sm font-medium"
+                  style={{ color: brandTheme.text.primary }}
+                >
+                  {task.startDate ? parseISO(task.startDate).toLocaleDateString() : 'Not set'}
+                </span>
+                {task.startDate && (
+                  <div 
+                    className="text-xs italic mt-1"
+                    style={{ color: '#9CA3AF' }}
+                  >
+                    {(() => {
+                      const startDate = parseISO(task.startDate);
+                      const today = new Date();
+                      const diffTime = today.getTime() - startDate.getTime();
+                      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                      
+                      if (diffDays === 0) return 'Started today';
+                      if (diffDays === 1) return '1 day ago';
+                      if (diffDays > 0) return `${diffDays} days ago`;
+                      if (diffDays === -1) return 'Starts tomorrow';
+                      return `Starts in ${Math.abs(diffDays)} days`;
+                    })()}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <input
+                type="date"
+                value={dateValues.startDate}
+                onChange={(e) => handleDateChange('startDate', e.target.value)}
+                className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1"
+                style={{
+                  borderColor: brandTheme.border.light,
+                  backgroundColor: brandTheme.background.secondary
+                }}
+                disabled={isUpdatingDates}
+              />
+            )}
+          </div>
+          
+          {/* Total Days - Center */}
+          {!isEditingDates && task.startDate && task.endDate && (
+            <div className="flex-1 text-center">
+              <div 
+                className="text-xs italic"
+                style={{ color: '#9CA3AF' }}
+              >
+                Total Days
+              </div>
+              <div 
+                className="text-sm font-medium"
+                style={{ color: brandTheme.text.primary }}
+              >
+                {(() => {
+                  const startDate = parseISO(task.startDate);
+                  const endDate = parseISO(task.endDate);
+                  const diffTime = endDate.getTime() - startDate.getTime();
+                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                  return diffDays === 1 ? '1 day' : `${diffDays} days`;
+                })()}
+              </div>
+            </div>
           )}
+          
+          <div className="flex-1 text-right">
+            {!isEditingDates ? (
+              <div>
+                <span 
+                  className="text-sm font-medium"
+                  style={{ color: brandTheme.text.primary }}
+                >
+                  {task.endDate ? parseISO(task.endDate).toLocaleDateString() : 'Not set'}
+                </span>
+                {task.endDate && (
+                  <div 
+                    className="text-xs italic mt-1"
+                    style={{ color: '#9CA3AF' }}
+                  >
+                    {(() => {
+                      const endDate = parseISO(task.endDate);
+                      const today = new Date();
+                      const diffTime = endDate.getTime() - today.getTime();
+                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                      
+                      if (diffDays === 0) return 'Due today';
+                      if (diffDays === 1) return '1 day left';
+                      if (diffDays > 0) return `${diffDays} days left`;
+                      if (diffDays === -1) return '1 day overdue';
+                      return `${Math.abs(diffDays)} days overdue`;
+                    })()}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <input
+                type="date"
+                value={dateValues.endDate}
+                onChange={(e) => handleDateChange('endDate', e.target.value)}
+                className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1"
+                style={{
+                  borderColor: brandTheme.border.light,
+                  backgroundColor: brandTheme.background.secondary
+                }}
+                disabled={isUpdatingDates}
+              />
+            )}
+          </div>
         </div>
       </div>
       
       <div className="text-center">
-        <h3 
-          className="text-sm font-medium mb-2"
-          style={{ color: brandTheme.text.primary }}
+        <div 
+          className="px-3 py-2 mb-2 rounded-md text-center"
+          style={{ backgroundColor: brandTheme.primary.navy }}
         >
-          Deadline
-        </h3>
-        {!isEditingDates ? (
-          <span 
+          <h3 
             className="text-sm font-medium"
-            style={{ color: brandTheme.status.warning }}
+            style={{ color: brandTheme.background.primary }}
           >
-            {task.deadline ? parseISO(task.deadline).toLocaleDateString() : 'Not set'}
-          </span>
-        ) : (
-          <input
-            type="date"
-            value={dateValues.deadline}
-            onChange={(e) => handleDateChange('deadline', e.target.value)}
-            className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1"
-            style={{
-              borderColor: brandTheme.border.light,
-              backgroundColor: brandTheme.background.secondary
-            }}
-            disabled={isUpdatingDates}
-          />
-        )}
-        
-        {isEditingDates && (
-          <div className="flex space-x-2 pt-2 justify-center">
-            <Button 
-              size="sm" 
-              onClick={handleUpdateDates}
-              disabled={isUpdatingDates}
+            Deadline
+          </h3>
+        </div>
+        <div className="px-3 text-center">
+          {!isEditingDates ? (
+            <span 
+              className="text-sm font-medium"
+              style={{ color: brandTheme.status.warning }}
             >
-              {isUpdatingDates ? 'Saving...' : 'Save'}
-            </Button>
-            <Button 
-              size="sm" 
-              variant="outline"
-              onClick={handleCancelDatesEdit}
+              {task.deadline ? parseISO(task.deadline).toLocaleDateString() : 'Not set'}
+            </span>
+          ) : (
+            <input
+              type="date"
+              value={dateValues.deadline}
+              onChange={(e) => handleDateChange('deadline', e.target.value)}
+              className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1"
+              style={{
+                borderColor: brandTheme.border.light,
+                backgroundColor: brandTheme.background.secondary
+              }}
               disabled={isUpdatingDates}
-            >
-              Cancel
-            </Button>
-          </div>
-        )}
+            />
+          )}
+          
+          {isEditingDates && (
+            <div className="flex space-x-2 pt-2 justify-center">
+              <Button 
+                size="sm" 
+                onClick={handleUpdateDates}
+                disabled={isUpdatingDates}
+                style={{
+                  backgroundColor: brandTheme.primary.lightBlue,
+                  color: brandTheme.primary.navy
+                }}
+              >
+                {isUpdatingDates ? 'Saving...' : 'Save'}
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={handleCancelDatesEdit}
+                disabled={isUpdatingDates}
+                style={{
+                  backgroundColor: brandTheme.primary.lightBlue,
+                  color: brandTheme.primary.navy,
+                  borderColor: brandTheme.primary.navy
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Task Progress */}
       <div className="mt-4">
-        <div className="flex items-center justify-between mb-2">
+        <div 
+          className="flex items-center justify-between px-3 py-2 mb-2 rounded-md"
+          style={{ backgroundColor: brandTheme.primary.navy }}
+        >
           <h3 
             className="text-sm font-medium"
-            style={{ color: brandTheme.text.primary }}
+            style={{ color: brandTheme.background.primary }}
           >
             Task Progress
           </h3>
           {!isEditingProgress && (
-            <Button 
-              size="sm" 
-              variant="outline"
+            <button
               onClick={handleEditProgress}
+              className="p-1 rounded-md hover:bg-blue-800 transition-colors"
+              title="Edit progress"
+              style={{ color: brandTheme.background.primary }}
             >
-              Edit
-            </Button>
+              <Pencil size={14} />
+            </button>
           )}
         </div>
         
-        <div className="flex-1">
+        <div className="px-3">
           {!isEditingProgress ? (
             <div className="flex items-center space-x-3">
               <div className="flex-1">
@@ -494,6 +604,10 @@ const TaskDetailsSection: React.FC<TaskDetailsSectionProps> = ({
                 size="sm" 
                 onClick={handleUpdateProgress}
                 disabled={isUpdatingProgress}
+                style={{
+                  backgroundColor: brandTheme.primary.lightBlue,
+                  color: brandTheme.primary.navy
+                }}
               >
                 {isUpdatingProgress ? 'Saving...' : 'Save'}
               </Button>
@@ -502,6 +616,11 @@ const TaskDetailsSection: React.FC<TaskDetailsSectionProps> = ({
                 variant="outline"
                 onClick={handleCancelProgressEdit}
                 disabled={isUpdatingProgress}
+                style={{
+                  backgroundColor: brandTheme.primary.lightBlue,
+                  color: brandTheme.primary.navy,
+                  borderColor: brandTheme.primary.navy
+                }}
               >
                 Cancel
               </Button>
@@ -521,16 +640,22 @@ const TaskDetailsSection: React.FC<TaskDetailsSectionProps> = ({
 
       {/* Task Tags */}
       <div className="mt-4">
-        <h3 
-          className="text-sm font-medium mb-2"
-          style={{ color: brandTheme.text.primary }}
+        <div 
+          className="px-3 py-2 mb-2 rounded-md"
+          style={{ backgroundColor: brandTheme.primary.navy }}
         >
-          Task Tags
-        </h3>
+          <h3 
+            className="text-sm font-medium"
+            style={{ color: brandTheme.background.primary }}
+          >
+            Task Tags
+          </h3>
+        </div>
         
-        {/* Existing Tags */}
-        {task.tags && task.tags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-3">
+        <div className="px-3">
+          {/* Existing Tags */}
+          {task.tags && task.tags.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3">
             {task.tags.map((tag: any, index: number) => (
               <div
                 key={index}
@@ -545,86 +670,98 @@ const TaskDetailsSection: React.FC<TaskDetailsSectionProps> = ({
                 </Badge>
               </div>
             ))}
+            </div>
+          )}
+          
+          {/* Add New Tag */}
+          <div className="flex items-center space-x-2">
+            <input
+              type="text"
+              value={newTag}
+              onChange={(e) => setNewTag(e.target.value)}
+              onKeyPress={handleTagKeyPress}
+              placeholder="Add a tag..."
+              className="flex-1 px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1"
+              style={{
+                borderColor: brandTheme.border.light,
+                backgroundColor: brandTheme.background.secondary
+              }}
+              disabled={isAddingTag}
+            />
+            <Button 
+              size="sm" 
+              onClick={handleAddTag}
+              disabled={!newTag.trim() || isAddingTag}
+              style={{
+                backgroundColor: brandTheme.primary.lightBlue,
+                color: brandTheme.primary.navy
+              }}
+            >
+              {isAddingTag ? 'Adding...' : 'Add'}
+            </Button>
           </div>
-        )}
-        
-        {/* Add New Tag */}
-        <div className="flex items-center space-x-2">
-          <input
-            type="text"
-            value={newTag}
-            onChange={(e) => setNewTag(e.target.value)}
-            onKeyPress={handleTagKeyPress}
-            placeholder="Add a tag..."
-            className="flex-1 px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1"
-            style={{
-              borderColor: brandTheme.border.light,
-              backgroundColor: brandTheme.background.secondary
-            }}
-            disabled={isAddingTag}
-          />
-          <Button 
-            size="sm" 
-            onClick={handleAddTag}
-            disabled={!newTag.trim() || isAddingTag}
-          >
-            {isAddingTag ? 'Adding...' : 'Add'}
-          </Button>
+          
+          {(!task.tags || task.tags.length === 0) && (
+            <p 
+              className="text-xs mt-2"
+              style={{ color: brandTheme.text.muted }}
+            >
+              No tags yet. Add tags to categorize and organize your task.
+            </p>
+          )}
         </div>
-        
-        {(!task.tags || task.tags.length === 0) && (
-          <p 
-            className="text-xs mt-2"
-            style={{ color: brandTheme.text.muted }}
-          >
-            No tags yet. Add tags to categorize and organize your task.
-          </p>
-        )}
       </div>
 
       {/* Subtasks Summary */}
       <div className="mt-4">
-        <h3 
-          className="text-sm font-medium mb-2"
-          style={{ color: brandTheme.text.primary }}
+        <div 
+          className="px-3 py-2 mb-2 rounded-md"
+          style={{ backgroundColor: brandTheme.primary.navy }}
         >
-          Subtasks Summary
-        </h3>
-        <div className="flex justify-between text-sm">
-          <span style={{ color: brandTheme.text.muted }}>Total Subtasks:</span>
-          <span 
-            className="font-medium"
-            style={{ color: brandTheme.text.primary }}
+          <h3 
+            className="text-sm font-medium"
+            style={{ color: brandTheme.background.primary }}
           >
-            {taskSubTasks.length}
-          </span>
+            Subtasks Summary
+          </h3>
         </div>
-        <div className="flex justify-between text-sm mt-1">
-          <span style={{ color: brandTheme.text.muted }}>Completed:</span>
-          <span 
-            className="font-medium"
-            style={{ color: brandTheme.text.primary }}
-          >
-            {taskSubTasks.filter(subtask => subtask.status === 'done').length}
-          </span>
-        </div>
-        <div className="flex justify-between text-sm mt-1">
-          <span style={{ color: brandTheme.text.muted }}>In Progress:</span>
-          <span 
-            className="font-medium"
-            style={{ color: brandTheme.text.primary }}
-          >
-            {taskSubTasks.filter(subtask => subtask.status === 'in-progress').length}
-          </span>
-        </div>
-        <div className="flex justify-between text-sm mt-1">
-          <span style={{ color: brandTheme.text.muted }}>To Do:</span>
-          <span 
-            className="font-medium"
-            style={{ color: brandTheme.text.primary }}
-          >
-            {taskSubTasks.filter(subtask => subtask.status === 'todo').length}
-          </span>
+        <div className="px-3">
+          <div className="flex justify-between text-sm">
+            <span style={{ color: brandTheme.text.muted }}>Total Subtasks:</span>
+            <span 
+              className="font-medium"
+              style={{ color: brandTheme.text.primary }}
+            >
+              {taskSubTasks.length}
+            </span>
+          </div>
+          <div className="flex justify-between text-sm mt-1">
+            <span style={{ color: brandTheme.text.muted }}>Completed:</span>
+            <span 
+              className="font-medium"
+              style={{ color: brandTheme.text.primary }}
+            >
+              {taskSubTasks.filter(subtask => subtask.status === 'done').length}
+            </span>
+          </div>
+          <div className="flex justify-between text-sm mt-1">
+            <span style={{ color: brandTheme.text.muted }}>In Progress:</span>
+            <span 
+              className="font-medium"
+              style={{ color: brandTheme.text.primary }}
+            >
+              {taskSubTasks.filter(subtask => subtask.status === 'in-progress').length}
+            </span>
+          </div>
+          <div className="flex justify-between text-sm mt-1">
+            <span style={{ color: brandTheme.text.muted }}>To Do:</span>
+            <span 
+              className="font-medium"
+              style={{ color: brandTheme.text.primary }}
+            >
+              {taskSubTasks.filter(subtask => subtask.status === 'todo').length}
+            </span>
+          </div>
         </div>
       </div>
     </div>

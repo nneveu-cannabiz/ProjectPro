@@ -17,6 +17,7 @@ interface UpdatesDetailsModalProps {
   entityType: 'project' | 'task' | 'subtask';
   entityId: string;
   entityName: string;
+  showAllProjectUpdates?: boolean; // New prop to indicate if we should show all project + task updates
 }
 
 interface EnhancedUpdateItemProps {
@@ -27,6 +28,9 @@ interface EnhancedUpdateItemProps {
   onReply: (updateId: string) => void;
   isReplying: boolean;
   replyForm?: React.ReactNode;
+  showEntityTag?: boolean;
+  entityTagName?: string;
+  entityTagType?: 'project' | 'task' | 'subtask';
 }
 
 interface RequestUpdateItemProps {
@@ -39,6 +43,9 @@ interface RequestUpdateItemProps {
   onReply: (updateId: string) => void;
   isReplying: boolean;
   replyForm?: React.ReactNode;
+  showEntityTag?: boolean;
+  entityTagName?: string;
+  entityTagType?: 'project' | 'task' | 'subtask';
 }
 
 const EnhancedUpdateItem: React.FC<EnhancedUpdateItemProps> = ({ 
@@ -48,7 +55,10 @@ const EnhancedUpdateItem: React.FC<EnhancedUpdateItemProps> = ({
   onMarkAsRead,
   onReply,
   isReplying,
-  replyForm
+  replyForm,
+  showEntityTag = false,
+  entityTagName,
+  entityTagType
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const isLongMessage = update.message.length > 150;
@@ -87,8 +97,26 @@ const EnhancedUpdateItem: React.FC<EnhancedUpdateItemProps> = ({
         <div className="flex items-start">
           <UserAvatar user={user} size="sm" />
           <div className="ml-2">
-            <div className="text-sm font-medium" style={{ color: brandTheme.text.primary }}>
-              {user.firstName} {user.lastName}
+            <div className="flex items-center space-x-2">
+              <div className="text-sm font-medium" style={{ color: brandTheme.text.primary }}>
+                {user.firstName} {user.lastName}
+              </div>
+              {/* Entity Tag */}
+              {showEntityTag && entityTagName && (
+                <span 
+                  className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                  style={{
+                    backgroundColor: entityTagType === 'task' ? brandTheme.status.infoLight : 
+                                   entityTagType === 'subtask' ? brandTheme.status.warningLight : 
+                                   brandTheme.background.secondary,
+                    color: entityTagType === 'task' ? brandTheme.primary.navy : 
+                           entityTagType === 'subtask' ? brandTheme.status.warning : 
+                           brandTheme.text.secondary
+                  }}
+                >
+                  {entityTagType === 'task' ? '📋' : entityTagType === 'subtask' ? '📝' : '📁'} {entityTagName}
+                </span>
+              )}
             </div>
             <div className="text-xs" style={{ color: brandTheme.text.muted }}>
               {formatDate(update.createdAt)}
@@ -207,7 +235,10 @@ const RequestUpdateItem: React.FC<RequestUpdateItemProps> = ({
   onUndoRequest,
   onReply,
   isReplying,
-  replyForm
+  replyForm,
+  showEntityTag = false,
+  entityTagName,
+  entityTagType
 }) => {
   const [showResponseForm, setShowResponseForm] = useState(false);
   const [responseText, setResponseText] = useState('');
@@ -269,6 +300,22 @@ const RequestUpdateItem: React.FC<RequestUpdateItemProps> = ({
           <div className="text-xs" style={{ color: brandTheme.text.muted }}>
             {formatDate(update.createdAt)}
           </div>
+          {/* Entity Tag for requests */}
+          {showEntityTag && entityTagName && (
+            <span 
+              className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+              style={{
+                backgroundColor: entityTagType === 'task' ? brandTheme.status.infoLight : 
+                               entityTagType === 'subtask' ? brandTheme.status.warningLight : 
+                               brandTheme.background.secondary,
+                color: entityTagType === 'task' ? brandTheme.primary.navy : 
+                       entityTagType === 'subtask' ? brandTheme.status.warning : 
+                       brandTheme.text.secondary
+              }}
+            >
+              {entityTagType === 'task' ? '📋' : entityTagType === 'subtask' ? '📝' : '📁'} {entityTagName}
+            </span>
+          )}
         </div>
       </div>
 
@@ -416,9 +463,10 @@ const UpdatesDetailsModal: React.FC<UpdatesDetailsModalProps> = ({
   entityType,
   entityId,
   entityName,
+  showAllProjectUpdates = false,
 }) => {
   const { currentUser } = useAuth();
-  const { getUpdatesForEntity, addUpdate, deleteUpdate, markUpdateAsRead, updateRequestStatus, getUsers } = useAppContext();
+  const { getUpdatesForEntity, addUpdate, deleteUpdate, markUpdateAsRead, updateRequestStatus, getUsers, getRelatedUpdates, tasks } = useAppContext();
   const [newMessage, setNewMessage] = useState('');
   const [replyToId, setReplyToId] = useState<string | null>(null);
   const [showUserSuggestions, setShowUserSuggestions] = useState(false);
@@ -435,7 +483,35 @@ const UpdatesDetailsModal: React.FC<UpdatesDetailsModalProps> = ({
   const [requestNotes, setRequestNotes] = useState('');
 
   const users = getUsers();
-  const updates = getUpdatesForEntity(entityType, entityId);
+  
+  // Get updates - either for specific entity or all related updates for a project
+  const updates = showAllProjectUpdates && entityType === 'project' 
+    ? getRelatedUpdates(entityType, entityId) // Gets project + all task updates
+    : getUpdatesForEntity(entityType, entityId); // Gets only specific entity updates
+
+  // Helper function to get entity tag information for an update
+  const getEntityTagInfo = (update: Update) => {
+    if (!showAllProjectUpdates || entityType !== 'project') {
+      return { showEntityTag: false };
+    }
+
+    // If the update is for a task, show the task name
+    if (update.entityType === 'task') {
+      const task = tasks.find(t => t.id === update.entityId);
+      if (task) {
+        return {
+          showEntityTag: true,
+          entityTagName: task.name,
+          entityTagType: 'task' as const
+        };
+      }
+    }
+
+    // If the update is for a subtask, we could show subtask info here
+    // For now, we'll just handle tasks since that's what was requested
+
+    return { showEntityTag: false };
+  };
 
 
 
@@ -720,7 +796,9 @@ const UpdatesDetailsModal: React.FC<UpdatesDetailsModalProps> = ({
     </form>
   );
 
-  const modalTitle = `Updates for ${entityType.charAt(0).toUpperCase() + entityType.slice(1)}: ${entityName}`;
+  const modalTitle = showAllProjectUpdates && entityType === 'project'
+    ? `All Updates for Project: ${entityName} (including tasks)`
+    : `Updates for ${entityType.charAt(0).toUpperCase() + entityType.slice(1)}: ${entityName}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50" style={{ display: isOpen ? 'flex' : 'none' }}>
@@ -885,6 +963,8 @@ const UpdatesDetailsModal: React.FC<UpdatesDetailsModalProps> = ({
                   const user = users.find(u => u.id === update.userId);
                   if (!user || !currentUser) return null;
                   
+                  const tagInfo = getEntityTagInfo(update);
+                  
                   return (
                     <RequestUpdateItem
                       key={update.id}
@@ -897,6 +977,9 @@ const UpdatesDetailsModal: React.FC<UpdatesDetailsModalProps> = ({
                       onReply={handleReply}
                       isReplying={replyToId === update.id}
                       replyForm={replyToId === update.id ? createReplyForm(false) : undefined}
+                      showEntityTag={tagInfo.showEntityTag}
+                      entityTagName={tagInfo.entityTagName}
+                      entityTagType={tagInfo.entityTagType}
                     />
                   );
                 })}
@@ -961,6 +1044,8 @@ const UpdatesDetailsModal: React.FC<UpdatesDetailsModalProps> = ({
                   const user = users.find(u => u.id === update.userId);
                   if (!user || !currentUser) return null;
                   
+                  const tagInfo = getEntityTagInfo(update);
+                  
                   return (
                     <EnhancedUpdateItem
                       key={update.id}
@@ -971,6 +1056,9 @@ const UpdatesDetailsModal: React.FC<UpdatesDetailsModalProps> = ({
                       onReply={handleReply}
                       isReplying={replyToId === update.id}
                       replyForm={replyToId === update.id ? createReplyForm(false) : undefined}
+                      showEntityTag={tagInfo.showEntityTag}
+                      entityTagName={tagInfo.entityTagName}
+                      entityTagType={tagInfo.entityTagType}
                     />
                   );
                 })}
@@ -1023,6 +1111,8 @@ const UpdatesDetailsModal: React.FC<UpdatesDetailsModalProps> = ({
                   const user = users.find(u => u.id === update.userId);
                   if (!user || !currentUser) return null;
                   
+                  const tagInfo = getEntityTagInfo(update);
+                  
                   return (
                     <EnhancedUpdateItem
                       key={update.id}
@@ -1033,6 +1123,9 @@ const UpdatesDetailsModal: React.FC<UpdatesDetailsModalProps> = ({
                       onReply={handleReply}
                       isReplying={replyToId === update.id}
                       replyForm={replyToId === update.id ? createReplyForm(false) : undefined}
+                      showEntityTag={tagInfo.showEntityTag}
+                      entityTagName={tagInfo.entityTagName}
+                      entityTagType={tagInfo.entityTagType}
                     />
                   );
                 })}

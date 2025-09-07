@@ -1,10 +1,11 @@
 import React from 'react';
 import { format, parseISO } from 'date-fns';
 import { brandTheme } from '../../../../../../styles/brandTheme';
-import { Task } from '../../../../../../types';
+import { Task, User } from '../../../../../../types';
 
 import { calculateColumnPosition } from '../columnUtils';
 import TaskUpdateIcon from './taskupdateicon';
+import UserAvatar from '../../../../../../components/UserAvatar';
 
 export interface TaskBarProps {
   task: Task;
@@ -18,6 +19,8 @@ export interface TaskBarProps {
   unreadUpdatesCount?: number;
   totalUpdatesCount?: number;
   isClickable?: boolean;
+  users?: User[];
+  projectAssigneeId?: string;
 }
 
 
@@ -73,7 +76,9 @@ const TaskBar: React.FC<TaskBarProps> = ({
   onUpdatesClick,
   unreadUpdatesCount = 0,
   totalUpdatesCount = 0,
-  isClickable = true
+  isClickable = true,
+  users = [],
+  projectAssigneeId
 }) => {
   // Check if project has no end date (same as start date means no real end date was set)
   const projectHasNoEndDate = projectStart.getTime() === projectEnd.getTime();
@@ -92,15 +97,16 @@ const TaskBar: React.FC<TaskBarProps> = ({
   const today = new Date();
   const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   
+  // Check if task has no real dates (both start and end default to project start for ongoing projects)
+  const taskHasNoDates = !task.startDate && !task.endDate && projectHasNoEndDate;
+  
   // Check if task is overdue and incomplete
+  // Tasks without real dates (ongoing tasks) should never be considered overdue
   const isTaskComplete = task.status === 'done';
-  const isTaskOverdue = originalTaskEndDate < todayNormalized && !isTaskComplete;
+  const isTaskOverdue = !taskHasNoDates && originalTaskEndDate < todayNormalized && !isTaskComplete;
   
   // Keep original end date for positioning - don't extend overdue tasks visually
   const taskEndDate = originalTaskEndDate;
-  
-  // Check if task has no real dates (both start and end default to project start for ongoing projects)
-  const taskHasNoDates = !task.startDate && !task.endDate && projectHasNoEndDate;
 
   // Check if task overlaps with current week view
   // For ongoing tasks (no specific dates), always show them since they're ongoing
@@ -157,6 +163,11 @@ const TaskBar: React.FC<TaskBarProps> = ({
   const taskBarHeight = 32; // Increased height for tasks
   const taskBarMargin = 3; // Slightly larger margin between task bars
 
+  // Check if task assignee differs from project assignee and find the assigned user
+  const taskAssigneeId = task.assigneeId;
+  const shouldShowTaskAssignee = taskAssigneeId && taskAssigneeId !== projectAssigneeId;
+  const taskAssignedUser = shouldShowTaskAssignee ? users.find(user => user.id === taskAssigneeId) : null;
+
   return (
     <div
       className={`absolute ${isClickable ? 'cursor-pointer hover:opacity-90' : ''}`}
@@ -169,8 +180,8 @@ const TaskBar: React.FC<TaskBarProps> = ({
         left: `${clampedLeftPercent}%`,
         width: `${finalWidthPercent}%`,
         height: `${taskBarHeight}px`,
-        backgroundColor: isTaskOverdue ? '#FEF3C7' : brandTheme.primary.paleBlue, // Yellow background for overdue
-        border: `1px solid ${isTaskOverdue ? '#F59E0B' : brandTheme.primary.lightBlue}`, // Orange border for overdue
+        backgroundColor: isTaskOverdue ? '#FEF3C7' : brandTheme.primary.paleBlue, // Yellow background for overdue, standard blue for others
+        border: `1px solid ${isTaskOverdue ? '#F59E0B' : brandTheme.primary.lightBlue}`, // Orange border for overdue, standard blue for others
         borderRadius: '4px',
         display: 'flex',
         alignItems: 'center',
@@ -184,7 +195,7 @@ const TaskBar: React.FC<TaskBarProps> = ({
 Status: ${task.status.toUpperCase()}${task.progress ? `
 Progress: ${task.progress}%` : ''}${
         taskHasNoDates 
-          ? `\nOngoing task (no specific dates set)`
+          ? `\nNo end date task (no specific dates set)`
           : `\nStart: ${formatShortDate(taskStartDate)}
 End: ${formatShortDate(originalTaskEndDate)}${isTaskOverdue ? ' (OVERDUE)' : ''}`
       }${taskDeadline ? `
@@ -246,6 +257,16 @@ Deadline: ${formatShortDate(taskDeadline)}` : ''}${
               />
             </div>
           )}
+
+          {/* Task Assignee Icon - shows when task is assigned to different user than project */}
+          {taskAssignedUser && (
+            <div 
+              className="flex-shrink-0 ml-1" 
+              title={`Assigned to: ${taskAssignedUser.firstName && taskAssignedUser.lastName ? `${taskAssignedUser.firstName} ${taskAssignedUser.lastName}` : taskAssignedUser.email}`}
+            >
+              <UserAvatar user={taskAssignedUser} size="xs" />
+            </div>
+          )}
         </div>
 
                  {/* Days counter - centered */}
@@ -260,9 +281,9 @@ Deadline: ${formatShortDate(taskDeadline)}` : ''}${
              }}
            >
             {(() => {
-              // If task has no dates and project has no end date, show "Ongoing"
+              // If task has no dates and project has no end date, show "No end date"
               if (taskHasNoDates) {
-                return 'Ongoing';
+                return 'No end date';
               }
               
               // Show overdue status for incomplete tasks past their original end date

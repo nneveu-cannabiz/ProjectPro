@@ -2,12 +2,11 @@ import React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { brandTheme } from '../../../../../../styles/brandTheme';
-import { Task } from '../../../../../../types';
+import { Task, User } from '../../../../../../types';
 import TaskBar from './taskbar';
 import ProjectUpdateIcon from './projectupdateicon';
 import OverdueTaskBarInsert from './OverdueTaskBarInsert';
 import { calculateDynamicHeight } from '../heightUtils';
-import { generateWorkDates } from '../dateUtils';
 import { calculateColumnPosition } from '../columnUtils';
 
 export interface ProjectBarProps {
@@ -33,6 +32,8 @@ export interface ProjectBarProps {
   totalUpdatesCount?: number;
   stackLevel?: number;
   topPosition?: number; // Override automatic positioning
+  users?: User[];
+  projectAssigneeId?: string;
 
 }
 
@@ -84,7 +85,8 @@ const ProjectBar: React.FC<ProjectBarProps> = ({
   totalUpdatesCount = 0,
   stackLevel = 0,
   topPosition,
-
+  users = [],
+  projectAssigneeId
 }) => {
   // Check if this project has no end date (same as start date means no real end date was set)
   const hasNoEndDate = projectStart.getTime() === projectEnd.getTime();
@@ -92,12 +94,66 @@ const ProjectBar: React.FC<ProjectBarProps> = ({
 
   
 
-  // Calculate dynamic height based on task content
-  const baseDynamicHeight = calculateDynamicHeight(projectTasks || [], barHeightPx);
+  // Helper function to check if a task is visible in current week
+  const isTaskVisibleInWeek = (task: Task) => {
+    // Hide Done tasks from the flow chart display
+    if (task.status === 'done') {
+      return false;
+    }
+    
+    const taskStartDate = task.startDate ? new Date(task.startDate) : projectStart;
+    const originalTaskEndDate = task.endDate ? new Date(task.endDate) : projectEnd;
+    const taskHasNoDates = !task.startDate && !task.endDate;
+    
+    // For tasks without dates, they should be visible throughout the entire project duration
+    if (taskHasNoDates) {
+      return true;
+    }
+    
+    // Check if task is overdue (Done tasks are already filtered out above)
+    const today = new Date();
+    const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const isOverdue = task.endDate && 
+      new Date(task.endDate).getTime() < todayNormalized.getTime();
+    
+    if (isOverdue) {
+      // Show overdue task if today is within the current week OR if the original task overlaps
+      // Normalize all dates to avoid timezone issues
+      const weekStartNormalized = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate());
+      const weekEndNormalized = new Date(weekEnd.getFullYear(), weekEnd.getMonth(), weekEnd.getDate());
+      
+      const todayInWeek = todayNormalized.getTime() >= weekStartNormalized.getTime() && 
+                          todayNormalized.getTime() <= weekEndNormalized.getTime();
+      const originalTaskOverlaps = !(originalTaskEndDate < weekStart || taskStartDate > weekEnd);
+      
+      return todayInWeek || originalTaskOverlaps;
+    } else {
+      // Regular visibility check for non-overdue tasks
+      return !(originalTaskEndDate < weekStart || taskStartDate > weekEnd);
+    }
+  };
+
+  // Calculate visible tasks for height calculation
+  const allTasks = projectTasks || [];
+  const visibleTasks = allTasks.filter(isTaskVisibleInWeek);
+  
+  // Calculate dynamic height based only on visible task content for this specific week
+  const baseDynamicHeight = calculateDynamicHeight(visibleTasks, barHeightPx, projectAssigneeId);
   
   // Ensure minimum height for new vertical layout (project name + dates + padding)
   const minVerticalLayoutHeight = 65; // Balanced height to prevent overlap without excessive spacing
   const dynamicHeight = Math.max(baseDynamicHeight, minVerticalLayoutHeight);
+
+  // Count hidden tasks for indicators
+  const hiddenTasks = allTasks.filter(task => !isTaskVisibleInWeek(task));
+  const previousTasks = hiddenTasks.filter(task => {
+    const taskEndDate = task.endDate ? new Date(task.endDate) : projectEnd;
+    return taskEndDate < weekStart;
+  });
+  const upcomingTasks = hiddenTasks.filter(task => {
+    const taskStartDate = task.startDate ? new Date(task.startDate) : projectStart;
+    return taskStartDate > weekEnd;
+  });
   
 
   // Check if project overlaps with current week view at all
@@ -221,121 +277,85 @@ const ProjectBar: React.FC<ProjectBarProps> = ({
         </div>
       </div>
       
-      {/* Middle section - Task Bars */}
-      <div className="relative flex-1" style={{ minHeight: (projectTasks || []).length > 0 ? '40px' : '10px', marginBottom: '6px' }}>
-        {(() => {
-          const tasks = projectTasks || [];
-          
-          // Helper function to check if a task is overdue
-          const isTaskOverdue = (task: Task) => {
-            if (task.status === 'done') return false;
-            if (!task.endDate) return false;
-            
-            const today = new Date();
-            const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-            const taskEndDate = new Date(task.endDate);
-            const taskEndNormalized = new Date(taskEndDate.getFullYear(), taskEndDate.getMonth(), taskEndDate.getDate());
-            
-            return taskEndNormalized < todayNormalized;
-          };
-          
-          // Helper function to check if a task is visible
-          const isTaskVisible = (task: Task) => {
-            const taskStartDate = task.startDate ? new Date(task.startDate) : projectStart;
-            const originalTaskEndDate = task.endDate ? new Date(task.endDate) : projectEnd;
-            const projectHasNoEndDate = projectStart.getTime() === projectEnd.getTime();
-            const taskHasNoDates = !task.startDate && !task.endDate && projectHasNoEndDate;
-            
-            // For ongoing tasks, always visible
-            if (taskHasNoDates) {
-              return true;
-            }
-            
-            // Check if task is overdue
-            const today = new Date();
-            const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-            const isOverdue = isTaskOverdue(task);
-            
-            if (isOverdue) {
-              // Show overdue task if today is within the current week OR if the original task overlaps
-              const todayInWeek = todayNormalized >= weekStart && todayNormalized <= weekEnd;
-              const originalTaskOverlaps = !(originalTaskEndDate < weekStart || taskStartDate > weekEnd);
+      {/* Middle section - Task Bars OR Compact Dates (conditional layout) */}
+      {visibleTasks.length > 0 ? (
+        // Normal layout with tasks
+        <div className="relative flex-1" style={{ minHeight: '40px', marginBottom: '6px' }}>
+          {(() => {
+            // Helper function to check if a task is overdue
+            const isTaskOverdue = (task: Task) => {
+              if (task.status === 'done') return false;
+              if (!task.endDate) return false;
               
-              return todayInWeek || originalTaskOverlaps;
-            } else {
-              // Regular visibility check for non-overdue tasks
-              return !(originalTaskEndDate < weekStart || taskStartDate > weekEnd);
-            }
-          };
-          
-          // Separate tasks into overdue and non-overdue, keeping only visible ones
-          const visibleTasks = tasks.filter(isTaskVisible);
-          const nonOverdueTasks = visibleTasks.filter(task => !isTaskOverdue(task));
-          
-          // Render only non-overdue tasks in the regular task area
-          // Overdue tasks will be rendered in the special OverdueTaskBarInsert component
-          return nonOverdueTasks.map((task, index) => {
-            const taskUpdatesCount = getTaskUpdatesCount ? getTaskUpdatesCount(task.id) : { unreadCount: 0, totalCount: 0 };
+              const today = new Date();
+              const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+              const taskEndDate = new Date(task.endDate);
+              const taskEndNormalized = new Date(taskEndDate.getFullYear(), taskEndDate.getMonth(), taskEndDate.getDate());
+              
+              return taskEndNormalized < todayNormalized;
+            };
             
-            return (
-              <TaskBar
-                key={task.id}
-                task={task}
-                projectStart={projectStart}
-                projectEnd={projectEnd}
-                projectWeekStart={weekStart}
-                projectWeekEnd={weekEnd}
-                stackLevel={index}
-                onTaskClick={onTaskClick}
-                onUpdatesClick={onTaskUpdatesClick}
-                unreadUpdatesCount={taskUpdatesCount.unreadCount}
-                totalUpdatesCount={taskUpdatesCount.totalCount}
-                isClickable={!!onTaskClick}
-              />
-            );
-          });
-        })()}
-      </div>
+            // Use already calculated visible tasks and separate into overdue and non-overdue
+            const nonOverdueTasks = visibleTasks.filter(task => !isTaskOverdue(task));
+            
+            // Render only non-overdue tasks in the regular task area
+            // Overdue tasks will be rendered in the special OverdueTaskBarInsert component
+            return nonOverdueTasks.map((task, index) => {
+              const taskUpdatesCount = getTaskUpdatesCount ? getTaskUpdatesCount(task.id) : { unreadCount: 0, totalCount: 0 };
+              
+              return (
+                <TaskBar
+                  key={task.id}
+                  task={task}
+                  projectStart={projectStart}
+                  projectEnd={projectEnd}
+                  projectWeekStart={weekStart}
+                  projectWeekEnd={weekEnd}
+                  stackLevel={index}
+                  onTaskClick={onTaskClick}
+                  onUpdatesClick={onTaskUpdatesClick}
+                  unreadUpdatesCount={taskUpdatesCount.unreadCount}
+                  totalUpdatesCount={taskUpdatesCount.totalCount}
+                  isClickable={!!onTaskClick}
+                  users={users}
+                  projectAssigneeId={projectAssigneeId}
+                />
+              );
+            });
+          })()}
+        </div>
+      ) : (
+        // Compact layout without tasks - move dates up to fill space
+        <div className="flex-1 flex items-center justify-center" style={{ minHeight: '20px', marginBottom: '6px' }}>
+          {/* Compact Start and End dates - moved up when no tasks */}
+          <div className="flex items-center justify-between w-full text-sm">
+            <div style={{ color: brandTheme.text.secondary }}>
+              {projectStartsBeforeWeek ? (
+                <span>Started: {formatShortDate(projectStart)}</span>
+              ) : showOriginalStartDate ? (
+                <span>Started: {formatShortDate(projectStart)}</span>
+              ) : (
+                <span>Start: {formatShortDate(projectStart)}</span>
+              )}
+            </div>
+            
+            <div className="flex items-center" style={{ color: brandTheme.text.secondary }}>
+              {projectDeadline && (
+                <span className="mr-3" style={{ color: brandTheme.text.primary, fontWeight: 'medium' }}>
+                  Deadline: {formatShortDate(projectDeadline)}
+                </span>
+              )}
+              <span>
+                {hasNoEndDate ? 'No end date set' : `End: ${formatShortDate(projectEnd)}`}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Overdue Tasks Container */}
       {(() => {
-        const tasks = projectTasks || [];
-        const visibleTasks = tasks.filter((task: Task) => {
-          const taskStartDate = task.startDate ? new Date(task.startDate) : projectStart;
-          const originalTaskEndDate = task.endDate ? new Date(task.endDate) : projectEnd;
-          const projectHasNoEndDate = projectStart.getTime() === projectEnd.getTime();
-          const taskHasNoDates = !task.startDate && !task.endDate && projectHasNoEndDate;
-          
-          // For ongoing tasks, always visible
-          if (taskHasNoDates) {
-            return true;
-          }
-          
-          // Check if task is overdue
-          const today = new Date();
-          const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-          const isOverdue = task.status !== 'done' && task.endDate && 
-            new Date(task.endDate).getTime() < todayNormalized.getTime();
-          
-          if (isOverdue) {
-            // Show overdue task if today is within the current week OR if the original task overlaps
-            // Use a more robust check for today being in week - check against the generated dates
-            const allWeekDates = generateWorkDates(weekStart);
-            const todayInWeek = allWeekDates.some(date => {
-              const normalizedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-              return normalizedDate.getTime() === todayNormalized.getTime();
-            });
-            const originalTaskOverlaps = !(originalTaskEndDate < weekStart || taskStartDate > weekEnd);
-            
-
-            
-            return todayInWeek || originalTaskOverlaps;
-          } else {
-            // Regular visibility check for non-overdue tasks
-            return !(originalTaskEndDate < weekStart || taskStartDate > weekEnd);
-          }
-        });
-        
+        // Use already calculated visible tasks and filter for overdue ones
         const overdueTasks = visibleTasks.filter((task: Task) => {
           if (task.status === 'done') return false;
           if (!task.endDate) return false;
@@ -345,8 +365,14 @@ const ProjectBar: React.FC<ProjectBarProps> = ({
           const taskEndDate = new Date(task.endDate);
           const taskEndNormalized = new Date(taskEndDate.getFullYear(), taskEndDate.getMonth(), taskEndDate.getDate());
           
-          return taskEndNormalized < todayNormalized;
+          const isTaskOverdue = taskEndNormalized < todayNormalized;
+          
+
+          
+          return isTaskOverdue;
         });
+        
+
         
 
         
@@ -364,29 +390,71 @@ const ProjectBar: React.FC<ProjectBarProps> = ({
         );
       })()}
       
-      {/* Bottom section - Start and End dates */}
-      <div className="flex items-center justify-between mt-1 text-sm">
-        <div style={{ color: brandTheme.text.secondary }}>
-          {projectStartsBeforeWeek ? (
-            <span>Started: {formatShortDate(projectStart)}</span>
-          ) : showOriginalStartDate ? (
-            <span>Started: {formatShortDate(projectStart)}</span>
-          ) : (
-            <span>Start: {formatShortDate(projectStart)}</span>
+      {/* Task Indicators Section - Only show when there are visible tasks */}
+      {visibleTasks.length > 0 && (previousTasks.length > 0 || upcomingTasks.length > 0) && (
+        <div className="flex items-center justify-between mt-1 mb-1">
+          {/* Previous Tasks Indicator */}
+          {previousTasks.length > 0 && (
+            <div 
+              className="text-xs px-2 py-1 rounded bg-gray-100 border"
+              style={{ 
+                color: brandTheme.text.muted,
+                borderColor: brandTheme.border.light,
+                backgroundColor: brandTheme.background.secondary,
+                fontSize: '10px'
+              }}
+              title={`${previousTasks.length} task${previousTasks.length > 1 ? 's' : ''} completed or ended before this week`}
+            >
+              ← {previousTasks.length} previous task{previousTasks.length > 1 ? 's' : ''}
+            </div>
+          )}
+
+          {/* Spacer */}
+          <div className="flex-1"></div>
+
+          {/* Upcoming Tasks Indicator */}
+          {upcomingTasks.length > 0 && (
+            <div 
+              className="text-xs px-2 py-1 rounded bg-gray-100 border"
+              style={{ 
+                color: brandTheme.text.muted,
+                borderColor: brandTheme.border.light,
+                backgroundColor: brandTheme.background.secondary,
+                fontSize: '10px'
+              }}
+              title={`${upcomingTasks.length} task${upcomingTasks.length > 1 ? 's' : ''} starting after this week`}
+            >
+              {upcomingTasks.length} upcoming task{upcomingTasks.length > 1 ? 's' : ''} →
+            </div>
           )}
         </div>
-        
-        <div className="flex items-center" style={{ color: brandTheme.text.secondary }}>
-          {projectDeadline && (
-            <span className="mr-3" style={{ color: brandTheme.text.primary, fontWeight: 'medium' }}>
-              Deadline: {formatShortDate(projectDeadline)}
+      )}
+
+      {/* Bottom section - Start and End dates (only show when there are visible tasks) */}
+      {visibleTasks.length > 0 && (
+        <div className="flex items-center justify-between mt-1 text-sm">
+          <div style={{ color: brandTheme.text.secondary }}>
+            {projectStartsBeforeWeek ? (
+              <span>Started: {formatShortDate(projectStart)}</span>
+            ) : showOriginalStartDate ? (
+              <span>Started: {formatShortDate(projectStart)}</span>
+            ) : (
+              <span>Start: {formatShortDate(projectStart)}</span>
+            )}
+          </div>
+          
+          <div className="flex items-center" style={{ color: brandTheme.text.secondary }}>
+            {projectDeadline && (
+              <span className="mr-3" style={{ color: brandTheme.text.primary, fontWeight: 'medium' }}>
+                Deadline: {formatShortDate(projectDeadline)}
+              </span>
+            )}
+            <span>
+              {hasNoEndDate ? 'No end date set' : `End: ${formatShortDate(projectEnd)}`}
             </span>
-          )}
-          <span>
-            {hasNoEndDate ? 'No end date set' : `End: ${formatShortDate(projectEnd)}`}
-          </span>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

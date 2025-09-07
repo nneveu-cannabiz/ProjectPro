@@ -19,12 +19,18 @@ const ProjectUpdates: React.FC<ProjectUpdatesProps> = ({
 }) => {
   return (
     <Card className="mt-6">
-      <CardHeader>
-        <CardTitle className="flex items-center">
-          <MessageSquare size={18} className="mr-2" />
+      <div
+        className="flex items-center px-6 py-3 rounded-t-lg"
+        style={{ backgroundColor: brandTheme.primary.navy }}
+      >
+        <MessageSquare size={18} className="mr-2" style={{ color: brandTheme.background.primary }} />
+        <h3
+          className="text-lg font-semibold"
+          style={{ color: brandTheme.background.primary }}
+        >
           Project Updates
-        </CardTitle>
-      </CardHeader>
+        </h3>
+      </div>
       <CardContent>
         {directUpdates.length > 0 ? (
           <div className="mb-6">
@@ -35,6 +41,11 @@ const ProjectUpdates: React.FC<ProjectUpdatesProps> = ({
                   variant="outline" 
                   size="sm"
                   onClick={onOpenUpdatesModal}
+                  style={{
+                    backgroundColor: brandTheme.primary.lightBlue,
+                    color: brandTheme.primary.navy,
+                    borderColor: brandTheme.primary.navy
+                  }}
                 >
                   View All Updates ({directUpdates.length})
                 </Button>
@@ -54,13 +65,20 @@ const ProjectUpdates: React.FC<ProjectUpdatesProps> = ({
           className="border-t pt-4"
           style={{ borderColor: brandTheme.border.light }}
         >
-          <h4 
-            className="text-sm font-medium mb-2"
-            style={{ color: brandTheme.text.primary }}
+          <div
+            className="px-3 py-2 mb-3 rounded-md"
+            style={{ backgroundColor: brandTheme.primary.navy }}
           >
-            Add Update to Project
-          </h4>
-          <UpdateForm entityType="project" entityId={projectId} />
+            <h4
+              className="text-sm font-medium"
+              style={{ color: brandTheme.background.primary }}
+            >
+              Add Update to Project
+            </h4>
+          </div>
+          <div className="px-3">
+            <UpdateForm entityType="project" entityId={projectId} />
+          </div>
         </div>
       </CardContent>
     </Card>

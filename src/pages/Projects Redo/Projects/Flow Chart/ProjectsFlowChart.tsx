@@ -1,5 +1,6 @@
 import React from 'react';
-import { MoreVertical, ChevronDown, ChevronRight } from 'lucide-react';
+import { MoreVertical, ChevronDown, ChevronRight, ChevronLeft } from 'lucide-react';
+import { addWeeks, format } from 'date-fns';
 import { brandTheme } from '../../../../styles/brandTheme';
 import { 
   fetchUsers, 
@@ -8,11 +9,14 @@ import {
   updateProjectFlowChart
 } from '../../../../data/supabase-store';
 import { User } from '../../../../types';
-import FlowChartContainer from './FlowChartContainer';
+import ProjectUserWeekChart from './ProjectUserWeekChart';
+import { generateWorkDates, getCurrentDay } from './utils/dateUtils';
 import OutstandingList from './Outstanding Projects/outstandinglist';
 import ProjectReviewSection from './Projects to Review/ProjectReviewSection';
 import TaskReviewSection from './Projects to Review/TaskReviewSection';
 import OKRPriorities from './OKRs/OKRPriorities';
+import ThisWeekFocus from './Week Focus/ThisWeekFocus';
+import NextWeekFocus from './Week Focus/NextWeekFocus';
 import UnassignedProjectsSection from './Unassigned Projects/UnassignedProjectsSection';
 import IDSSection from './IDS/IDSSection';
 import { createMenuItems, getMenuButtonStyle, getMenuDropdownStyle, getMenuItemStyle } from './utils/menu';
@@ -28,6 +32,19 @@ const ProjectsFlowChart: React.FC = () => {
   const [availableProjects, setAvailableProjects] = React.useState<any[]>([]);
   const [projectSearchTerm, setProjectSearchTerm] = React.useState('');
   const [isOutstandingExpanded, setIsOutstandingExpanded] = React.useState(false);
+  
+  // Date management for the flow chart
+  const [currentWeekStart, setCurrentWeekStart] = React.useState<Date>(getCurrentDay());
+  const [currentDates, setCurrentDates] = React.useState<Date[]>([]);
+  
+  // Refresh trigger for Week Focus components
+  const [refreshTrigger, setRefreshTrigger] = React.useState<number>(0);
+
+  // Initialize current week dates
+  React.useEffect(() => {
+    const dates = generateWorkDates(currentWeekStart);
+    setCurrentDates(dates);
+  }, [currentWeekStart]);
 
   React.useEffect(() => {
     const loadData = async () => {
@@ -118,6 +135,32 @@ const ProjectsFlowChart: React.FC = () => {
     }
   };
 
+  // Week navigation functions
+  const goToPreviousWeek = () => {
+    setCurrentWeekStart(prev => addWeeks(prev, -1));
+  };
+
+  const goToNextWeek = () => {
+    setCurrentWeekStart(prev => addWeeks(prev, 1));
+  };
+
+  const goToCurrentWeek = () => {
+    setCurrentWeekStart(getCurrentDay());
+  };
+
+  // Get week range label
+  const getWeekRangeLabel = () => {
+    if (currentDates.length === 0) return '';
+    const start = currentDates[0];
+    const end = currentDates[currentDates.length - 1];
+    return `${format(start, 'MMM d')} - ${format(end, 'MMM d, yyyy')}`;
+  };
+
+  // Function to refresh Week Focus components
+  const refreshWeekFocusComponents = () => {
+    setRefreshTrigger(prev => prev + 1);
+  };
+
 
 
   const getAvailableUsers = () => {
@@ -165,9 +208,10 @@ const ProjectsFlowChart: React.FC = () => {
                Manage your Product Development team members
              </p>
            </div>
-           
-           {/* Dropdown Menu */}
-           <div className="relative">
+
+          <div className="flex items-center space-x-6">
+            {/* Dropdown Menu */}
+             <div className="relative">
              <button
                onClick={() => setShowDropdown(!showDropdown)}
                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
@@ -202,62 +246,86 @@ const ProjectsFlowChart: React.FC = () => {
                  </div>
                </div>
              )}
+             </div>
            </div>
          </div>
-
-        {/* Outstanding Projects Section - Expandable */}
-        <div className="mt-2">
-          <div 
-            className="p-4 rounded-lg border cursor-pointer transition-colors hover:bg-gray-50"
-            style={{ 
-              backgroundColor: brandTheme.background.primary,
-              borderColor: brandTheme.border.light 
-            }}
-            onClick={() => setIsOutstandingExpanded(!isOutstandingExpanded)}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                {isOutstandingExpanded ? (
-                  <ChevronDown size={20} style={{ color: brandTheme.text.primary }} />
-                ) : (
-                  <ChevronRight size={20} style={{ color: brandTheme.text.primary }} />
-                )}
-                <h3 
-                  className="text-lg font-semibold ml-2"
-                  style={{ color: brandTheme.primary.navy }}
-                >
-                  Outstanding Projects
-                </h3>
-              </div>
-              <span 
-                className="text-sm"
-                style={{ color: brandTheme.text.muted }}
-              >
-                {isOutstandingExpanded ? 'Click to collapse' : 'Click to expand'}
-              </span>
-            </div>
-          </div>
-          
-          {isOutstandingExpanded && (
-            <div className="mt-2">
-              <OutstandingList />
-            </div>
-          )}
-        </div>
-
-        {/* Projects to Review Section */}
-        <div className="mt-4">
-          <ProjectReviewSection />
-        </div>
-
-        {/* Tasks to Review Section */}
-        <div className="mt-4">
-          <TaskReviewSection />
-        </div>
 
         {/* OKR Priorities Section */}
         <div className="mt-4">
           <OKRPriorities />
+        </div>
+
+        {/* Week Focus Section - Two columns side by side */}
+        <div className="mt-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* This Week's Focus - Left Column */}
+            <div>
+              <ThisWeekFocus
+                key={`this-week-${refreshTrigger}`}
+                selectedDepartment="Product Development"
+                currentDates={currentDates}
+                onProjectNameClick={(projectId) => {
+                  console.log('Project clicked:', projectId);
+                  // Add your project navigation logic here
+                }}
+                onTaskClick={(taskId) => {
+                  console.log('Task clicked:', taskId);
+                  // Add your task navigation logic here
+                }}
+                onUpdatesClick={(projectId) => {
+                  console.log('Updates clicked for project:', projectId);
+                  // Add your updates modal logic here
+                }}
+                onTaskUpdatesClick={(taskId) => {
+                  console.log('Task updates clicked:', taskId);
+                  // Add your task updates modal logic here
+                }}
+                getTaskUpdatesCount={(_taskId) => {
+                  // Return mock data for now - integrate with your updates system
+                  return { unreadCount: 0, totalCount: 0 };
+                }}
+                getUpdatesCountsForProject={(_projectId) => {
+                  // Return mock data for now - integrate with your updates system
+                  return { totalCount: 0, unreadCount: 0 };
+                }}
+                onModalClose={refreshWeekFocusComponents}
+              />
+            </div>
+
+            {/* Next Week's Focus - Right Column */}
+            <div>
+              <NextWeekFocus
+                key={`next-week-${refreshTrigger}`}
+                selectedDepartment="Product Development"
+                currentDates={currentDates}
+                onProjectNameClick={(projectId) => {
+                  console.log('Project clicked:', projectId);
+                  // Add your project navigation logic here
+                }}
+                onTaskClick={(taskId) => {
+                  console.log('Task clicked:', taskId);
+                  // Add your task navigation logic here
+                }}
+                onUpdatesClick={(projectId) => {
+                  console.log('Updates clicked for project:', projectId);
+                  // Add your updates modal logic here
+                }}
+                onTaskUpdatesClick={(taskId) => {
+                  console.log('Task updates clicked:', taskId);
+                  // Add your task updates modal logic here
+                }}
+                getTaskUpdatesCount={(_taskId) => {
+                  // Return mock data for now - integrate with your updates system
+                  return { unreadCount: 0, totalCount: 0 };
+                }}
+                getUpdatesCountsForProject={(_projectId) => {
+                  // Return mock data for now - integrate with your updates system
+                  return { totalCount: 0, unreadCount: 0 };
+                }}
+                onModalClose={refreshWeekFocusComponents}
+              />
+            </div>
+          </div>
         </div>
        </div>
 
@@ -453,9 +521,73 @@ const ProjectsFlowChart: React.FC = () => {
 
 
 
+       {/* Week Navigation Controls */}
+       <div className="p-6 pb-0">
+         <div className="flex items-center justify-center space-x-2">
+           <button
+             onClick={goToPreviousWeek}
+             className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+             style={{ color: brandTheme.text.primary }}
+           >
+             <ChevronLeft size={20} />
+           </button>
+           
+           <div className="text-center min-w-48">
+             <div 
+               className="font-semibold text-lg"
+               style={{ color: brandTheme.primary.navy }}
+             >
+               {getWeekRangeLabel()}
+             </div>
+             <button
+               onClick={goToCurrentWeek}
+               className="text-sm hover:underline transition-colors"
+               style={{ color: brandTheme.text.muted }}
+             >
+               Go to current week
+             </button>
+           </div>
+           
+           <button
+             onClick={goToNextWeek}
+             className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+             style={{ color: brandTheme.text.primary }}
+           >
+             <ChevronRight size={20} />
+           </button>
+         </div>
+       </div>
+
        {/* Flow Chart Container - Takes remaining height */}
-       <div className="flex-1 overflow-hidden">
-         <FlowChartContainer />
+       <div className="flex-1 overflow-hidden p-6">
+         <ProjectUserWeekChart
+           selectedDepartment="Product Development"
+           currentDates={currentDates}
+           onProjectNameClick={(projectId) => {
+             console.log('Project clicked:', projectId);
+             // Add your project navigation logic here
+           }}
+           onTaskClick={(taskId) => {
+             console.log('Task clicked:', taskId);
+             // Add your task navigation logic here
+           }}
+           onUpdatesClick={(projectId) => {
+             console.log('Updates clicked for project:', projectId);
+             // Add your updates modal logic here
+           }}
+           onTaskUpdatesClick={(taskId) => {
+             console.log('Task updates clicked:', taskId);
+             // Add your task updates modal logic here
+           }}
+           getTaskUpdatesCount={(_taskId) => {
+             // Return mock data for now - integrate with your updates system
+             return { unreadCount: 0, totalCount: 0 };
+           }}
+           getUpdatesCountsForProject={(_projectId) => {
+             // Return mock data for now - integrate with your updates system
+             return { totalCount: 0, unreadCount: 0 };
+           }}
+         />
        </div>
 
        {/* Unassigned Projects Section */}
@@ -466,6 +598,56 @@ const ProjectsFlowChart: React.FC = () => {
        {/* IDS Section */}
        <div className="p-6">
          <IDSSection />
+       </div>
+
+       {/* Outstanding Projects Section - Expandable */}
+       <div className="p-6">
+         <div 
+           className="p-4 rounded-lg border cursor-pointer transition-colors hover:bg-gray-50"
+           style={{ 
+             backgroundColor: brandTheme.background.primary,
+             borderColor: brandTheme.border.light 
+           }}
+           onClick={() => setIsOutstandingExpanded(!isOutstandingExpanded)}
+         >
+           <div className="flex items-center justify-between">
+             <div className="flex items-center">
+               {isOutstandingExpanded ? (
+                 <ChevronDown size={20} style={{ color: brandTheme.text.primary }} />
+               ) : (
+                 <ChevronRight size={20} style={{ color: brandTheme.text.primary }} />
+               )}
+               <h3 
+                 className="text-lg font-semibold ml-2"
+                 style={{ color: brandTheme.primary.navy }}
+               >
+                 Outstanding Projects
+               </h3>
+             </div>
+             <span 
+               className="text-sm"
+               style={{ color: brandTheme.text.muted }}
+             >
+               {isOutstandingExpanded ? 'Click to collapse' : 'Click to expand'}
+             </span>
+           </div>
+         </div>
+         
+         {isOutstandingExpanded && (
+           <div className="mt-2">
+             <OutstandingList />
+           </div>
+         )}
+       </div>
+
+       {/* Projects to Review Section */}
+       <div className="p-6">
+         <ProjectReviewSection />
+       </div>
+
+       {/* Tasks to Review Section */}
+       <div className="p-6">
+         <TaskReviewSection />
        </div>
      </div>
    );

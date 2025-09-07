@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, ExternalLink, Edit, Trash2 } from 'lucide-react';
+import { FileText, ExternalLink, Edit, Trash2, Pencil } from 'lucide-react';
 import Button from '../../../../../../components/ui/Button';
 import { brandTheme } from '../../../../../../styles/brandTheme';
 
@@ -158,10 +158,13 @@ const ProjectDocumentsSection: React.FC<ProjectDocumentsSectionProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between mb-2">
+      <div 
+        className="flex items-center justify-between px-3 py-2 mb-2 rounded-md"
+        style={{ backgroundColor: brandTheme.primary.navy }}
+      >
         <h3 
           className="text-sm font-medium"
-          style={{ color: brandTheme.text.primary }}
+          style={{ color: brandTheme.background.primary }}
         >
           Documents/Resources
         </h3>
@@ -171,6 +174,11 @@ const ProjectDocumentsSection: React.FC<ProjectDocumentsSectionProps> = ({
             variant="outline"
             onClick={handleAddDocument}
             disabled={isUpdatingDocuments}
+            style={{
+              backgroundColor: brandTheme.primary.lightBlue,
+              color: brandTheme.primary.navy,
+              borderColor: brandTheme.primary.navy
+            }}
           >
             <FileText size={14} className="mr-1" />
             Add
@@ -180,7 +188,7 @@ const ProjectDocumentsSection: React.FC<ProjectDocumentsSectionProps> = ({
 
       {/* Existing Documents */}
       {project.documents && project.documents.length > 0 && (
-        <div className="space-y-2 mb-3">
+        <div className="px-3 space-y-2 mb-3">
           {project.documents.map((document: any, index: number) => (
             <div
               key={index}
@@ -221,7 +229,7 @@ const ProjectDocumentsSection: React.FC<ProjectDocumentsSectionProps> = ({
                     disabled={isUpdatingDocuments || isAddingDocument || isEditingDocument}
                     title="Edit document"
                   >
-                    <Edit size={12} style={{ color: brandTheme.text.muted }} />
+                    <Pencil size={12} style={{ color: brandTheme.text.muted }} />
                   </button>
                   <button
                     onClick={() => handleDeleteDocument(index)}
@@ -241,7 +249,7 @@ const ProjectDocumentsSection: React.FC<ProjectDocumentsSectionProps> = ({
       {/* Add/Edit Document Form */}
       {(isAddingDocument || isEditingDocument) && (
         <div 
-          className="p-3 rounded-lg border space-y-3 mb-3"
+          className="px-3 p-3 rounded-lg border space-y-3 mb-3"
           style={{ 
             backgroundColor: brandTheme.background.tertiary,
             borderColor: brandTheme.border.medium
@@ -315,6 +323,10 @@ const ProjectDocumentsSection: React.FC<ProjectDocumentsSectionProps> = ({
               size="sm" 
               onClick={handleSaveDocument}
               disabled={isUpdatingDocuments || !documentForm.document_name.trim() || !documentForm.document_link.trim()}
+              style={{
+                backgroundColor: brandTheme.primary.lightBlue,
+                color: brandTheme.primary.navy
+              }}
             >
               {isUpdatingDocuments ? 'Saving...' : isEditingDocument ? 'Update' : 'Add'}
             </Button>
@@ -323,6 +335,11 @@ const ProjectDocumentsSection: React.FC<ProjectDocumentsSectionProps> = ({
               variant="outline"
               onClick={handleCancelDocumentEdit}
               disabled={isUpdatingDocuments}
+              style={{
+                backgroundColor: brandTheme.primary.lightBlue,
+                color: brandTheme.primary.navy,
+                borderColor: brandTheme.primary.navy
+              }}
             >
               Cancel
             </Button>
@@ -331,12 +348,14 @@ const ProjectDocumentsSection: React.FC<ProjectDocumentsSectionProps> = ({
       )}
       
       {(!project.documents || project.documents.length === 0) && !isAddingDocument && !isEditingDocument && (
-        <p 
-          className="text-xs"
-          style={{ color: brandTheme.text.muted }}
-        >
-          No documents added yet. Click "Add" to attach documents and resources to this project.
-        </p>
+        <div className="px-3">
+          <p 
+            className="text-xs"
+            style={{ color: brandTheme.text.muted }}
+          >
+            No documents added yet. Click "Add" to attach documents and resources to this project.
+          </p>
+        </div>
       )}
     </div>
   );

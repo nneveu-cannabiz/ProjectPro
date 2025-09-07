@@ -24,6 +24,7 @@ const ViewSelect = lazy(() => import('./pages/Projects Redo/ViewSelect'));
 const ProjectsRedoList = lazy(() => import('./pages/Projects Redo/Projects/ProjectsList'));
 const ProjectsFlowChart = lazy(() => import('./pages/Projects Redo/Projects/Flow Chart/ProjectsFlowChart'));
 const OutstandingList = lazy(() => import('./pages/Projects Redo/Projects/Flow Chart/Outstanding Projects/outstandinglist'));
+const HourLogging = lazy(() => import('./pages/HourLogging'));
 
 // Loading fallback for lazy-loaded components
 const PageLoader = () => (
@@ -139,6 +140,11 @@ function App() {
                 <Route path="updates" element={
                   <ErrorBoundaryWrapper pageName="Updates">
                     <Updates />
+                  </ErrorBoundaryWrapper>
+                } />
+                <Route path="hour-logging" element={
+                  <ErrorBoundaryWrapper pageName="Hour Logging">
+                    <HourLogging />
                   </ErrorBoundaryWrapper>
                 } />
               </Route>

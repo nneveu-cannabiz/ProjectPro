@@ -39,7 +39,7 @@ interface FlowProject {
   endDate: Date;
   assigneeId?: string | null;
   multiAssigneeIds?: string[];
-  tasks?: Task[];
+  tasks: Task[]; // Make tasks required to fix type issues
   progress?: number;
   deadline?: Date;
 }
@@ -252,7 +252,7 @@ const FlowChartContainer: React.FC = () => {
             endDate: p.end_date ? parseISO(p.end_date) : parseISO(p.start_date), // Use start_date as end_date if no end_date provided
             assigneeId: p.assignee_id || null,
             multiAssigneeIds: p.multi_assignee_id || [],
-            tasks: projectTasks,
+            tasks: projectTasks || [], // Ensure tasks is always an array
             progress: p.progress || 0,
             deadline: p.deadline ? parseISO(p.deadline) : undefined,
           };
@@ -419,9 +419,7 @@ const FlowChartContainer: React.FC = () => {
     setShowNewProjectModal(true);
   };
 
-  const handleNewTaskClick = () => {
-    setShowNewTaskModal(true);
-  };
+
 
   const handleUnassignedProjectsClick = () => {
     setShowUnassignedProjectsModal(true);
@@ -719,21 +717,6 @@ const FlowChartContainer: React.FC = () => {
              <Plus size={18} className="mr-2" />
              New Project
            </button>
-           
-           {/* Add New Task Button */}
-           <button
-             onClick={handleNewTaskClick}
-             className="flex items-center px-4 py-2 rounded-lg border transition-colors hover:bg-green-50"
-             style={{
-               borderColor: brandTheme.status.success,
-               color: brandTheme.status.success,
-               backgroundColor: brandTheme.background.primary
-             }}
-             title="Add new standalone task"
-           >
-             <Plus size={18} className="mr-2" />
-             New Task
-           </button>
             
 
              
@@ -806,17 +789,20 @@ const FlowChartContainer: React.FC = () => {
                    <div
                      key={index}
                      className={`p-4 border-r flex-shrink-0 text-center ${
-                       isWeekend ? 'w-12' : 'flex-1'
+                       isWeekend ? '' : 'flex-1'
                      }`}
-                                         style={{
-                      backgroundColor: isToday(date) 
-                        ? brandTheme.primary.paleBlue 
-                        : isWeekend 
-                        ? '#f3f4f6'
-                        : brandTheme.background.primary,
-                      borderColor: brandTheme.border.light,
-                      minWidth: isWeekend ? '48px' : '120px'
-                    }}
+                     style={{
+                       ...{
+                         backgroundColor: isToday(date) 
+                           ? brandTheme.primary.paleBlue 
+                           : isWeekend 
+                           ? brandTheme.background.tertiary 
+                           : brandTheme.background.secondary,
+                         borderRightColor: brandTheme.border.light,
+                         minHeight: '60px'
+                       },
+                       ...(isWeekend ? { width: '24px', minWidth: '24px' } : { minWidth: '80px' })
+                     }}
                    >
                      <div 
                        className="font-semibold text-base"
@@ -869,10 +855,32 @@ const FlowChartContainer: React.FC = () => {
                   const userTasksInProject = (project.tasks || []).filter(task => task.assigneeId === user.id);
                   const hasTasksForUser = userTasksInProject.length > 0;
                   
-
-                  
                   // Show if project is assigned to user OR user is multi-assignee OR user has tasks in project
                   return projectAssignedToUser || userInMultiAssignees || hasTasksForUser;
+                }).map(project => {
+                  // Filter tasks based on user's relationship to the project
+                  const isMainAssignee = project.assigneeId === user.id;
+                  const isAdditionalAssignee = (project.multiAssigneeIds || []).includes(user.id);
+                  
+                  let filteredTasks = project.tasks || [];
+                  
+                  if (isMainAssignee) {
+                    // Main assignee sees ALL tasks in the project
+                    filteredTasks = project.tasks || [];
+                  } else if (isAdditionalAssignee) {
+                    // Additional assignee sees ONLY tasks assigned to them (including their overdue tasks)
+                    filteredTasks = (project.tasks || []).filter(task => task.assigneeId === user.id);
+                  } else {
+                    // User has tasks in project but is not main or additional assignee
+                    // Show only their specific tasks (including their overdue tasks)
+                    filteredTasks = (project.tasks || []).filter(task => task.assigneeId === user.id);
+                  }
+                  
+                  // Return project with filtered tasks for this user
+                  return {
+                    ...project,
+                    tasks: filteredTasks || []
+                  };
                 });
                 
 
@@ -1054,6 +1062,30 @@ const FlowChartContainer: React.FC = () => {
                   
                   // Show if project is assigned to user OR user is multi-assignee OR user has tasks in project
                   return projectAssignedToUser || userInMultiAssignees || hasTasksForUser;
+                }).map(project => {
+                  // Filter tasks based on user's relationship to the project
+                  const isMainAssignee = project.assigneeId === user.id;
+                  const isAdditionalAssignee = (project.multiAssigneeIds || []).includes(user.id);
+                  
+                  let filteredTasks = project.tasks || [];
+                  
+                  if (isMainAssignee) {
+                    // Main assignee sees ALL tasks in the project
+                    filteredTasks = project.tasks || [];
+                  } else if (isAdditionalAssignee) {
+                    // Additional assignee sees ONLY tasks assigned to them (including their overdue tasks)
+                    filteredTasks = (project.tasks || []).filter(task => task.assigneeId === user.id);
+                  } else {
+                    // User has tasks in project but is not main or additional assignee
+                    // Show only their specific tasks (including their overdue tasks)
+                    filteredTasks = (project.tasks || []).filter(task => task.assigneeId === user.id);
+                  }
+                  
+                  // Return project with filtered tasks for this user
+                  return {
+                    ...project,
+                    tasks: filteredTasks || []
+                  };
                 });
                 
                 const userTasks = standaloneTasks.filter(task => task.assigneeId === user.id);
@@ -1114,15 +1146,14 @@ const FlowChartContainer: React.FC = () => {
                       return (
                         <div
                           key={idx}
-                          className={`border-r ${isWeekend ? 'w-12' : 'flex-1'}`}
+                          className={`border-r ${isWeekend ? '' : 'flex-1'}`}
                           style={{
+                            ...(isWeekend ? { width: '24px', minWidth: '24px' } : {}),
                             backgroundColor: isToday(date) 
                               ? brandTheme.primary.paleBlue 
                               : isWeekend 
-                              ? '#f3f4f6'
-                              : brandTheme.background.secondary,
-                            borderColor: brandTheme.border.light,
-                            minWidth: isWeekend ? '48px' : '120px'
+                              ? brandTheme.background.tertiary 
+                              : 'transparent'
                           }}
                         />
                       );
@@ -1135,28 +1166,13 @@ const FlowChartContainer: React.FC = () => {
                       const today = new Date();
                       
                       // Calculate precise positions for each project
-                      const projectPositions = calculateProjectPositions(stackedProjects, 48);
+                      const projectPositions = calculateProjectPositions(stackedProjects, dateRangeStart, dateRangeEnd, 48);
                       
                       return stackedProjects.map((stackedProject) => {
                         const { totalCount, unreadCount } = getUpdatesCountsForProject(stackedProject.project.id);
                         
-                        // Filter tasks based on user's relationship to the project
-                        const isMainAssignee = stackedProject.project.assigneeId === user.id;
-                        const isAdditionalAssignee = (stackedProject.project.multiAssigneeIds || []).includes(user.id);
-                        
-                        let filteredTasks = stackedProject.project.tasks || [];
-                        
-                        if (isMainAssignee) {
-                          // Main assignee sees ALL tasks in the project
-                          filteredTasks = stackedProject.project.tasks || [];
-                        } else if (isAdditionalAssignee) {
-                          // Additional assignee sees ONLY tasks assigned to them
-                          filteredTasks = (stackedProject.project.tasks || []).filter(task => task.assigneeId === user.id);
-                        } else {
-                          // User has tasks in project but is not main or additional assignee
-                          // This handles the case where user has tasks but isn't formally assigned to project
-                          filteredTasks = (stackedProject.project.tasks || []).filter(task => task.assigneeId === user.id);
-                        }
+                        // Tasks are already filtered at the project level, so we can use them directly
+                        const filteredTasks = stackedProject.project.tasks || [];
                         
                         return (
                           <ProjectBar
@@ -1180,8 +1196,10 @@ const FlowChartContainer: React.FC = () => {
                             onTaskUpdatesClick={handleTaskUpdatesClick}
                             getTaskUpdatesCount={getUpdatesCountsForTask}
                             unreadUpdatesCount={unreadCount}
-                            totalUpdatesCount={totalCount}
 
+                            totalUpdatesCount={totalCount}
+                            users={users}
+                            projectAssigneeId={stackedProject.project.assigneeId || undefined}
                           />
                         );
                       });
@@ -1251,15 +1269,15 @@ const FlowChartContainer: React.FC = () => {
                     return (
                       <div
                         key={idx}
-                        className={`border-r ${isWeekend ? 'w-12' : 'flex-1'}`}
+                        className={`border-r ${isWeekend ? '' : 'flex-1'}`}
                         style={{
                           backgroundColor: isToday(date) 
                             ? brandTheme.primary.paleBlue 
                             : isWeekend 
-                            ? '#f3f4f6'
+                            ? brandTheme.background.tertiary
                             : brandTheme.background.secondary,
                           borderColor: brandTheme.border.light,
-                          minWidth: isWeekend ? '48px' : '120px'
+                          ...(isWeekend ? { width: '24px', minWidth: '24px' } : { minWidth: '80px' })
                         }}
                       />
                     );
@@ -1272,7 +1290,7 @@ const FlowChartContainer: React.FC = () => {
                     const today = new Date();
                     
                     // Calculate precise positions for each project
-                    const unassignedProjectPositions = calculateProjectPositions(stackedUnassignedProjects, 48);
+                    const unassignedProjectPositions = calculateProjectPositions(stackedUnassignedProjects, dateRangeStart, dateRangeEnd, 48);
                     
                     const projectBars = stackedUnassignedProjects.map((stackedProject) => {
                       const { totalCount, unreadCount } = getUpdatesCountsForProject(stackedProject.project.id);
@@ -1302,6 +1320,8 @@ const FlowChartContainer: React.FC = () => {
                           getTaskUpdatesCount={getUpdatesCountsForTask}
                           unreadUpdatesCount={unreadCount}
                           totalUpdatesCount={totalCount}
+                          users={users}
+                          projectAssigneeId={stackedProject.project.assigneeId || undefined}
 
                         />
                       );

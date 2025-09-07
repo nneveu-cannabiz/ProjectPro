@@ -1,19 +1,18 @@
 import React, { useState } from 'react';
-import { PlusCircle, Edit, Trash2, MessageSquare, X, Tag } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, MessageSquare, Pencil } from 'lucide-react';
 import Button from '../../../../../../components/ui/Button';
 import { Card, CardContent } from '../../../../../../components/ui/Card';
-import Badge from '../../../../../../components/ui/Badge';
 import Modal from '../../../../../../components/ui/Modal';
 import ProjectForm from '../../../../../../components/Project/ProjectForm';
 import TaskForm from '../../../../../../components/Task/TaskForm';
 import CollapsibleTaskItem from '../../../../../../components/Task/CollapsibleTaskItem';
 import { useAppContext } from '../../../../../../context/AppContext';
 import UpdatesModal from '../../../../../../components/Update/UpdatesModal';
-import DropdownMenu from '../../../../../../components/ui/DropdownMenu';
 import { brandTheme } from '../../../../../../styles/brandTheme';
 import ProjectDetailsSection from './ProjectDetailsSection';
 import ProjectDocumentsSection from './ProjectDocumentsSection';
 import ProjectUpdates from './ProjectUpdates';
+import ProjectDetailsHeader from './ProjectDetailsHeader';
 
 interface ProjectDetailsModalProps {
   isOpen: boolean;
@@ -44,6 +43,10 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
   
   // Tab management state
   const [activeTab, setActiveTab] = useState<'details' | 'documents'>('details');
+  
+  // Description editing state
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [editedDescription, setEditedDescription] = useState('');
   
   const project = projects.find((p) => p.id === projectId);
   
@@ -82,49 +85,7 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
     setIsUpdatesModalOpen(true);
   };
   
-  // Get status badge variant
-  const getStatusVariant = (status: string) => {
-    switch (status) {
-      case 'todo':
-        return 'default';
-      case 'in-progress':
-        return 'warning';
-      case 'done':
-        return 'success';
-      default:
-        return 'default';
-    }
-  };
-  
-  // Get project type badge variant
-  const getProjectTypeVariant = (type: string) => {
-    switch (type) {
-      case 'Active':
-        return 'success';
-      case 'Upcoming':
-        return 'primary';
-      case 'Future':
-        return 'secondary';
-      case 'On Hold':
-        return 'warning';
-      default:
-        return 'default';
-    }
-  };
-  
-  // Format status text for display
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'todo':
-        return 'To Do';
-      case 'in-progress':
-        return 'In Progress';
-      case 'done':
-        return 'Done';
-      default:
-        return status.charAt(0).toUpperCase() + status.slice(1);
-    }
-  };
+
   
   // Dropdown menu items for project actions
   const projectMenuItems = [
@@ -160,6 +121,29 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
     }
   };
 
+  // Description editing handlers
+  const handleEditDescription = () => {
+    setEditedDescription(project.description || '');
+    setIsEditingDescription(true);
+  };
+
+  const handleSaveDescription = async () => {
+    try {
+      await updateProject({
+        ...project,
+        description: editedDescription
+      });
+      setIsEditingDescription(false);
+    } catch (error) {
+      console.error('Error updating description:', error);
+    }
+  };
+
+  const handleCancelDescription = () => {
+    setIsEditingDescription(false);
+    setEditedDescription('');
+  };
+
   return (
     <>
       {/* Main Project Details Modal */}
@@ -172,98 +156,80 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
               borderColor: brandTheme.border.light 
             }}
           >
-            {/* Modal Header */}
-            <div 
-              className="flex items-center justify-between p-6 border-b"
-              style={{ borderColor: brandTheme.border.light }}
-            >
-              <div className="flex-1">
-                <h1 
-                  className="text-2xl font-bold"
-                  style={{ color: brandTheme.text.primary }}
-                >
-                  {project.name} - Project
-                </h1>
-                <div className="flex items-center mt-2">
-                  <Badge variant={getProjectTypeVariant(project.projectType)} className="mr-2">
-                    {project.projectType}
-                  </Badge>
-                  <Badge variant="primary" className="mr-2">{project.category}</Badge>
-                  <Badge variant={getStatusVariant(project.status)} className="mr-2">
-                    {getStatusText(project.status)}
-                  </Badge>
-                  <span 
-                    className="text-sm mr-4"
-                    style={{ color: brandTheme.text.muted }}
-                  >
-                    Created: {new Date(project.createdAt).toLocaleDateString()}
-                  </span>
-                  {project.deadline && (
-                    <span 
-                      className="text-sm font-medium"
-                      style={{ color: brandTheme.status.warning }}
-                    >
-                      Deadline: {new Date(project.deadline).toLocaleDateString()}
-                    </span>
-                  )}
-                  {typeof project.progress === 'number' && (
-                    <span 
-                      className="text-sm font-medium ml-4"
-                      style={{ color: brandTheme.status.info }}
-                    >
-                      Progress: {project.progress}%
-                    </span>
-                  )}
-                </div>
-                
-                {/* Tags Section */}
-                {(project.tags && project.tags.length > 0) && (
-                  <div className="flex items-center mt-2 flex-wrap">
-                    <Tag size={16} className="mr-2" style={{ color: brandTheme.text.muted }} />
-                    {project.tags.map((tag, index) => (
-                      <div
-                        key={index}
-                        className="cursor-pointer hover:opacity-80 mr-2 mb-1"
-                        onClick={() => handleRemoveTag(tag)}
-                        title="Click to remove tag"
-                      >
-                        <Badge 
-                          variant="secondary" 
-                        >
-                          {tag} ×
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <DropdownMenu items={projectMenuItems} />
-                <button
-                  onClick={onClose}
-                  className="p-2 rounded-lg border hover:bg-gray-50 transition-colors"
-                  style={{
-                    borderColor: brandTheme.border.light,
-                    color: brandTheme.text.primary
-                  }}
-                >
-                  <X size={20} />
-                </button>
-              </div>
-            </div>
+            <ProjectDetailsHeader
+              project={project}
+              projectMenuItems={projectMenuItems}
+              onClose={onClose}
+              onRemoveTag={handleRemoveTag}
+            />
             
             {/* Modal Content */}
             <div className="flex-1 overflow-y-auto p-6" style={{ maxHeight: 'calc(95vh - 120px)' }}>
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
                 <div className="lg:col-span-3">
                   <Card className="mb-6">
-                    <CardContent className="p-6">
-                      <p 
-                        style={{ color: brandTheme.text.secondary }}
+                    <CardContent className="p-6 relative">
+                      {!isEditingDescription && (
+                        <button
+                          onClick={handleEditDescription}
+                          className="absolute top-4 right-4 p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+                          title="Edit description"
+                          style={{ color: brandTheme.text.muted }}
+                        >
+                          <Pencil size={16} />
+                        </button>
+                      )}
+                      
+                      {isEditingDescription ? (
+                        <div>
+                          <textarea
+                            value={editedDescription}
+                            onChange={(e) => setEditedDescription(e.target.value)}
+                            className="w-full min-h-[100px] p-3 border rounded-md resize-vertical focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            style={{ 
+                              borderColor: brandTheme.border.light,
+                              color: brandTheme.text.secondary,
+                              backgroundColor: brandTheme.background.primary
+                            }}
+                            placeholder="Enter project description..."
+                          />
+                          <div className="flex justify-end space-x-2 mt-3">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={handleCancelDescription}
+                              style={{
+                                backgroundColor: brandTheme.primary.lightBlue,
+                                color: brandTheme.primary.navy,
+                                borderColor: brandTheme.primary.navy
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={handleSaveDescription}
+                              style={{
+                                backgroundColor: brandTheme.primary.lightBlue,
+                                color: brandTheme.primary.navy
+                              }}
+                            >
+                              Save
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div 
+                          className="whitespace-pre-wrap break-words pr-8"
+                          style={{ 
+                            color: brandTheme.text.secondary,
+                            lineHeight: '1.6',
+                            minHeight: 'auto'
+                          }}
                       >
                         {project.description || 'No description provided.'}
-                      </p>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                   
@@ -274,7 +240,14 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
                     >
                       Tasks
                     </h2>
-                    <Button onClick={handleAddTask} size="sm">
+                    <Button 
+                      onClick={handleAddTask} 
+                      size="sm"
+                      style={{
+                        backgroundColor: brandTheme.primary.lightBlue,
+                        color: brandTheme.primary.navy
+                      }}
+                    >
                       <PlusCircle size={16} className="mr-1" />
                       Add Task
                     </Button>
@@ -302,6 +275,10 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
                         className="mt-4" 
                         onClick={handleAddTask}
                         size="sm"
+                        style={{
+                          backgroundColor: brandTheme.primary.lightBlue,
+                          color: brandTheme.primary.navy
+                        }}
                       >
                         Add Your First Task
                       </Button>
@@ -318,16 +295,22 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
                 
                 <div className="lg:col-span-2">
                   <Card>
-                    <div className="p-6">
+                    <div 
+                      className="p-6"
+                      style={{ backgroundColor: brandTheme.primary.navy }}
+                    >
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center space-x-4">
                           <button
                             onClick={() => setActiveTab('details')}
                             className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
                               activeTab === 'details'
-                                ? 'bg-blue-100 text-blue-700'
-                                : 'text-gray-600 hover:text-gray-900'
+                                ? 'bg-white text-blue-700'
+                                : 'text-white hover:text-gray-200'
                             }`}
+                            style={{
+                              backgroundColor: activeTab === 'details' ? brandTheme.background.primary : 'transparent'
+                            }}
                           >
                             Project Details
                           </button>
@@ -335,9 +318,12 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
                             onClick={() => setActiveTab('documents')}
                             className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
                               activeTab === 'documents'
-                                ? 'bg-blue-100 text-blue-700'
-                                : 'text-gray-600 hover:text-gray-900'
+                                ? 'bg-white text-blue-700'
+                                : 'text-white hover:text-gray-200'
                             }`}
+                            style={{
+                              backgroundColor: activeTab === 'documents' ? brandTheme.background.primary : 'transparent'
+                            }}
                           >
                             Documents/Resources
                           </button>
@@ -400,10 +386,27 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
         <div>
           <p className="mb-6">Are you sure you want to delete this project? This action cannot be undone and will also delete all tasks associated with this project.</p>
           <div className="flex justify-end space-x-3">
-            <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)} size="sm">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsDeleteModalOpen(false)} 
+              size="sm"
+              style={{
+                backgroundColor: brandTheme.primary.lightBlue,
+                color: brandTheme.primary.navy,
+                borderColor: brandTheme.primary.navy
+              }}
+            >
               Cancel
             </Button>
-            <Button variant="danger" onClick={handleDeleteProject} size="sm">
+            <Button 
+              variant="danger" 
+              onClick={handleDeleteProject} 
+              size="sm"
+              style={{
+                backgroundColor: brandTheme.status.error,
+                color: brandTheme.background.primary
+              }}
+            >
               Delete Project
             </Button>
           </div>
