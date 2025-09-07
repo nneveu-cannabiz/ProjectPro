@@ -1141,3 +1141,115 @@ export const fetchHoursWithTaskDetails = async (userId: string): Promise<(Hour &
     []
   );
 };
+
+// Role and admin functions
+export const fetchUserRole = async (userId: string): Promise<string | null> => {
+  return safeSupabaseCall(
+    async () => {
+      const { data, error } = await supabase
+        .from('PMA_Users')
+        .select(`
+          role_id,
+          PMA_Roles!inner(name)
+        `)
+        .eq('id', userId)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching user role:', error);
+        return null;
+      }
+      
+      return data?.PMA_Roles?.name || null;
+    },
+    'Failed to fetch user role',
+    null
+  );
+};
+
+export const isUserAdmin = async (userId: string): Promise<boolean> => {
+  const role = await fetchUserRole(userId);
+  return role === 'Admin';
+};
+
+// Admin-only functions for Budget & Hours page
+export const fetchAllUsersHours = async (): Promise<(Hour & { user: User; task: Task; project: Project })[]> => {
+  return safeSupabaseCall(
+    async () => {
+      const { data, error } = await supabase
+        .from('PMA_Hours')
+        .select(`
+          *,
+          PMA_Users!inner(*),
+          PMA_Tasks!inner(
+            *,
+            PMA_Projects!inner(*)
+          )
+        `)
+        .order('date', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching all users hours:', error);
+        throw error;
+      }
+      
+      return data.map(h => ({
+        id: h.id,
+        userId: h.user_id,
+        taskId: h.task_id,
+        hours: h.hours,
+        date: h.date,
+        createdAt: h.created_at,
+        updatedAt: h.updated_at,
+        user: {
+          id: h.PMA_Users.id,
+          email: h.PMA_Users.email,
+          firstName: h.PMA_Users.first_name || '',
+          lastName: h.PMA_Users.last_name || '',
+          profileColor: h.PMA_Users.profile_color,
+          department: h.PMA_Users.department,
+          flowChart: h.PMA_Users.flow_chart
+        },
+        task: {
+          id: h.PMA_Tasks.id,
+          projectId: h.PMA_Tasks.project_id,
+          name: h.PMA_Tasks.name,
+          description: h.PMA_Tasks.description || '',
+          taskType: h.PMA_Tasks.task_type,
+          status: h.PMA_Tasks.status,
+          assigneeId: h.PMA_Tasks.assignee_id,
+          flowChart: h.PMA_Tasks.flow_chart,
+          priority: h.PMA_Tasks.priority,
+          createdAt: h.PMA_Tasks.created_at,
+          updatedAt: h.PMA_Tasks.updated_at,
+          startDate: h.PMA_Tasks.start_date,
+          endDate: h.PMA_Tasks.end_date,
+          deadline: h.PMA_Tasks.deadline,
+          tags: h.PMA_Tasks.tags || [],
+          progress: h.PMA_Tasks.progress
+        },
+        project: {
+          id: h.PMA_Tasks.PMA_Projects.id,
+          name: h.PMA_Tasks.PMA_Projects.name,
+          description: h.PMA_Tasks.PMA_Projects.description || '',
+          category: h.PMA_Tasks.PMA_Projects.category,
+          status: h.PMA_Tasks.PMA_Projects.status,
+          projectType: h.PMA_Tasks.PMA_Projects.project_type || 'Active',
+          assigneeId: h.PMA_Tasks.PMA_Projects.assignee_id,
+          multiAssigneeIds: h.PMA_Tasks.PMA_Projects.multi_assignee_id || [],
+          flowChart: h.PMA_Tasks.PMA_Projects.flow_chart,
+          createdAt: h.PMA_Tasks.PMA_Projects.created_at,
+          updatedAt: h.PMA_Tasks.PMA_Projects.updated_at,
+          startDate: h.PMA_Tasks.PMA_Projects.start_date,
+          endDate: h.PMA_Tasks.PMA_Projects.end_date,
+          deadline: h.PMA_Tasks.PMA_Projects.deadline,
+          tags: h.PMA_Tasks.PMA_Projects.tags || [],
+          progress: h.PMA_Tasks.PMA_Projects.progress,
+          documents: h.PMA_Tasks.PMA_Projects.documents || []
+        }
+      }));
+    },
+    'Failed to fetch all users hours',
+    []
+  );
+};

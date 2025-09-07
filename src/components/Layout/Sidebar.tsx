@@ -10,10 +10,12 @@ import {
   ChevronLeft, 
   Menu,
   Sparkles,
-  Clock
+  Clock,
+  DollarSign
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getUserProfile } from '../../lib/supabase';
+import { useAdminCheck } from '../../hooks/useAdminCheck';
 
 interface SidebarItemProps {
   to: string;
@@ -71,6 +73,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser, logout } = useAuth();
+  const { isAdmin } = useAdminCheck();
   const [profileData, setProfileData] = useState<{
     firstName: string;
     lastName: string;
@@ -191,6 +194,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
           isActive={location.pathname === '/hour-logging'}
           isCollapsed={isCollapsed}
         />
+        
+        {isAdmin && (
+          <SidebarItem
+            to="/budget-hours"
+            icon={<DollarSign size={20} />}
+            label="Budget & Hours"
+            isActive={location.pathname === '/budget-hours'}
+            isCollapsed={isCollapsed}
+          />
+        )}
         
         <SidebarItem
           to="/settings"

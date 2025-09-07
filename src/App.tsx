@@ -25,6 +25,7 @@ const ProjectsRedoList = lazy(() => import('./pages/Projects Redo/Projects/Proje
 const ProjectsFlowChart = lazy(() => import('./pages/Projects Redo/Projects/Flow Chart/ProjectsFlowChart'));
 const OutstandingList = lazy(() => import('./pages/Projects Redo/Projects/Flow Chart/Outstanding Projects/outstandinglist'));
 const HourLogging = lazy(() => import('./pages/HourLogging'));
+const BudgetAndHours = lazy(() => import('./pages/Projects Redo/Projects/Budget and Hours - Admin/BudgetAndHoursPage'));
 
 // Loading fallback for lazy-loaded components
 const PageLoader = () => (
@@ -145,6 +146,11 @@ function App() {
                 <Route path="hour-logging" element={
                   <ErrorBoundaryWrapper pageName="Hour Logging">
                     <HourLogging />
+                  </ErrorBoundaryWrapper>
+                } />
+                <Route path="budget-hours" element={
+                  <ErrorBoundaryWrapper pageName="Budget & Hours">
+                    <BudgetAndHours />
                   </ErrorBoundaryWrapper>
                 } />
               </Route>
