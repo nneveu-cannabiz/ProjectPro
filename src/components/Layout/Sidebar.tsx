@@ -140,30 +140,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
       
       <nav className="flex-1 p-4 overflow-y-auto">
         <SidebarItem
-          to="/dashboard"
-          icon={<LayoutDashboard size={20} />}
-          label="Dashboard"
-          isActive={location.pathname === '/dashboard'}
-          isCollapsed={isCollapsed}
-        />
-        
-        <SidebarItem
-          to="/projects"
-          icon={<ListTodo size={20} />}
-          label="Projects"
-          isActive={location.pathname.startsWith('/projects') && !location.pathname.startsWith('/projects-redo')}
-          isCollapsed={isCollapsed}
-        />
-        
-        <SidebarItem
-          to="/projects-redo"
-          icon={<Sparkles size={20} />}
-          label="Projects New"
-          isActive={location.pathname.startsWith('/projects-redo')}
-          isCollapsed={isCollapsed}
-        />
-        
-        <SidebarItem
           to="/product-dev-dashboard"
           icon={<LayoutDashboard size={20} />}
           label="Product Dev Dashboard"
