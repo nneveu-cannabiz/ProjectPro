@@ -25,7 +25,8 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
     updateTask,
     updateProject,
     getUpdatesForEntity,
-    getRelatedUpdates
+    getRelatedUpdates,
+    refreshData
   } = useAppContext();
   
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -126,17 +127,30 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
     try {
       setIsUpdatingStatus(true);
       console.log('Marking task as done:', task.id, 'Current status:', task.status);
+      console.log('Full task object:', task);
       
-      await updateTask({
+      const updatedTask = {
         ...task,
-        status: 'done',
+        status: 'done' as const,
         progress: 100,
-        endDate: new Date().toISOString().split('T')[0] // Current date in YYYY-MM-DD format
-      });
+        endDate: new Date().toISOString().split('T')[0], // Current date in YYYY-MM-DD format
+        updatedAt: new Date().toISOString(),
+        // Ensure required fields are present
+        description: task.description || '',
+        tags: task.tags || []
+      };
+      
+      console.log('Updated task object:', updatedTask);
+      
+      await updateTask(updatedTask);
+      
+      // Refresh data to ensure UI updates
+      await refreshData();
       
       console.log('Task marked as done successfully');
     } catch (error) {
       console.error('Error marking task as done:', error);
+      console.error('Error details:', error);
       alert('Failed to mark task as done. Please try again.');
     } finally {
       setIsUpdatingStatus(false);
@@ -150,16 +164,29 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
     try {
       setIsUpdatingStatus(true);
       console.log('Marking task as in progress:', task.id, 'Current status:', task.status);
+      console.log('Full task object:', task);
       
-      await updateTask({
+      const updatedTask = {
         ...task,
-        status: 'in-progress',
-        startDate: task.startDate || new Date().toISOString().split('T')[0] // Set start date if not already set
-      });
+        status: 'in-progress' as const,
+        startDate: task.startDate || new Date().toISOString().split('T')[0], // Set start date if not already set
+        updatedAt: new Date().toISOString(),
+        // Ensure required fields are present
+        description: task.description || '',
+        tags: task.tags || []
+      };
+      
+      console.log('Updated task object:', updatedTask);
+      
+      await updateTask(updatedTask);
+      
+      // Refresh data to ensure UI updates
+      await refreshData();
       
       console.log('Task marked as in progress successfully');
     } catch (error) {
       console.error('Error marking task as in progress:', error);
+      console.error('Error details:', error);
       alert('Failed to mark task as in progress. Please try again.');
     } finally {
       setIsUpdatingStatus(false);

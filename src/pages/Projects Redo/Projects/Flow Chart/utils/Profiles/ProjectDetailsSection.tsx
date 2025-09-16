@@ -88,9 +88,33 @@ const ProjectDetailsSection: React.FC<ProjectDetailsSectionProps> = ({
   const formatDateForInput = (dateString?: string) => {
     if (!dateString) return '';
     try {
-      const date = new Date(dateString);
-      return date.toISOString().split('T')[0];
-    } catch {
+      // Handle different date formats that might come from the database
+      let date: Date;
+      
+      // If it's already in YYYY-MM-DD format, use it directly
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        date = new Date(dateString + 'T00:00:00'); // Add time to avoid timezone issues
+      } else {
+        // Parse other formats
+        date = new Date(dateString);
+      }
+      
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid date string:', dateString);
+        return '';
+      }
+      
+      // Return in YYYY-MM-DD format for HTML date input
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      
+      const formattedDate = `${year}-${month}-${day}`;
+      console.log(`formatDateForInput: "${dateString}" -> "${formattedDate}"`);
+      
+      return formattedDate;
+    } catch (error) {
+      console.error('Error formatting date for input:', dateString, error);
       return '';
     }
   };
@@ -117,14 +141,66 @@ const ProjectDetailsSection: React.FC<ProjectDetailsSectionProps> = ({
     try {
       setIsUpdatingDates(true);
       
+      // Process date values - convert empty strings to null, keep valid dates
+      const processedStartDate = dateValues.startDate.trim() || null;
+      const processedEndDate = dateValues.endDate.trim() || null;
+      const processedDeadline = dateValues.deadline.trim() || null;
+      
+      console.log('=== DATE UPDATE DEBUG ===');
+      console.log('Raw dateValues:', dateValues);
+      console.log('Processed dates:', {
+        startDate: processedStartDate,
+        endDate: processedEndDate,
+        deadline: processedDeadline
+      });
+      console.log('Original project dates:', {
+        startDate: project.startDate,
+        endDate: project.endDate,
+        deadline: project.deadline
+      });
+      
+      // Validate date format (YYYY-MM-DD)
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      
+      if (processedStartDate && !dateRegex.test(processedStartDate)) {
+        alert(`Invalid start date format. Expected YYYY-MM-DD, got: ${processedStartDate}`);
+        return;
+      }
+      if (processedEndDate && !dateRegex.test(processedEndDate)) {
+        alert(`Invalid end date format. Expected YYYY-MM-DD, got: ${processedEndDate}`);
+        return;
+      }
+      if (processedDeadline && !dateRegex.test(processedDeadline)) {
+        alert(`Invalid deadline format. Expected YYYY-MM-DD, got: ${processedDeadline}`);
+        return;
+      }
+      
+      // Additional validation - check if dates can be parsed
+      if (processedStartDate && !isValidDate(processedStartDate)) {
+        alert(`Start date cannot be parsed: ${processedStartDate}`);
+        return;
+      }
+      if (processedEndDate && !isValidDate(processedEndDate)) {
+        alert(`End date cannot be parsed: ${processedEndDate}`);
+        return;
+      }
+      if (processedDeadline && !isValidDate(processedDeadline)) {
+        alert(`Deadline cannot be parsed: ${processedDeadline}`);
+        return;
+      }
+      
       const updatedProject = {
         ...project,
-        startDate: dateValues.startDate || null,
-        endDate: dateValues.endDate || null,
-        deadline: dateValues.deadline || null
+        startDate: processedStartDate,
+        endDate: processedEndDate,
+        deadline: processedDeadline
       };
 
+      console.log('Final project object for save:', JSON.stringify(updatedProject, null, 2));
+      console.log('About to call onUpdateProject...');
+      
       await onUpdateProject(updatedProject);
+      console.log('✅ Project dates saved successfully');
       
       setIsEditingDates(false);
       setDateValues({
@@ -133,10 +209,22 @@ const ProjectDetailsSection: React.FC<ProjectDetailsSectionProps> = ({
         deadline: ''
       });
     } catch (error) {
-      console.error('Error updating dates:', error);
+      console.error('❌ Error updating dates:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        name: error instanceof Error ? error.name : 'Unknown'
+      });
+      alert(`Failed to update dates: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsUpdatingDates(false);
     }
+  };
+
+  // Helper function to validate date format
+  const isValidDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date instanceof Date && !isNaN(date.getTime());
   };
 
   const handleDateChange = (field: string, value: string) => {
@@ -537,6 +625,7 @@ const ProjectDetailsSection: React.FC<ProjectDetailsSectionProps> = ({
                   backgroundColor: brandTheme.background.secondary
                 }}
                 disabled={isUpdatingDates}
+                title="Select any date - no restrictions"
               />
             )}
           </div>
@@ -605,6 +694,7 @@ const ProjectDetailsSection: React.FC<ProjectDetailsSectionProps> = ({
                   backgroundColor: brandTheme.background.secondary
                 }}
                 disabled={isUpdatingDates}
+                title="Select any date - no restrictions"
               />
             )}
           </div>
@@ -642,6 +732,7 @@ const ProjectDetailsSection: React.FC<ProjectDetailsSectionProps> = ({
                 backgroundColor: brandTheme.background.secondary
               }}
               disabled={isUpdatingDates}
+              title="Select any date - no restrictions"
             />
           )}
           

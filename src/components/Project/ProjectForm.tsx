@@ -10,9 +10,10 @@ import { Project } from '../../types';
 interface ProjectFormProps {
   project?: Project;
   onSubmit: () => void;
+  defaultFlowChart?: string;
 }
 
-const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSubmit }) => {
+const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSubmit, defaultFlowChart }) => {
   const { categories, addProject, updateProject, getUsers, getProductDevUsers, projects: allProjects, addCategory } = useAppContext();
   
   const [name, setName] = useState(project?.name || '');
@@ -145,6 +146,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSubmit }) => {
         status: status as 'todo' | 'in-progress' | 'done',
         projectType: projectType as 'Active' | 'Upcoming' | 'Future' | 'On Hold',
         assigneeId: assigneeId || undefined,
+        flowChart: defaultFlowChart,
       });
     }
     

@@ -1,5 +1,5 @@
 import React from 'react';
-import { MoreVertical, ChevronDown, ChevronRight, ChevronLeft } from 'lucide-react';
+import { MoreVertical, ChevronDown, ChevronRight, ChevronLeft, X } from 'lucide-react';
 import { addWeeks, format } from 'date-fns';
 import { brandTheme } from '../../../../styles/brandTheme';
 import { 
@@ -8,6 +8,7 @@ import {
   fetchProjectsForFlowChart,
   updateProjectFlowChart
 } from '../../../../data/supabase-store';
+import ProjectForm from '../../../../components/Project/ProjectForm';
 import { User } from '../../../../types';
 import ProjectUserWeekChart from './ProjectUserWeekChart';
 import { generateWorkDates, getCurrentDay } from './utils/dateUtils';
@@ -32,6 +33,7 @@ const ProjectsFlowChart: React.FC = () => {
   const [availableProjects, setAvailableProjects] = React.useState<any[]>([]);
   const [projectSearchTerm, setProjectSearchTerm] = React.useState('');
   const [isOutstandingExpanded, setIsOutstandingExpanded] = React.useState(false);
+  const [showNewProjectModal, setShowNewProjectModal] = React.useState(false);
   
   // Date management for the flow chart
   const [currentWeekStart, setCurrentWeekStart] = React.useState<Date>(getCurrentDay());
@@ -46,24 +48,25 @@ const ProjectsFlowChart: React.FC = () => {
     setCurrentDates(dates);
   }, [currentWeekStart]);
 
-  React.useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        // Load all users for the assignment dropdown
-        const allUsersData = await fetchUsers();
-        setAllUsers(allUsersData);
-        
-        // Load available projects for flow chart
-        const projectsData = await fetchProjectsForFlowChart();
-        setAvailableProjects(projectsData);
-      } catch (error) {
-        console.error('Error loading data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Function to load data
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      // Load all users for the assignment dropdown
+      const allUsersData = await fetchUsers();
+      setAllUsers(allUsersData);
+      
+      // Load available projects for flow chart
+      const projectsData = await fetchProjectsForFlowChart();
+      setAvailableProjects(projectsData);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  React.useEffect(() => {
     loadData();
   }, []);
 
@@ -159,6 +162,18 @@ const ProjectsFlowChart: React.FC = () => {
   // Function to refresh Week Focus components
   const refreshWeekFocusComponents = () => {
     setRefreshTrigger(prev => prev + 1);
+  };
+
+  // Function to handle adding a new project with Product Development flow chart
+  const handleAddNewProject = () => {
+    setShowNewProjectModal(true);
+  };
+
+  // Function to handle new project modal close
+  const handleNewProjectModalClose = () => {
+    setShowNewProjectModal(false);
+    // Refresh data to show the new project
+    loadData();
   };
 
 
@@ -558,6 +573,21 @@ const ProjectsFlowChart: React.FC = () => {
          </div>
        </div>
 
+       {/* Add New Project Button */}
+       <div className="px-6 pb-4">
+         <button
+           className="px-4 py-2 rounded-lg font-medium transition-colors hover:opacity-90"
+           style={{
+             backgroundColor: brandTheme.primary.navy,
+             color: 'white',
+             border: `1px solid ${brandTheme.primary.navy}`
+           }}
+           onClick={handleAddNewProject}
+         >
+           + Add New Project
+         </button>
+       </div>
+
        {/* Flow Chart Container - Takes remaining height */}
        <div className="flex-1 overflow-hidden p-6">
          <ProjectUserWeekChart
@@ -649,6 +679,37 @@ const ProjectsFlowChart: React.FC = () => {
        <div className="p-6">
          <TaskReviewSection />
        </div>
+
+       {/* New Project Modal */}
+       {showNewProjectModal && (
+         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+           <div 
+             className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+             style={{ borderColor: brandTheme.border.light }}
+           >
+             <div className="flex items-center justify-between mb-4">
+               <h3 
+                 className="text-lg font-semibold"
+                 style={{ color: brandTheme.text.primary }}
+               >
+                 Add New Project to Product Development
+               </h3>
+               <button
+                 onClick={() => setShowNewProjectModal(false)}
+                 className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+                 style={{ color: brandTheme.text.muted }}
+               >
+                 <X size={20} />
+               </button>
+             </div>
+             
+             <ProjectForm
+               onSubmit={handleNewProjectModalClose}
+               defaultFlowChart="Product Development"
+             />
+           </div>
+         </div>
+       )}
      </div>
    );
  };

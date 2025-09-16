@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { fetchTasksAssignedToUser, fetchHoursWithTaskDetails, logHours } from '../../../../data/supabase-store';
 import { Task, Hour, Project } from '../../../../types';
@@ -25,6 +25,36 @@ const HourLogModal: React.FC<HourLogModalProps> = ({ isOpen, onClose, task, onSu
   const [hours, setHours] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  // Handle click outside to close modal
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      // Use a slight delay to prevent immediate closing due to the click that opened the modal
+      const timeoutId = setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleKeyDown);
+      }, 100);
+
+      return () => {
+        clearTimeout(timeoutId);
+        document.removeEventListener('mousedown', handleClickOutside);
+        document.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [isOpen, onClose]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +77,7 @@ const HourLogModal: React.FC<HourLogModalProps> = ({ isOpen, onClose, task, onSu
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+      <div ref={modalRef} className="bg-white rounded-lg shadow-xl w-full max-w-md">
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <h3 className="text-lg font-semibold text-gray-900">Log Hours</h3>
           <button
@@ -182,9 +212,16 @@ const HourLoggingPage: React.FC<HourLoggingPageProps> = ({ isOpen, onClose }) =>
 
   if (!isOpen) return null;
 
+  // Create a custom onClose handler that prevents closing when the hour log modal is open
+  const handleMainModalClose = () => {
+    if (!showHourLogModal) {
+      onClose();
+    }
+  };
+
   return (
     <>
-      <Modal isOpen={isOpen} onClose={onClose} title="Hour Logging">
+      <Modal isOpen={isOpen} onClose={handleMainModalClose} title="Hour Logging">
         <div className="max-h-[80vh] overflow-y-auto">
           {successMessage && (
             <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md flex items-center gap-2">

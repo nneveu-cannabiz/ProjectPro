@@ -8,10 +8,13 @@ import {
   MessageSquare, 
   LogOut, 
   ChevronLeft, 
+  ChevronDown,
+  ChevronRight,
   Menu,
   Sparkles,
   Clock,
-  DollarSign
+  DollarSign,
+  FolderOpen
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getUserProfile } from '../../lib/supabase';
@@ -144,6 +147,22 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
           icon={<LayoutDashboard size={20} />}
           label="Product Dev Dashboard"
           isActive={location.pathname === '/product-dev-dashboard'}
+          isCollapsed={isCollapsed}
+        />
+        
+        <SidebarItem
+          to="/product-dev-kpis"
+          icon={<Sparkles size={20} />}
+          label="Product Dev KPIs"
+          isActive={location.pathname === '/product-dev-kpis'}
+          isCollapsed={isCollapsed}
+        />
+        
+        <SidebarItem
+          to="/product-dev-projects"
+          icon={<FolderOpen size={20} />}
+          label="Product Dev Projects"
+          isActive={location.pathname === '/product-dev-projects'}
           isCollapsed={isCollapsed}
         />
         

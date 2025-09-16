@@ -26,6 +26,8 @@ const ProjectsFlowChart = lazy(() => import('./pages/Projects Redo/Projects/Flow
 const OutstandingList = lazy(() => import('./pages/Projects Redo/Projects/Flow Chart/Outstanding Projects/outstandinglist'));
 const HourLogging = lazy(() => import('./pages/HourLogging'));
 const BudgetAndHours = lazy(() => import('./pages/Projects Redo/Projects/Budget and Hours - Admin/BudgetAndHoursPage'));
+const ProductDevKPIs = lazy(() => import('./pages/Projects Redo/Projects/Product Dev KPIs/ProductDevKPIs'));
+const ProductDevProjects = lazy(() => import('./pages/Projects Redo/Projects/Product Dev Project List/ProductDevProjectPage'));
 
 // Loading fallback for lazy-loaded components
 const PageLoader = () => (
@@ -126,6 +128,16 @@ function App() {
                 <Route path="product-dev-dashboard" element={
                   <ErrorBoundaryWrapper pageName="Product Dev Dashboard">
                     <ProjectsFlowChart />
+                  </ErrorBoundaryWrapper>
+                } />
+                <Route path="product-dev-kpis" element={
+                  <ErrorBoundaryWrapper pageName="Product Dev KPIs">
+                    <ProductDevKPIs />
+                  </ErrorBoundaryWrapper>
+                } />
+                <Route path="product-dev-projects" element={
+                  <ErrorBoundaryWrapper pageName="Product Dev Projects">
+                    <ProductDevProjects />
                   </ErrorBoundaryWrapper>
                 } />
                 <Route path="settings" element={

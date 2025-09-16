@@ -141,30 +141,50 @@ export const addProject = async (project: Omit<Project, 'id' | 'createdAt' | 'up
 export const updateProject = async (project: Project): Promise<void> => {
   const timestamp = new Date().toISOString();
   
+  console.log('🔄 supabase-store.updateProject called with:', {
+    id: project.id,
+    startDate: project.startDate,
+    endDate: project.endDate,
+    deadline: project.deadline,
+    name: project.name
+  });
+  
+  const updateData = {
+    name: project.name,
+    description: project.description,
+    category: project.category,
+    status: project.status,
+    project_type: project.projectType,
+    assignee_id: project.assigneeId,
+    multi_assignee_id: project.multiAssigneeIds || [],
+    flow_chart: project.flowChart,
+    start_date: project.startDate === null ? null : project.startDate,
+    end_date: project.endDate === null ? null : project.endDate,
+    deadline: project.deadline === null ? null : project.deadline,
+    tags: project.tags,
+    progress: project.progress,
+    updated_at: timestamp
+  };
+  
+  console.log('📝 Supabase update data:', updateData);
+  
   const { error } = await supabase
     .from('PMA_Projects')
-    .update({
-      name: project.name,
-      description: project.description,
-      category: project.category,
-      status: project.status,
-      project_type: project.projectType,
-      assignee_id: project.assigneeId,
-      multi_assignee_id: project.multiAssigneeIds || [],
-      flow_chart: project.flowChart,
-      start_date: project.startDate === null ? null : project.startDate,
-      end_date: project.endDate === null ? null : project.endDate,
-      deadline: project.deadline === null ? null : project.deadline,
-      tags: project.tags,
-      progress: project.progress,
-      updated_at: timestamp
-    })
+    .update(updateData)
     .eq('id', project.id);
   
   if (error) {
-    console.error('Error updating project:', error);
+    console.error('❌ Supabase error updating project:', error);
+    console.error('Error details:', {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code
+    });
     throw error;
   }
+  
+  console.log('✅ Project updated successfully in Supabase');
 };
 
 export const deleteProject = async (id: string): Promise<void> => {
@@ -739,6 +759,86 @@ export const fetchFlowChartProjects = async (flowChart: string): Promise<any[]> 
       return data;
     },
     'Error fetching flow chart projects',
+    []
+  );
+};
+
+// Fetch Product Development projects with their tasks
+export const fetchProductDevProjects = async (): Promise<Project[]> => {
+  return safeSupabaseCall(
+    async () => {
+      const { data, error } = await supabase
+        .from('PMA_Projects')
+        .select('*')
+        .eq('flow_chart', 'Product Development')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching Product Development projects:', error);
+        throw error;
+      }
+      
+      return data.map(p => ({
+        id: p.id,
+        name: p.name,
+        description: p.description || '',
+        category: p.category,
+        status: p.status,
+        projectType: p.project_type || 'Active',
+        assigneeId: p.assignee_id,
+        multiAssigneeIds: p.multi_assignee_id || [],
+        flowChart: p.flow_chart,
+        createdAt: p.created_at,
+        updatedAt: p.updated_at,
+        startDate: p.start_date,
+        endDate: p.end_date,
+        deadline: p.deadline,
+        tags: p.tags,
+        progress: p.progress
+      }));
+    },
+    'Error fetching Product Development projects',
+    []
+  );
+};
+
+// Fetch tasks for Product Development projects
+export const fetchProductDevProjectTasks = async (projectIds: string[]): Promise<Task[]> => {
+  return safeSupabaseCall(
+    async () => {
+      if (projectIds.length === 0) return [];
+      
+      const { data, error } = await supabase
+        .from('PMA_Tasks')
+        .select('*')
+        .in('project_id', projectIds)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching Product Development project tasks:', error);
+        throw error;
+      }
+      
+      return data.map(t => ({
+        id: t.id,
+        projectId: t.project_id,
+        name: t.name,
+        description: t.description || '',
+        taskType: t.task_type,
+        status: t.status,
+        assigneeId: t.assignee_id,
+        flowChart: t.flow_chart,
+        priority: t.priority,
+        createdAt: t.created_at,
+        updatedAt: t.updated_at,
+        startDate: t.start_date,
+        endDate: t.end_date,
+        deadline: t.deadline,
+        tags: t.tags,
+        progress: t.progress
+      }));
+    },
+    'Error fetching Product Development project tasks',
     []
   );
 };

@@ -87,9 +87,37 @@ const TaskDetailsSection: React.FC<TaskDetailsSectionProps> = ({
   const formatDateForInput = (dateString?: string) => {
     if (!dateString) return '';
     try {
-      const date = parseISO(dateString);
-      return date.toISOString().split('T')[0];
-    } catch {
+      // Handle different date formats that might come from the database
+      let date: Date;
+      
+      // If it's already in YYYY-MM-DD format, use it directly
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        date = new Date(dateString + 'T00:00:00'); // Add time to avoid timezone issues
+      } else {
+        // Parse other formats using parseISO or fallback to Date constructor
+        try {
+          date = parseISO(dateString);
+        } catch {
+          date = new Date(dateString);
+        }
+      }
+      
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid date string:', dateString);
+        return '';
+      }
+      
+      // Return in YYYY-MM-DD format for HTML date input
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      
+      const formattedDate = `${year}-${month}-${day}`;
+      console.log(`formatDateForInput: "${dateString}" -> "${formattedDate}"`);
+      
+      return formattedDate;
+    } catch (error) {
+      console.error('Error formatting date for input:', dateString, error);
       return '';
     }
   };
@@ -116,11 +144,21 @@ const TaskDetailsSection: React.FC<TaskDetailsSectionProps> = ({
     try {
       setIsUpdatingDates(true);
       
+      // Process date values - convert empty strings to null, keep valid dates
+      const processedStartDate = dateValues.startDate.trim() || null;
+      const processedEndDate = dateValues.endDate.trim() || null;
+      const processedDeadline = dateValues.deadline.trim() || null;
+      
+      console.log('Updating task dates:', {
+        original: { startDate: task.startDate, endDate: task.endDate, deadline: task.deadline },
+        new: { startDate: processedStartDate, endDate: processedEndDate, deadline: processedDeadline }
+      });
+      
       const updatedTask = {
         ...task,
-        startDate: dateValues.startDate || null,
-        endDate: dateValues.endDate || null,
-        deadline: dateValues.deadline || null
+        startDate: processedStartDate,
+        endDate: processedEndDate,
+        deadline: processedDeadline
       };
 
       await onUpdateTask(updatedTask);

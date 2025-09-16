@@ -54,6 +54,11 @@ create table public."PMA_Projects" (
 
 create index IF not exists idx_pma_projects_assignee_id on public."PMA_Projects" using btree (assignee_id) TABLESPACE pg_default;
 
+create trigger projects_field_changes_trigger
+after INSERT
+or
+update on "PMA_Projects" for EACH row
+execute FUNCTION create_field_change_updates ();
 ---------------------------------------------------------------------------------
 
 create table public."PMA_Updates" (
