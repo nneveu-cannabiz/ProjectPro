@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Clock, Calendar, TrendingUp, Users } from 'lucide-react';
 import HourLoggingPage from './Projects Redo/Projects/Hours/HourLoggingPage';
+import MyHours from './Projects Redo/Projects/Hours/Myhours';
 import Button from '../components/ui/Button';
 
 const HourLogging: React.FC = () => {
@@ -91,58 +92,9 @@ const HourLogging: React.FC = () => {
         </Button>
       </div>
 
-      {/* Features Section */}
+      {/* My Hours Section */}
       <div className="mt-12">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">Features</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="flex gap-4">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-              <TrendingUp className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <h3 className="font-medium text-gray-900 mb-1">Smart Filtering</h3>
-              <p className="text-sm text-gray-600">
-                Filter your logged hours by this week, this month, or custom date ranges to analyze your productivity patterns.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex gap-4">
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Calendar className="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <h3 className="font-medium text-gray-900 mb-1">Date Validation</h3>
-              <p className="text-sm text-gray-600">
-                Each task can only have one time entry per date, ensuring accurate and consistent time tracking.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex gap-4">
-            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Users className="w-5 h-5 text-purple-600" />
-            </div>
-            <div>
-              <h3 className="font-medium text-gray-900 mb-1">Task Context</h3>
-              <p className="text-sm text-gray-600">
-                See full project and task details when logging hours, including priority levels and descriptions.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex gap-4">
-            <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Clock className="w-5 h-5 text-orange-600" />
-            </div>
-            <div>
-              <h3 className="font-medium text-gray-900 mb-1">Flexible Hours</h3>
-              <p className="text-sm text-gray-600">
-                Log hours in decimal format with quarter-hour increments (0.25, 0.5, 0.75, etc.) for precise tracking.
-              </p>
-            </div>
-          </div>
-        </div>
+        <MyHours />
       </div>
 
       {/* Hour Logging Modal */}

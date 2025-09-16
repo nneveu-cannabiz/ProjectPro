@@ -1353,3 +1353,43 @@ export const fetchAllUsersHours = async (): Promise<(Hour & { user: User; task: 
     []
   );
 };
+
+export const updateHourEntry = async (hourId: string, hours: number, date: string): Promise<void> => {
+  return safeSupabaseCall(
+    async () => {
+      const { error } = await supabase
+        .from('PMA_Hours')
+        .update({
+          hours: hours,
+          date: date,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', hourId);
+      
+      if (error) {
+        console.error('Error updating hour entry:', error);
+        throw error;
+      }
+    },
+    'Failed to update hour entry',
+    undefined
+  );
+};
+
+export const deleteHourEntry = async (hourId: string): Promise<void> => {
+  return safeSupabaseCall(
+    async () => {
+      const { error } = await supabase
+        .from('PMA_Hours')
+        .delete()
+        .eq('id', hourId);
+      
+      if (error) {
+        console.error('Error deleting hour entry:', error);
+        throw error;
+      }
+    },
+    'Failed to delete hour entry',
+    undefined
+  );
+};
