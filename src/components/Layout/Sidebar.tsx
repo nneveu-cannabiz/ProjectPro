@@ -14,7 +14,8 @@ import {
   Sparkles,
   Clock,
   DollarSign,
-  FolderOpen
+  FolderOpen,
+  Users
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getUserProfile } from '../../lib/supabase';
@@ -187,6 +188,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
           icon={<Clock size={20} />}
           label="Hour Logging"
           isActive={location.pathname === '/hour-logging'}
+          isCollapsed={isCollapsed}
+        />
+        
+        <SidebarItem
+          to="/team-requests"
+          icon={<Users size={20} />}
+          label="Team Requests"
+          isActive={location.pathname === '/team-requests'}
           isCollapsed={isCollapsed}
         />
         

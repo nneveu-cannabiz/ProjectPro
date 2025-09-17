@@ -24,6 +24,7 @@ export interface UserRowProps {
 // Project stacking is now handled by the dedicated projectStacking.ts utility
 
 const UserRow: React.FC<UserRowProps> = ({
+  user,
   projects,
   today,
   weekStart,
@@ -87,6 +88,8 @@ const UserRow: React.FC<UserRowProps> = ({
               totalUpdatesCount={totalCount}
               users={users}
               projectAssigneeId={stackedProject.project.assigneeId || undefined}
+              currentUserId={user.id}
+              projectMultiAssigneeIds={stackedProject.project.multiAssigneeIds || []}
             />
           );
         })}

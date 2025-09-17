@@ -2,6 +2,52 @@ import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../lib/supabase';
 import { Project, Task, SubTask, Category, TaskType, User, Update, Hour } from '../types';
 
+// Test function to diagnose connection issues
+export const diagnoseSupabaseConnection = async () => {
+  console.log('🔍 Starting Supabase connection diagnosis...');
+  
+  try {
+    // Test 1: Check if supabase client is initialized
+    console.log('✓ Supabase client initialized');
+    
+    // Test 2: Simple query without safeSupabaseCall
+    console.log('🔌 Testing direct connection...');
+    const { data, error } = await supabase
+      .from('PMA_Projects')
+      .select('id')
+      .limit(1);
+    
+    if (error) {
+      console.error('❌ Direct query failed:', error);
+      return { success: false, error: error.message };
+    }
+    
+    console.log('✅ Direct connection successful');
+    
+    // Test 3: Test with safeSupabaseCall
+    console.log('🛡️ Testing with safeSupabaseCall...');
+    const result = await safeSupabaseCall(
+      async () => {
+        const { data, error } = await supabase
+          .from('PMA_Projects')
+          .select('id')
+          .limit(1);
+        if (error) throw error;
+        return data;
+      },
+      'Test query',
+      []
+    );
+    
+    console.log('✅ safeSupabaseCall test successful');
+    return { success: true, result };
+    
+  } catch (error) {
+    console.error('❌ Connection diagnosis failed:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+};
+
 // Helper function to handle Supabase errors with timeouts
 const safeSupabaseCall = async <T>(
   operation: () => Promise<T>,
@@ -9,16 +55,34 @@ const safeSupabaseCall = async <T>(
   defaultValue: T
 ): Promise<T> => {
   try {
-    // Set a timeout to prevent hanging
+    // Set a shorter timeout to prevent hanging
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('Operation timed out')), 15000);
+      setTimeout(() => reject(new Error('Operation timed out after 10 seconds')), 10000);
     });
     
     // Race the operation against the timeout
     const result = await Promise.race([operation(), timeoutPromise]);
     return result;
   } catch (error) {
-    console.error(`${errorMessage}:`, error);
+    // More detailed error logging
+    console.error(`🚨 SUPABASE ERROR - ${errorMessage}:`, {
+      error,
+      errorMessage: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Check if it's a connection error specifically
+    if (error instanceof Error && (
+      error.message.includes('connection refused') ||
+      error.message.includes('ECONNREFUSED') ||
+      error.message.includes('network') ||
+      error.message.includes('timeout')
+    )) {
+      console.error('🔌 CONNECTION ISSUE DETECTED:', error.message);
+      // You might want to show a user-friendly error message here
+    }
+    
     return defaultValue;
   }
 };
@@ -219,7 +283,7 @@ export const fetchTasks = async (): Promise<Task[]> => {
         name: t.name,
         description: t.description || '',
         taskType: t.task_type,
-        status: t.status,
+        status: t.status as 'todo' | 'in-progress' | 'done', // Type assertion to fix linting
         assigneeId: t.assignee_id,
         flowChart: t.flow_chart,
         priority: t.priority,
@@ -235,6 +299,46 @@ export const fetchTasks = async (): Promise<Task[]> => {
     'Error fetching tasks',
     []
   );
+};
+
+// Alternative direct fetch function that bypasses safeSupabaseCall for debugging
+export const fetchTasksDirect = async (): Promise<Task[]> => {
+  try {
+    console.log('🔍 Fetching tasks directly (bypassing safeSupabaseCall)...');
+    
+    const { data, error } = await supabase
+      .from('PMA_Tasks')
+      .select('*');
+    
+    if (error) {
+      console.error('❌ Direct fetchTasks failed:', error);
+      throw error;
+    }
+    
+    console.log(`✅ Direct fetchTasks successful: ${data.length} tasks found`);
+    
+    return data.map(t => ({
+      id: t.id,
+      projectId: t.project_id,
+      name: t.name,
+      description: t.description || '',
+      taskType: t.task_type,
+      status: t.status as 'todo' | 'in-progress' | 'done',
+      assigneeId: t.assignee_id,
+      flowChart: t.flow_chart,
+      priority: t.priority,
+      createdAt: t.created_at,
+      updatedAt: t.updated_at,
+      startDate: t.start_date,
+      endDate: t.end_date,
+      deadline: t.deadline,
+      tags: t.tags,
+      progress: t.progress
+    }));
+  } catch (error) {
+    console.error('❌ fetchTasksDirect failed with error:', error);
+    throw error; // Re-throw to see the actual error
+  }
 };
 
 // Fetch tasks by flow chart

@@ -210,3 +210,94 @@ create table public."PMA_Roles" (
 ) TABLESPACE pg_default;
 
 create index IF not exists idx_pma_roles_name on public."PMA_Roles" using btree (name) TABLESPACE pg_default;
+
+create table public."PMA_Requests" (
+  id uuid not null default gen_random_uuid (),
+  title character varying(255) not null,
+  description text not null,
+  request_type character varying(50) not null,
+  priority character varying(20) null default 'medium'::character varying,
+  submitter_name character varying(255) not null,
+  submitter_email character varying(255) not null,
+  submitter_department character varying(100) null,
+  status character varying(30) null default 'submitted'::character varying,
+  assigned_to uuid null,
+  reviewed_by uuid null,
+  expected_completion_date date null,
+  actual_completion_date date null,
+  internal_notes text null,
+  response_notes text null,
+  related_project_id uuid null,
+  external_reference character varying(255) null,
+  created_at timestamp with time zone null default now(),
+  updated_at timestamp with time zone null default now(),
+  reviewed_at timestamp with time zone null,
+  completed_at timestamp with time zone null,
+  submission_request_info jsonb null,
+  constraint pma_requests_pkey primary key (id),
+  constraint pma_requests_assigned_to_fkey foreign KEY (assigned_to) references auth.users (id) on delete set null,
+  constraint pma_requests_reviewed_by_fkey foreign KEY (reviewed_by) references auth.users (id) on delete set null,
+  constraint pma_requests_priority_check check (
+    (
+      (priority)::text = any (
+        (
+          array[
+            'low'::character varying,
+            'medium'::character varying,
+            'high'::character varying,
+            'urgent'::character varying
+          ]
+        )::text[]
+      )
+    )
+  ),
+  constraint pma_requests_request_type_check check (
+    (
+      (request_type)::text = any (
+        (
+          array[
+            'bug'::character varying,
+            'task'::character varying,
+            'project'::character varying,
+            'question'::character varying,
+            'support'::character varying,
+            'feature_request'::character varying,
+            'other'::character varying
+          ]
+        )::text[]
+      )
+    )
+  ),
+  constraint pma_requests_status_check check (
+    (
+      (status)::text = any (
+        (
+          array[
+            'submitted'::character varying,
+            'in_review'::character varying,
+            'in_progress'::character varying,
+            'completed'::character varying,
+            'rejected'::character varying,
+            'on_hold'::character varying
+          ]
+        )::text[]
+      )
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists idx_pma_requests_status on public."PMA_Requests" using btree (status) TABLESPACE pg_default;
+
+create index IF not exists idx_pma_requests_type on public."PMA_Requests" using btree (request_type) TABLESPACE pg_default;
+
+create index IF not exists idx_pma_requests_priority on public."PMA_Requests" using btree (priority) TABLESPACE pg_default;
+
+create index IF not exists idx_pma_requests_submitter_email on public."PMA_Requests" using btree (submitter_email) TABLESPACE pg_default;
+
+create index IF not exists idx_pma_requests_assigned_to on public."PMA_Requests" using btree (assigned_to) TABLESPACE pg_default;
+
+create index IF not exists idx_pma_requests_created_at on public."PMA_Requests" using btree (created_at) TABLESPACE pg_default;
+
+create trigger trigger_update_pma_requests_updated_at BEFORE
+update on "PMA_Requests" for EACH row
+execute FUNCTION update_pma_requests_updated_at ();

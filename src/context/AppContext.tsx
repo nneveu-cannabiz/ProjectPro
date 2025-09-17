@@ -80,6 +80,8 @@ const AppContext = createContext<AppContextType>({
   deleteTaskType: async () => {},
   addUpdate: async () => '',
   deleteUpdate: async () => {},
+  markUpdateAsRead: async () => {},
+  updateRequestStatus: async () => {},
   getUpdatesForEntity: () => [],
   getRelatedUpdates: () => [],
   isLoading: false,
@@ -99,7 +101,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { isAuthenticated, currentUser } = useAuth();
+  const { isAuthenticated } = useAuth();
   
   // Function to fetch data from Supabase
   const fetchData = async () => {
@@ -119,6 +121,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, 20000); // 20 seconds timeout
     
     try {
+      // Log environment info first
+      console.log('AppContext - Environment check:', {
+        hasSupabaseUrl: !!import.meta.env.VITE_SUPABASE_URL,
+        hasSupabaseKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
+        supabaseUrlStart: import.meta.env.VITE_SUPABASE_URL?.substring(0, 20) + '...',
+      });
+      
       // Try to fetch data from Supabase
       const [projectsData, tasksData, subTasksData, updatesData, usersData] = await Promise.all([
         supabaseStore.fetchProjects(),
@@ -143,6 +152,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updates: updatesData.length,
         users: usersData.length
       });
+      
+      // Debug: Check task priority data
+      console.log('AppContext - First few tasks with priority:', 
+        tasksData.slice(0, 3).map(task => ({
+          id: task.id,
+          name: task.name,
+          priority: task.priority,
+          allFields: Object.keys(task)
+        }))
+      );
+      
+      // Debug: Check if ANY tasks have priority
+      const tasksWithPriority = tasksData.filter(task => task.priority);
+      console.log('AppContext - Tasks with priority set:', tasksWithPriority.length, tasksWithPriority);
       
       // Fetch categories and task types if needed
       try {
@@ -321,7 +344,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setUpdates(prev => prev.filter(u => 
         !(u.entityType === 'task' && u.entityId === id) &&
         !(u.entityType === 'subtask' && 
-          prev.some(st => st.taskId === id && st.id === u.entityId)
+          subTasks.some(st => st.taskId === id && st.id === u.entityId)
         )
       ));
     } catch (error) {

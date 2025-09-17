@@ -43,6 +43,10 @@ const TaskDetails: React.FC = () => {
   const project = projects.find((p) => p.id === projectId);
   const task = tasks.find((t) => t.id === taskId);
   
+  // Debug: Log task data
+  console.log('TaskDetails - task found:', task);
+  console.log('TaskDetails - task.priority:', task?.priority);
+  
   if (!project || !task) {
     navigate(`/projects/${projectId}`);
     return null;
@@ -99,6 +103,24 @@ const TaskDetails: React.FC = () => {
         return 'Done';
       default:
         return status.charAt(0).toUpperCase() + status.slice(1);
+    }
+  };
+
+  // Get priority badge styling
+  const getPriorityStyle = (priority: string | undefined): { backgroundColor: string; color: string; text: string } => {
+    switch (priority?.toLowerCase()) {
+      case 'critical':
+        return { backgroundColor: '#B91C1C', color: 'white', text: 'CRITICAL' };
+      case 'high':
+        return { backgroundColor: '#DC2626', color: 'white', text: 'HIGH' };
+      case 'medium':
+        return { backgroundColor: '#F59E0B', color: 'white', text: 'MEDIUM' };
+      case 'low':
+        return { backgroundColor: '#10B981', color: 'white', text: 'LOW' };
+      case 'very low':
+        return { backgroundColor: '#6B7280', color: 'white', text: 'VERY LOW' };
+      default:
+        return { backgroundColor: '#6B7280', color: 'white', text: 'NORMAL' };
     }
   };
   
@@ -163,9 +185,20 @@ const TaskDetails: React.FC = () => {
             <Badge variant={getStatusVariant(task.status)} className="mr-2">
               {getStatusText(task.status)}
             </Badge>
-            <Badge variant={getTypeVariant(task.taskType)}>
+            <Badge variant={getTypeVariant(task.taskType)} className="mr-2">
               {task.taskType}
             </Badge>
+            {/* DEBUG: Always show priority info */}
+            <span
+              className="px-2 py-1 rounded text-xs font-bold mr-2"
+              style={{
+                backgroundColor: '#FF0000',
+                color: 'white',
+                border: '2px solid yellow'
+              }}
+            >
+              🚨 PRIORITY DEBUG: {task.priority ? `${task.priority}` : `NULL/UNDEFINED (${typeof task.priority})`} 🚨
+            </span>
           </div>
           <p className="text-sm text-gray-600 mt-1">
             Created: {new Date(task.createdAt).toLocaleDateString()}

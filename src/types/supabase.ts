@@ -108,6 +108,8 @@ export interface Database {
           task_type: string
           status: string
           assignee_id: string | null
+          flow_chart: string | null
+          priority: string | null
           created_at: string
           updated_at: string
           start_date: string | null
@@ -124,6 +126,8 @@ export interface Database {
           task_type: string
           status: string
           assignee_id?: string | null
+          flow_chart?: string | null
+          priority?: string | null
           created_at?: string
           updated_at?: string
           start_date?: string | null
@@ -140,6 +144,8 @@ export interface Database {
           task_type?: string
           status?: string
           assignee_id?: string | null
+          flow_chart?: string | null
+          priority?: string | null
           created_at?: string
           updated_at?: string
           start_date?: string | null

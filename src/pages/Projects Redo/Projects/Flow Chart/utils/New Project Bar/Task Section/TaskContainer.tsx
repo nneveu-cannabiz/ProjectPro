@@ -55,6 +55,8 @@ export interface TaskContainerProps {
   getTaskUpdatesCount?: (taskId: string) => { unreadCount: number; totalCount: number };
   users?: User[];
   projectAssigneeId?: string;
+  currentUserId?: string; // The user whose row this task container appears in
+  projectMultiAssigneeIds?: string[]; // Array of multi-assignee IDs
 }
 
 const TaskContainer: React.FC<TaskContainerProps> = ({
@@ -66,7 +68,9 @@ const TaskContainer: React.FC<TaskContainerProps> = ({
   onTaskUpdatesClick,
   getTaskUpdatesCount,
   users = [],
-  projectAssigneeId
+  projectAssigneeId,
+  currentUserId,
+  projectMultiAssigneeIds = []
 }) => {
   if (!tasks || tasks.length === 0) {
     return null;
@@ -91,6 +95,7 @@ const TaskContainer: React.FC<TaskContainerProps> = ({
       {regularTasks.map((task, index) => {
         const taskUpdatesCount = getTaskUpdatesCount ? getTaskUpdatesCount(task.id) : { unreadCount: 0, totalCount: 0 };
         
+        
         return (
           <TaskBar
             key={task.id}
@@ -106,6 +111,8 @@ const TaskContainer: React.FC<TaskContainerProps> = ({
             isClickable={!!onTaskClick}
             users={users}
             projectAssigneeId={projectAssigneeId}
+            currentUserId={currentUserId}
+            projectMultiAssigneeIds={projectMultiAssigneeIds}
           />
         );
       })}
@@ -130,6 +137,8 @@ const TaskContainer: React.FC<TaskContainerProps> = ({
             isClickable={!!onTaskClick}
             users={users}
             projectAssigneeId={projectAssigneeId}
+            currentUserId={currentUserId}
+            projectMultiAssigneeIds={projectMultiAssigneeIds}
           />
         );
       })}
