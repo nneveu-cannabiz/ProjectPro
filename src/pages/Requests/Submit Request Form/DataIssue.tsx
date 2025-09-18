@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Send, CheckCircle, AlertCircle, ArrowLeft, Database } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { brandTheme } from '../../../styles/brandTheme';
+import ImageUpload from '../../../components/ui/ImageUpload';
 
 interface DataIssueFormData {
   title: string;
@@ -9,6 +10,7 @@ interface DataIssueFormData {
   priority: string;
   submitter_name: string;
   submitter_email: string;
+  image_attachment_url: string;
 }
 
 interface User {
@@ -28,7 +30,8 @@ const DataIssue: React.FC<DataIssueProps> = ({ onBack }) => {
     description: '',
     priority: 'medium',
     submitter_name: '',
-    submitter_email: ''
+    submitter_email: '',
+    image_attachment_url: ''
   });
   
   const [users, setUsers] = useState<User[]>([]);
@@ -129,7 +132,8 @@ const DataIssue: React.FC<DataIssueProps> = ({ onBack }) => {
           submitter_email: formData.submitter_email,
           submitter_department: null,
           status: 'submitted',
-          submission_request_info: submissionRequestInfo
+          submission_request_info: submissionRequestInfo,
+          image_attachment_url: formData.image_attachment_url || null
         }]);
 
       if (error) {
@@ -145,7 +149,8 @@ const DataIssue: React.FC<DataIssueProps> = ({ onBack }) => {
         description: '',
         priority: 'medium',
         submitter_name: formData.submitter_name,
-        submitter_email: formData.submitter_email
+        submitter_email: formData.submitter_email,
+        image_attachment_url: ''
       });
     } catch (error: any) {
       console.error('Error submitting data issue:', error);
@@ -302,6 +307,14 @@ const DataIssue: React.FC<DataIssueProps> = ({ onBack }) => {
                   onFocus={(e) => e.currentTarget.style.borderColor = brandTheme.primary.navy}
                   onBlur={(e) => e.currentTarget.style.borderColor = brandTheme.border.light}
                   placeholder="Please provide detailed information about the data issue you encountered. Include:&#10;&#10;• What data appears to be incorrect or missing?&#10;• Where did you notice this issue?&#10;• What should the data show instead?&#10;• When did you first notice this problem?&#10;• Any specific examples or screenshots would be helpful"
+                />
+              </div>
+
+              <div>
+                <ImageUpload
+                  onImageUploaded={(imageUrl) => setFormData(prev => ({ ...prev, image_attachment_url: imageUrl || '' }))}
+                  currentImageUrl={formData.image_attachment_url || undefined}
+                  disabled={isSubmitting}
                 />
               </div>
             </div>

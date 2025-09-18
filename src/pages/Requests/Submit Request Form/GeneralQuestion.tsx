@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Send, CheckCircle, AlertCircle, ArrowLeft, HelpCircle } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { brandTheme } from '../../../styles/brandTheme';
+import ImageUpload from '../../../components/ui/ImageUpload';
 
 interface GeneralQuestionFormData {
   title: string;
@@ -10,6 +11,7 @@ interface GeneralQuestionFormData {
   answer_by_date: string;
   submitter_name: string;
   submitter_email: string;
+  image_attachment_url: string;
 }
 
 interface User {
@@ -30,7 +32,8 @@ const GeneralQuestion: React.FC<GeneralQuestionProps> = ({ onBack }) => {
     priority: 'low',
     answer_by_date: '',
     submitter_name: '',
-    submitter_email: ''
+    submitter_email: '',
+    image_attachment_url: ''
   });
   
   const [users, setUsers] = useState<User[]>([]);
@@ -147,7 +150,8 @@ const GeneralQuestion: React.FC<GeneralQuestionProps> = ({ onBack }) => {
           submitter_email: formData.submitter_email,
           submitter_department: null,
           status: 'submitted',
-          submission_request_info: submissionRequestInfo
+          submission_request_info: submissionRequestInfo,
+          image_attachment_url: formData.image_attachment_url || null
         }]);
 
       if (error) {
@@ -164,7 +168,8 @@ const GeneralQuestion: React.FC<GeneralQuestionProps> = ({ onBack }) => {
         priority: 'low',
         answer_by_date: '',
         submitter_name: formData.submitter_name,
-        submitter_email: formData.submitter_email
+        submitter_email: formData.submitter_email,
+        image_attachment_url: ''
       });
     } catch (error: any) {
       console.error('Error submitting general question:', error);
@@ -352,6 +357,14 @@ const GeneralQuestion: React.FC<GeneralQuestionProps> = ({ onBack }) => {
                 <p className="text-xs mt-1" style={{ color: brandTheme.text.muted }}>
                   Optional - Leave blank if there's no specific deadline
                 </p>
+              </div>
+
+              <div>
+                <ImageUpload
+                  onImageUploaded={(imageUrl) => setFormData(prev => ({ ...prev, image_attachment_url: imageUrl || '' }))}
+                  currentImageUrl={formData.image_attachment_url || undefined}
+                  disabled={isSubmitting}
+                />
               </div>
             </div>
 

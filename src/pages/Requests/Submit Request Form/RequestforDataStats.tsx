@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Send, CheckCircle, AlertCircle, ArrowLeft, BarChart3 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { brandTheme } from '../../../styles/brandTheme';
+import ImageUpload from '../../../components/ui/ImageUpload';
 
 interface DataStatsRequestFormData {
   title: string;
@@ -10,6 +11,7 @@ interface DataStatsRequestFormData {
   reason: string;
   submitter_name: string;
   submitter_email: string;
+  image_attachment_url: string;
 }
 
 interface User {
@@ -30,7 +32,8 @@ const RequestforDataStats: React.FC<RequestforDataStatsProps> = ({ onBack }) => 
     date_needed: '',
     reason: '',
     submitter_name: '',
-    submitter_email: ''
+    submitter_email: '',
+    image_attachment_url: ''
   });
   
   const [users, setUsers] = useState<User[]>([]);
@@ -145,7 +148,8 @@ const RequestforDataStats: React.FC<RequestforDataStatsProps> = ({ onBack }) => 
           submitter_email: formData.submitter_email,
           submitter_department: null,
           status: 'submitted',
-          submission_request_info: submissionRequestInfo
+          submission_request_info: submissionRequestInfo,
+          image_attachment_url: formData.image_attachment_url || null
         }]);
 
       if (error) {
@@ -162,7 +166,8 @@ const RequestforDataStats: React.FC<RequestforDataStatsProps> = ({ onBack }) => 
         date_needed: '',
         reason: '',
         submitter_name: formData.submitter_name,
-        submitter_email: formData.submitter_email
+        submitter_email: formData.submitter_email,
+        image_attachment_url: ''
       });
     } catch (error: any) {
       console.error('Error submitting data stats request:', error);
@@ -343,6 +348,14 @@ const RequestforDataStats: React.FC<RequestforDataStatsProps> = ({ onBack }) => 
                   onFocus={(e) => e.currentTarget.style.borderColor = brandTheme.primary.navy}
                   onBlur={(e) => e.currentTarget.style.borderColor = brandTheme.border.light}
                   placeholder="Please explain the purpose or reason for needing these data stats. This helps us understand the context and provide the most relevant information. For example:&#10;&#10;• For a presentation or report&#10;• To analyze trends or performance&#10;• For decision making&#10;• To answer specific questions&#10;• For compliance or audit purposes"
+                />
+              </div>
+
+              <div>
+                <ImageUpload
+                  onImageUploaded={(imageUrl) => setFormData(prev => ({ ...prev, image_attachment_url: imageUrl || '' }))}
+                  currentImageUrl={formData.image_attachment_url || undefined}
+                  disabled={isSubmitting}
                 />
               </div>
             </div>

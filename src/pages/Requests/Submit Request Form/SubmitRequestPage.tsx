@@ -10,6 +10,7 @@ import GeneralQuestion from './GeneralQuestion';
 import RequestforDataStats from './RequestforDataStats';
 import NeedanUpdate from './NeedanUpdate';
 import WorkflowIssue from './WorkflowIssue';
+import ImageUpload from '../../../components/ui/ImageUpload';
 
 interface RequestFormData {
   title: string;
@@ -27,6 +28,8 @@ interface RequestFormData {
   // Bug report specific fields
   bug_location: string;
   bug_location_other: string;
+  // Image attachment
+  image_attachment_url: string;
 }
 
 interface User {
@@ -63,7 +66,9 @@ const SubmitRequestPage: React.FC = () => {
     is_ar_customer_data: '',
     // Bug report specific fields
     bug_location: '',
-    bug_location_other: ''
+    bug_location_other: '',
+    // Image attachment
+    image_attachment_url: ''
   });
   
   const [users, setUsers] = useState<User[]>([]);
@@ -206,7 +211,8 @@ const SubmitRequestPage: React.FC = () => {
           submitter_name: formData.submitter_name,
           submitter_email: formData.submitter_email,
           submitter_department: formData.submitter_department || null,
-          status: 'submitted'
+          status: 'submitted',
+          image_attachment_url: formData.image_attachment_url || null
         }]);
 
       if (error) {
@@ -233,7 +239,9 @@ const SubmitRequestPage: React.FC = () => {
         is_ar_customer_data: '',
         // Reset bug report fields
         bug_location: '',
-        bug_location_other: ''
+        bug_location_other: '',
+        // Reset image attachment
+        image_attachment_url: ''
       });
     } catch (error: any) {
       console.error('Error submitting request:', error);
@@ -683,6 +691,14 @@ const SubmitRequestPage: React.FC = () => {
                   onFocus={(e) => e.currentTarget.style.borderColor = brandTheme.primary.navy}
                   onBlur={(e) => e.currentTarget.style.borderColor = brandTheme.border.light}
                   placeholder="Please provide detailed information about your request, including steps to reproduce (for bugs), acceptance criteria (for tasks), or specific questions you have..."
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <ImageUpload
+                  onImageUploaded={(imageUrl) => setFormData(prev => ({ ...prev, image_attachment_url: imageUrl || '' }))}
+                  currentImageUrl={formData.image_attachment_url || undefined}
+                  disabled={isSubmitting}
                 />
               </div>
             </div>

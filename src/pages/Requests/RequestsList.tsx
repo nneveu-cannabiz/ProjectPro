@@ -11,7 +11,9 @@ import {
   PlayCircle,
   Eye,
   Search,
-  RefreshCw
+  RefreshCw,
+  Image as ImageIcon,
+  ExternalLink
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -37,6 +39,7 @@ interface Request {
   updated_at: string;
   reviewed_at: string | null;
   completed_at: string | null;
+  image_attachment_url: string | null;
 }
 
 interface User {
@@ -342,6 +345,33 @@ const RequestsList: React.FC = () => {
                       <p className="text-gray-600 text-sm mb-3 line-clamp-2">
                         {request.description}
                       </p>
+                      
+                      {/* Attached Image */}
+                      {request.image_attachment_url && (
+                        <div className="mb-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <ImageIcon className="w-4 h-4 text-gray-500" />
+                            <span className="text-sm text-gray-500">Attached Image:</span>
+                            <a
+                              href={request.image_attachment_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
+                            >
+                              View Full Size
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </div>
+                          <div className="border border-gray-200 rounded-lg overflow-hidden inline-block">
+                            <img
+                              src={request.image_attachment_url}
+                              alt="Request attachment"
+                              className="max-w-xs max-h-32 object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                              onClick={() => window.open(request.image_attachment_url!, '_blank')}
+                            />
+                          </div>
+                        </div>
+                      )}
                       
                       <div className="flex items-center gap-4 text-sm text-gray-500">
                         <div className="flex items-center">

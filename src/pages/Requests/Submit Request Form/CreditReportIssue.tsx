@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Send, CheckCircle, AlertCircle, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { brandTheme } from '../../../styles/brandTheme';
+import ImageUpload from '../../../components/ui/ImageUpload';
 
 interface CreditReportFormData {
   title: string;
@@ -12,6 +13,7 @@ interface CreditReportFormData {
   description: string;
   submitter_name: string;
   submitter_email: string;
+  image_attachment_url: string;
 }
 
 interface User {
@@ -34,7 +36,8 @@ const CreditReportIssue: React.FC<CreditReportIssueProps> = ({ onBack }) => {
     priority: 'high',
     description: '',
     submitter_name: '',
-    submitter_email: ''
+    submitter_email: '',
+    image_attachment_url: ''
   });
   
   const [users, setUsers] = useState<User[]>([]);
@@ -190,7 +193,8 @@ const CreditReportIssue: React.FC<CreditReportIssueProps> = ({ onBack }) => {
           submitter_email: formData.submitter_email,
           submitter_department: null,
           status: 'submitted',
-          submission_request_info: submissionRequestInfo
+          submission_request_info: submissionRequestInfo,
+          image_attachment_url: formData.image_attachment_url || null
         }]);
 
       if (error) {
@@ -209,7 +213,8 @@ const CreditReportIssue: React.FC<CreditReportIssueProps> = ({ onBack }) => {
         priority: 'high',
         description: '',
         submitter_name: formData.submitter_name,
-        submitter_email: formData.submitter_email
+        submitter_email: formData.submitter_email,
+        image_attachment_url: ''
       });
     } catch (error: any) {
       console.error('Error submitting credit report issue:', error);
@@ -454,6 +459,14 @@ const CreditReportIssue: React.FC<CreditReportIssueProps> = ({ onBack }) => {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <ImageUpload
+                  onImageUploaded={(imageUrl) => setFormData(prev => ({ ...prev, image_attachment_url: imageUrl || '' }))}
+                  currentImageUrl={formData.image_attachment_url || undefined}
+                  disabled={isSubmitting}
+                />
               </div>
 
             </div>

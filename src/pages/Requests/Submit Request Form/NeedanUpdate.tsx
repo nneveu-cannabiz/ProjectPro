@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Send, CheckCircle, AlertCircle, ArrowLeft, RefreshCw, Search } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { brandTheme } from '../../../styles/brandTheme';
+import ImageUpload from '../../../components/ui/ImageUpload';
 
 interface NeedUpdateFormData {
   title: string;
@@ -12,6 +13,7 @@ interface NeedUpdateFormData {
   deadline: string;
   submitter_name: string;
   submitter_email: string;
+  image_attachment_url: string;
 }
 
 interface Project {
@@ -40,7 +42,8 @@ const NeedanUpdate: React.FC<NeedanUpdateProps> = ({ onBack }) => {
     priority: 'medium',
     deadline: '',
     submitter_name: '',
-    submitter_email: ''
+    submitter_email: '',
+    image_attachment_url: ''
   });
   
   const [selectedUserId, setSelectedUserId] = useState<string>('');
@@ -260,7 +263,8 @@ const NeedanUpdate: React.FC<NeedanUpdateProps> = ({ onBack }) => {
           submitter_department: null,
           status: 'submitted',
           related_project_id: formData.selected_project_id, // Link to the project
-          submission_request_info: submissionRequestInfo
+          submission_request_info: submissionRequestInfo,
+          image_attachment_url: formData.image_attachment_url || null
         }]);
 
       if (error) {
@@ -279,7 +283,8 @@ const NeedanUpdate: React.FC<NeedanUpdateProps> = ({ onBack }) => {
           priority: 'medium',
           deadline: '',
           submitter_name: formData.submitter_name,
-          submitter_email: formData.submitter_email
+          submitter_email: formData.submitter_email,
+          image_attachment_url: ''
         });
         setProjectSearchTerm('');
         // Keep the selected user ID to maintain project access
@@ -542,6 +547,14 @@ const NeedanUpdate: React.FC<NeedanUpdateProps> = ({ onBack }) => {
                 <p className="text-xs mt-1" style={{ color: brandTheme.text.muted }}>
                   Optional - Leave blank if there's no specific deadline
                 </p>
+              </div>
+
+              <div>
+                <ImageUpload
+                  onImageUploaded={(imageUrl) => setFormData(prev => ({ ...prev, image_attachment_url: imageUrl || '' }))}
+                  currentImageUrl={formData.image_attachment_url || undefined}
+                  disabled={isSubmitting}
+                />
               </div>
             </div>
 

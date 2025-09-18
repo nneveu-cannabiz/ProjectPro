@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Send, CheckCircle, AlertCircle, ArrowLeft, Workflow } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { brandTheme } from '../../../styles/brandTheme';
+import ImageUpload from '../../../components/ui/ImageUpload';
 
 interface WorkflowIssueFormData {
   title: string;
@@ -19,6 +20,8 @@ interface WorkflowIssueFormData {
   is_member_specific: string;
   affected_members: string;
   is_ar_customer_data: string;
+  // Image attachment
+  image_attachment_url: string;
 }
 
 interface User {
@@ -48,7 +51,9 @@ const WorkflowIssue: React.FC<WorkflowIssueProps> = ({ onBack }) => {
     is_public_facing: '',
     is_member_specific: '',
     affected_members: '',
-    is_ar_customer_data: ''
+    is_ar_customer_data: '',
+    // Image attachment
+    image_attachment_url: ''
   });
   
   const [users, setUsers] = useState<User[]>([]);
@@ -205,7 +210,8 @@ const WorkflowIssue: React.FC<WorkflowIssueProps> = ({ onBack }) => {
           submitter_email: formData.submitter_email,
           submitter_department: null,
           status: 'submitted',
-          submission_request_info: submissionRequestInfo
+          submission_request_info: submissionRequestInfo,
+          image_attachment_url: formData.image_attachment_url || null
         }]);
 
       if (error) {
@@ -231,7 +237,9 @@ const WorkflowIssue: React.FC<WorkflowIssueProps> = ({ onBack }) => {
         is_public_facing: '',
         is_member_specific: '',
         affected_members: '',
-        is_ar_customer_data: ''
+        is_ar_customer_data: '',
+        // Reset image attachment
+        image_attachment_url: ''
       });
     } catch (error: any) {
       console.error('Error submitting workflow issue:', error);
@@ -631,6 +639,14 @@ const WorkflowIssue: React.FC<WorkflowIssueProps> = ({ onBack }) => {
                   </div>
                 </div>
               )}
+
+              <div>
+                <ImageUpload
+                  onImageUploaded={(imageUrl) => setFormData(prev => ({ ...prev, image_attachment_url: imageUrl || '' }))}
+                  currentImageUrl={formData.image_attachment_url || undefined}
+                  disabled={isSubmitting}
+                />
+              </div>
             </div>
 
             <div className="flex justify-end pt-4">
