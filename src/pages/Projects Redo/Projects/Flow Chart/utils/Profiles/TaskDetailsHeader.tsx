@@ -17,19 +17,19 @@ interface TaskDetailsHeaderProps {
   onRemoveTag: (tag: string) => void;
 }
 
-// Get status badge variant
-const getStatusVariant = (status: string) => {
-  switch (status) {
-    case 'todo':
-      return 'default';
-    case 'in-progress':
-      return 'warning';
-    case 'done':
-      return 'success';
-    default:
-      return 'default';
-  }
-};
+// Get status badge variant (currently unused but kept for potential future use)
+// const getStatusVariant = (status: string) => {
+//   switch (status) {
+//     case 'todo':
+//       return 'default';
+//     case 'in-progress':
+//       return 'warning';
+//     case 'done':
+//       return 'success';
+//     default:
+//       return 'default';
+//   }
+// };
 
 // Format status text for display
 const getStatusText = (status: string) => {
@@ -45,6 +45,22 @@ const getStatusText = (status: string) => {
   }
 };
 
+// Get priority badge styling
+const getPriorityStyle = (priority: string | undefined): { backgroundColor: string; color: string; text: string } => {
+  switch (priority?.toLowerCase()) {
+    case 'critical':
+      return { backgroundColor: '#B91C1C', color: 'white', text: 'CRITICAL' };
+    case 'high':
+      return { backgroundColor: '#DC2626', color: 'white', text: 'HIGH' };
+    case 'medium':
+      return { backgroundColor: '#F59E0B', color: 'white', text: 'MEDIUM' };
+    case 'low':
+      return { backgroundColor: '#10B981', color: 'white', text: 'LOW' };
+    default:
+      return { backgroundColor: '#6B7280', color: 'white', text: 'NORMAL' };
+  }
+};
+
 const TaskDetailsHeader: React.FC<TaskDetailsHeaderProps> = ({
   task,
   project,
@@ -55,6 +71,9 @@ const TaskDetailsHeader: React.FC<TaskDetailsHeaderProps> = ({
   onMarkAsInProgress,
   onRemoveTag
 }) => {
+  // Debug: Log the task object to see what we're getting
+  console.log('TaskDetailsHeader - task object:', task);
+  console.log('TaskDetailsHeader - task.priority:', task.priority);
   return (
     <div 
       className="p-6 border-b"
@@ -97,7 +116,7 @@ const TaskDetailsHeader: React.FC<TaskDetailsHeaderProps> = ({
           </div>
         </div>
         
-        {/* Status and Progress - Center */}
+        {/* Status, Progress, and Priority - Center */}
         <div className="text-center mx-40">
           <div className="flex items-center justify-center">
             <div className="text-right">
@@ -115,12 +134,19 @@ const TaskDetailsHeader: React.FC<TaskDetailsHeaderProps> = ({
                   Progress:
                 </div>
               )}
+              <div 
+                className="text-lg font-semibold"
+                style={{ color: brandTheme.background.primary }}
+              >
+                Priority:
+              </div>
             </div>
             <div className="mx-3 flex flex-col items-center">
               <span className="text-gray-300 text-lg">|</span>
               {typeof task.progress === 'number' && (
                 <span className="text-gray-300 text-lg">|</span>
               )}
+              <span className="text-gray-300 text-lg">|</span>
             </div>
             <div className="text-left">
               <div 
@@ -137,6 +163,17 @@ const TaskDetailsHeader: React.FC<TaskDetailsHeaderProps> = ({
                   {task.progress}%
                 </div>
               )}
+              <div className="flex items-center">
+                <span
+                  className="px-2 py-1 rounded text-sm font-bold"
+                  style={{
+                    backgroundColor: task.priority ? getPriorityStyle(task.priority).backgroundColor : '#6B7280',
+                    color: task.priority ? getPriorityStyle(task.priority).color : 'white'
+                  }}
+                >
+                  {task.priority ? getPriorityStyle(task.priority).text : 'NORMAL'}
+                </span>
+              </div>
             </div>
           </div>
         </div>

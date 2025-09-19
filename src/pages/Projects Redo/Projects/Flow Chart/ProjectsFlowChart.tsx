@@ -279,30 +279,6 @@ const ProjectsFlowChart: React.FC = () => {
                 key={`this-week-${refreshTrigger}`}
                 selectedDepartment="Product Development"
                 currentDates={currentDates}
-                onProjectNameClick={(projectId) => {
-                  console.log('Project clicked:', projectId);
-                  // Add your project navigation logic here
-                }}
-                onTaskClick={(taskId) => {
-                  console.log('Task clicked:', taskId);
-                  // Add your task navigation logic here
-                }}
-                onUpdatesClick={(projectId) => {
-                  console.log('Updates clicked for project:', projectId);
-                  // Add your updates modal logic here
-                }}
-                onTaskUpdatesClick={(taskId) => {
-                  console.log('Task updates clicked:', taskId);
-                  // Add your task updates modal logic here
-                }}
-                getTaskUpdatesCount={(_taskId) => {
-                  // Return mock data for now - integrate with your updates system
-                  return { unreadCount: 0, totalCount: 0 };
-                }}
-                getUpdatesCountsForProject={(_projectId) => {
-                  // Return mock data for now - integrate with your updates system
-                  return { totalCount: 0, unreadCount: 0 };
-                }}
                 onModalClose={refreshWeekFocusComponents}
               />
             </div>
@@ -313,30 +289,6 @@ const ProjectsFlowChart: React.FC = () => {
                 key={`next-week-${refreshTrigger}`}
                 selectedDepartment="Product Development"
                 currentDates={currentDates}
-                onProjectNameClick={(projectId) => {
-                  console.log('Project clicked:', projectId);
-                  // Add your project navigation logic here
-                }}
-                onTaskClick={(taskId) => {
-                  console.log('Task clicked:', taskId);
-                  // Add your task navigation logic here
-                }}
-                onUpdatesClick={(projectId) => {
-                  console.log('Updates clicked for project:', projectId);
-                  // Add your updates modal logic here
-                }}
-                onTaskUpdatesClick={(taskId) => {
-                  console.log('Task updates clicked:', taskId);
-                  // Add your task updates modal logic here
-                }}
-                getTaskUpdatesCount={(_taskId) => {
-                  // Return mock data for now - integrate with your updates system
-                  return { unreadCount: 0, totalCount: 0 };
-                }}
-                getUpdatesCountsForProject={(_projectId) => {
-                  // Return mock data for now - integrate with your updates system
-                  return { totalCount: 0, unreadCount: 0 };
-                }}
                 onModalClose={refreshWeekFocusComponents}
               />
             </div>

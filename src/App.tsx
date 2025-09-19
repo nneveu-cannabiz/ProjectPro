@@ -28,6 +28,8 @@ const HourLogging = lazy(() => import('./pages/HourLogging'));
 const BudgetAndHours = lazy(() => import('./pages/Projects Redo/Projects/Budget and Hours - Admin/BudgetAndHoursPage'));
 const ProductDevKPIs = lazy(() => import('./pages/Projects Redo/Projects/Product Dev KPIs/ProductDevKPIs'));
 const ProductDevProjects = lazy(() => import('./pages/Projects Redo/Projects/Product Dev Project List/ProductDevProjectPage'));
+const SubmitRequestPage = lazy(() => import('./pages/Requests/Submit Request Form/SubmitRequestPage'));
+const InternalRequestPage = lazy(() => import('./pages/Requests/InternalRequestPage'));
 
 // Loading fallback for lazy-loaded components
 const PageLoader = () => (
@@ -62,6 +64,11 @@ function App() {
             <Routes>
               {/* Public routes */}
               <Route path="/login" element={<Login />} />
+              <Route path="/submit-request" element={
+                <ErrorBoundaryWrapper pageName="Submit Request">
+                  <SubmitRequestPage />
+                </ErrorBoundaryWrapper>
+              } />
               
               {/* Protected routes */}
               <Route path="/" element={
@@ -163,6 +170,11 @@ function App() {
                 <Route path="budget-hours" element={
                   <ErrorBoundaryWrapper pageName="Budget & Hours">
                     <BudgetAndHours />
+                  </ErrorBoundaryWrapper>
+                } />
+                <Route path="team-requests" element={
+                  <ErrorBoundaryWrapper pageName="Team Requests">
+                    <InternalRequestPage />
                   </ErrorBoundaryWrapper>
                 } />
               </Route>

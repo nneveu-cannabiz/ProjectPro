@@ -78,6 +78,7 @@ const ProjectUserWeekChart: React.FC<ProjectUserWeekChartProps> = ({
           // Get tasks for this project
           const projectTasks = allTasks.filter(task => task.projectId === p.id);
           
+          
           return {
             id: p.id,
             name: p.name,

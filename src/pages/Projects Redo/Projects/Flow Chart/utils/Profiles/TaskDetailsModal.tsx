@@ -45,6 +45,12 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
   
   const task = tasks.find((t) => t.id === taskId);
   
+  // Debug: Log task data in the modal
+  console.log('TaskDetailsModal - ALL TASKS:', tasks);
+  console.log('TaskDetailsModal - LOOKING FOR TASK ID:', taskId);
+  console.log('TaskDetailsModal - task found:', task);
+  console.log('TaskDetailsModal - task.priority:', task?.priority);
+  
   if (!task) {
     return null;
   }
