@@ -15,11 +15,13 @@ import {
   Clock,
   DollarSign,
   FolderOpen,
-  Users
+  Users,
+  FileText
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getUserProfile } from '../../lib/supabase';
 import { useAdminCheck } from '../../hooks/useAdminCheck';
+import { brandTheme } from '../../styles/brandTheme';
 
 interface SidebarItemProps {
   to: string;
@@ -45,22 +47,62 @@ const SidebarItem: React.FC<SidebarItemProps> = ({
   return (
     <Link
       to={to}
-      className={`flex items-center px-4 py-3 text-sm font-medium rounded-md mb-1 transition-colors ${
+      className={`w-full flex items-start ${isCollapsed ? 'justify-center' : 'space-x-3'} p-3 rounded-lg text-left transition-all duration-200 group border relative mb-1`}
+      style={
         isActive
-          ? 'bg-blue-50 text-blue-700'
-          : 'text-gray-700 hover:bg-blue-50'
-      }`}
+          ? {
+              backgroundColor: brandTheme.primary.paleBlue,
+              borderColor: brandTheme.primary.lightBlue,
+              color: brandTheme.primary.navy
+            }
+          : {
+              backgroundColor: brandTheme.background.brandLight,
+              borderColor: 'transparent',
+              color: brandTheme.primary.navy
+            }
+      }
+      onMouseEnter={(e) => {
+        if (!isActive) {
+          e.currentTarget.style.backgroundColor = 'transparent'
+          e.currentTarget.style.borderColor = 'transparent'
+          e.currentTarget.style.color = brandTheme.primary.navy
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!isActive) {
+          e.currentTarget.style.backgroundColor = brandTheme.background.brandLight
+          e.currentTarget.style.borderColor = 'transparent'
+          e.currentTarget.style.color = brandTheme.primary.navy
+        }
+      }}
       onClick={onClick}
       title={isCollapsed ? label : undefined}
     >
-      <span className="mr-3">{icon}</span>
+      <span 
+        className="w-5 h-5 mt-0.5 flex-shrink-0"
+        style={{ 
+          color: isActive ? brandTheme.primary.navy : brandTheme.primary.navy 
+        }}
+      >
+        {icon}
+      </span>
       {!isCollapsed && (
         <>
-          <span className="flex-1">{label}</span>
+          <div className="flex-1 min-w-0">
+            <div 
+              className="font-medium"
+              style={{ 
+                color: brandTheme.primary.navy
+              }}
+            >
+              {label}
+            </div>
+          </div>
           {hasSubmenu && (
-            <span className="ml-auto">
-              {isOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-            </span>
+            <ChevronRight
+              className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`}
+              style={{ color: brandTheme.primary.navy }}
+            />
           )}
         </>
       )}
@@ -115,34 +157,66 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
   };
 
   return (
-    <div className={`${isCollapsed ? 'w-16' : 'w-64'} bg-white border-r border-gray-200 h-full flex flex-col transition-all duration-300 ease-in-out`}>
-      <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-        {!isCollapsed ? (
-          <>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">ProjectPro</h1>
-              <p className="text-sm text-gray-500">Manage your projects</p>
-            </div>
-            <button 
-              onClick={toggleSidebar}
-              className="p-1 rounded-full hover:bg-gray-100 text-gray-600"
-              title="Collapse Sidebar"
-            >
-              <ChevronLeft size={20} />
-            </button>
-          </>
-        ) : (
-          <button 
-            onClick={toggleSidebar}
-            className="p-1 rounded-full hover:bg-gray-100 text-gray-600 mx-auto"
-            title="Expand Sidebar"
+    <div 
+      className={`${isCollapsed ? 'w-16' : 'w-64'} h-full shadow-lg border-r flex flex-col transition-all duration-300 relative`}
+      style={{ 
+        backgroundColor: brandTheme.background.brandLight,
+        borderColor: brandTheme.border.brand
+      }}
+    >
+      {/* Logo/Brand */}
+      <div 
+        className="border-b relative"
+        style={{ borderColor: brandTheme.border.brand, padding: isCollapsed ? '1rem' : '24px' }}
+      >
+        <div className="flex items-center space-x-3">
+          <div 
+            className="p-2 rounded-lg"
+            style={{ backgroundColor: brandTheme.primary.navy }}
           >
-            <Menu size={20} />
+            <FolderOpen className="w-6 h-6 text-white" />
+          </div>
+          {!isCollapsed && (
+            <div>
+              <h1 className="text-xl font-bold" style={{ color: brandTheme.primary.navy }}>
+                ProjectPro
+              </h1>
+              <p className="text-sm" style={{ color: brandTheme.text.secondary }}>
+                Management System
+              </p>
+            </div>
+          )}
+        </div>
+        
+        {/* Toggle Button - Only show when expanded */}
+        {!isCollapsed && (
+          <button
+            onClick={toggleSidebar}
+            className="absolute top-4 right-3 p-2 rounded-lg hover:bg-gray-200 transition-all duration-200 shadow-sm"
+            style={{ color: brandTheme.primary.navy }}
+            title="Collapse sidebar"
+          >
+            <ChevronLeft className="w-4 h-4" />
           </button>
         )}
       </div>
       
-      <nav className="flex-1 p-4 overflow-y-auto">
+      {/* Collapsed state toggle button */}
+      {isCollapsed && (
+        <div className="p-4 flex justify-center">
+          <button
+            onClick={toggleSidebar}
+            className="p-2 rounded-lg hover:bg-gray-200 transition-all duration-200 shadow-sm"
+            style={{ color: brandTheme.primary.navy }}
+            title="Expand sidebar"
+          >
+            <Menu className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+      
+      {/* Navigation */}
+      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
         <SidebarItem
           to="/product-dev-dashboard"
           icon={<LayoutDashboard size={20} />}
@@ -184,6 +258,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
         />
         
         <SidebarItem
+          to="/documents"
+          icon={<FileText size={20} />}
+          label="Documents"
+          isActive={location.pathname === '/documents'}
+          isCollapsed={isCollapsed}
+        />
+        
+        <SidebarItem
           to="/hour-logging"
           icon={<Clock size={20} />}
           label="Hour Logging"
@@ -218,11 +300,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
         />
       </nav>
       
-      <div className="p-4 border-t border-gray-200">
+      {/* Footer */}
+      <div 
+        className="p-4 border-t"
+        style={{ borderColor: brandTheme.border.brand }}
+      >
         {!isCollapsed ? (
           <div className="flex items-center">
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold"
-              style={{ backgroundColor: profileData?.profileColor || '#2563eb' }}
+              style={{ backgroundColor: profileData?.profileColor || brandTheme.primary.navy }}
             >
               {profileData ? 
                 (profileData.firstName?.charAt(0) || '') + (profileData.lastName?.charAt(0) || '') ||
@@ -232,7 +318,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
               }
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-gray-700">
+              <p className="text-sm font-medium" style={{ color: brandTheme.primary.navy }}>
                 {profileData ? 
                   (profileData.firstName && profileData.lastName ?
                     `${profileData.firstName} ${profileData.lastName}` : 
@@ -241,13 +327,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
                   (currentUser?.email || 'User')
                 }
               </p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs" style={{ color: brandTheme.text.muted }}>
                 {currentUser?.email || ''}
               </p>
             </div>
             <button 
               onClick={handleLogout}
-              className="ml-auto p-1 rounded-full hover:bg-gray-100 text-gray-600"
+              className="ml-auto p-1 rounded-full hover:bg-gray-200 transition-colors"
+              style={{ color: brandTheme.primary.navy }}
               title="Logout"
             >
               <LogOut size={18} />
@@ -257,7 +344,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
           <div className="flex justify-center">
             <button 
               onClick={handleLogout}
-              className="p-2 rounded-full hover:bg-gray-100 text-gray-600"
+              className="p-2 rounded-full hover:bg-gray-200 transition-colors"
+              style={{ color: brandTheme.primary.navy }}
               title="Logout"
             >
               <LogOut size={20} />

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { FileText, ExternalLink, Edit, Trash2, Pencil } from 'lucide-react';
+import { FileText, ExternalLink, Trash2, Pencil } from 'lucide-react';
 import Button from '../../../../../../components/ui/Button';
 import { brandTheme } from '../../../../../../styles/brandTheme';
+import { supabase } from '../../../../../../lib/supabase';
 
 interface ProjectDocumentsSectionProps {
   project: any;
@@ -22,6 +23,27 @@ const ProjectDocumentsSection: React.FC<ProjectDocumentsSectionProps> = ({
     document_description: ''
   });
   const [isUpdatingDocuments, setIsUpdatingDocuments] = useState(false);
+
+  // Direct database update function for documents
+  const updateProjectDocuments = async (projectId: string, documents: any[]) => {
+    try {
+      const { error } = await (supabase as any)
+        .from('PMA_Projects')
+        .update({ documents: documents })
+        .eq('id', projectId);
+
+      if (error) {
+        console.error('Database update error:', error);
+        throw error;
+      }
+
+      console.log('Successfully updated documents in database:', documents);
+      return true;
+    } catch (error) {
+      console.error('Error updating project documents:', error);
+      throw error;
+    }
+  };
 
   // Document management functions
   const handleAddDocument = () => {
@@ -95,6 +117,12 @@ const ProjectDocumentsSection: React.FC<ProjectDocumentsSectionProps> = ({
         ];
       }
 
+      console.log('Saving documents to database:', updatedDocuments);
+
+      // Update database directly
+      await updateProjectDocuments(project.id, updatedDocuments);
+
+      // Also call the parent update function to refresh the UI
       await onUpdateProject({
         ...project,
         documents: updatedDocuments
@@ -124,6 +152,12 @@ const ProjectDocumentsSection: React.FC<ProjectDocumentsSectionProps> = ({
       const currentDocuments = project.documents || [];
       const updatedDocuments = currentDocuments.filter((_: any, i: number) => i !== index);
 
+      console.log('Deleting document, new documents array:', updatedDocuments);
+
+      // Update database directly
+      await updateProjectDocuments(project.id, updatedDocuments);
+
+      // Also call the parent update function to refresh the UI
       await onUpdateProject({
         ...project,
         documents: updatedDocuments

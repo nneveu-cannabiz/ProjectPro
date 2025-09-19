@@ -19,6 +19,7 @@ const SubTaskDetails = lazy(() => import('./pages/Tasks/SubTaskDetails'));
 const Settings = lazy(() => import('./pages/Settings'));
 const MyToDoList = lazy(() => import('./pages/MyToDoList'));
 const Updates = lazy(() => import('./pages/Updates'));
+const Documents = lazy(() => import('./pages/Projects Redo/Projects/Documents and Resources/Documents'));
 const DepartmentSelect = lazy(() => import('./pages/Projects Redo/DepartmentSelect'));
 const ViewSelect = lazy(() => import('./pages/Projects Redo/ViewSelect'));
 const ProjectsRedoList = lazy(() => import('./pages/Projects Redo/Projects/ProjectsList'));
@@ -160,6 +161,11 @@ function App() {
                 <Route path="updates" element={
                   <ErrorBoundaryWrapper pageName="Updates">
                     <Updates />
+                  </ErrorBoundaryWrapper>
+                } />
+                <Route path="documents" element={
+                  <ErrorBoundaryWrapper pageName="Documents">
+                    <Documents />
                   </ErrorBoundaryWrapper>
                 } />
                 <Route path="hour-logging" element={
