@@ -29,6 +29,7 @@ const HourLogging = lazy(() => import('./pages/HourLogging'));
 const BudgetAndHours = lazy(() => import('./pages/Projects Redo/Projects/Budget and Hours - Admin/BudgetAndHoursPage'));
 const ProductDevKPIs = lazy(() => import('./pages/Projects Redo/Projects/Product Dev KPIs/ProductDevKPIs'));
 const ProductDevProjects = lazy(() => import('./pages/Projects Redo/Projects/Product Dev Project List/ProductDevProjectPage'));
+const KanbanMainPage = lazy(() => import('./pages/Projects Redo/Projects/Project Kanban Sprints/KanbanMainPage'));
 const SubmitRequestPage = lazy(() => import('./pages/Requests/Submit Request Form/SubmitRequestPage'));
 const InternalRequestPage = lazy(() => import('./pages/Requests/InternalRequestPage'));
 
@@ -146,6 +147,11 @@ function App() {
                 <Route path="product-dev-projects" element={
                   <ErrorBoundaryWrapper pageName="Product Dev Projects">
                     <ProductDevProjects />
+                  </ErrorBoundaryWrapper>
+                } />
+                <Route path="sprint-plan" element={
+                  <ErrorBoundaryWrapper pageName="2 Week Sprint Plan">
+                    <KanbanMainPage />
                   </ErrorBoundaryWrapper>
                 } />
                 <Route path="settings" element={

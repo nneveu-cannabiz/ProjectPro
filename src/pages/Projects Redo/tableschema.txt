@@ -17,6 +17,7 @@ create table public."PMA_Projects" (
   progress smallint null,
   multi_assignee_id jsonb null,
   documents jsonb[] null,
+  sprint_plan_column text null,
   constraint PMA_Projects_pkey primary key (id),
   constraint pma_projects_assignee_id_fkey foreign KEY (assignee_id) references "PMA_Users" (id) on delete set null,
   constraint PMA_Projects_priority_check check (
@@ -106,6 +107,7 @@ create table public."PMA_Tasks" (
   progress smallint null,
   flow_chart text null,
   priority text null,
+  sprint_plan_group_id text null,
   constraint PMA_Tasks_pkey primary key (id),
   constraint PMA_Tasks_project_id_fkey foreign KEY (project_id) references "PMA_Projects" (id) on delete CASCADE,
   constraint PMA_Tasks_status_check check (
@@ -118,6 +120,12 @@ create table public."PMA_Tasks" (
 ) TABLESPACE pg_default;
 
 create index IF not exists idx_tasks_project_id on public."PMA_Tasks" using btree (project_id) TABLESPACE pg_default;
+
+create trigger tasks_field_changes_trigger
+after INSERT
+or
+update on "PMA_Tasks" for EACH row
+execute FUNCTION create_field_change_updates ();
 --------------------------------------------------
 
 create table public."PMA_SubTasks" (
@@ -183,6 +191,7 @@ create table public."PMA_Hours" (
   date date not null,
   created_at timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now(),
+  is_planning_hours boolean null,
   constraint PMA_Hours_pkey primary key (id),
   constraint PMA_Hours_task_id_fkey foreign KEY (task_id) references "PMA_Tasks" (id) on delete CASCADE,
   constraint PMA_Hours_user_id_fkey foreign KEY (user_id) references "PMA_Users" (id) on delete CASCADE,
@@ -194,8 +203,6 @@ create index IF not exists idx_hours_user_id on public."PMA_Hours" using btree (
 create index IF not exists idx_hours_task_id on public."PMA_Hours" using btree (task_id) TABLESPACE pg_default;
 
 create index IF not exists idx_hours_date on public."PMA_Hours" using btree (date) TABLESPACE pg_default;
-
-
 
 create table public."PMA_Roles" (
   id uuid not null default gen_random_uuid (),

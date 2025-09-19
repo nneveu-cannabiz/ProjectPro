@@ -1189,6 +1189,7 @@ export const fetchUserHours = async (userId: string): Promise<Hour[]> => {
         .from('PMA_Hours')
         .select('*')
         .eq('user_id', userId)
+        .or('is_planning_hours.is.null,is_planning_hours.eq.false')
         .order('date', { ascending: false });
       
       if (error) {
@@ -1287,6 +1288,7 @@ export const fetchHoursWithTaskDetails = async (userId: string): Promise<(Hour &
           )
         `)
         .eq('user_id', userId)
+        .or('is_planning_hours.is.null,is_planning_hours.eq.false')
         .order('date', { ascending: false });
       
       if (error) {
@@ -1390,6 +1392,7 @@ export const fetchAllUsersHours = async (): Promise<(Hour & { user: User; task: 
             PMA_Projects!inner(*)
           )
         `)
+        .or('is_planning_hours.is.null,is_planning_hours.eq.false')
         .order('date', { ascending: false });
       
       if (error) {
