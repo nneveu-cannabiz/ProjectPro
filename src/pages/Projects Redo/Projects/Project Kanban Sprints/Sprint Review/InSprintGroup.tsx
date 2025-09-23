@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { brandTheme } from '../../../../../styles/brandTheme';
 import { supabase } from '../../../../../lib/supabase';
-import { Clock, Target, User, AlertCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { User, ChevronDown, ChevronRight } from 'lucide-react';
 import UserAvatar from '../../../../../components/UserAvatar';
 import TaskDetailsModal from '../../Flow Chart/utils/Profiles/TaskDetailsModal';
+import HoursPlannedModal from './HoursPlannedModal';
+import EditableCell from './EditableCell';
+import { useTaskEditing } from './useTaskEditing';
 import { Task } from './types';
 
 interface InSprintGroupProps {
@@ -35,10 +38,10 @@ const InSprintGroup: React.FC<InSprintGroupProps> = ({ projectId, refreshTrigger
   // Task Details Modal state
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-
-  useEffect(() => {
-    loadSprintTasks();
-  }, [projectId, refreshTrigger, sprintGroupId]);
+  
+  // Hours Planned Modal state
+  const [selectedTaskForHours, setSelectedTaskForHours] = useState<{ id: string; name: string } | null>(null);
+  const [isHoursModalOpen, setIsHoursModalOpen] = useState(false);
 
   const loadSprintTasks = async () => {
     setIsLoading(true);
@@ -176,6 +179,20 @@ const InSprintGroup: React.FC<InSprintGroupProps> = ({ projectId, refreshTrigger
     }
   };
 
+  // Task editing functionality - must be after loadSprintTasks function declaration
+  const {
+    editingCell,
+    editValue,
+    handleEditStart,
+    handleEditSave,
+    handleEditCancel,
+    handleEditValueChange
+  } = useTaskEditing(loadSprintTasks);
+
+  useEffect(() => {
+    loadSprintTasks();
+  }, [projectId, refreshTrigger, sprintGroupId]);
+
   const handleTaskClick = (taskId: string) => {
     setSelectedTaskId(taskId);
     setIsTaskModalOpen(true);
@@ -184,6 +201,20 @@ const InSprintGroup: React.FC<InSprintGroupProps> = ({ projectId, refreshTrigger
   const handleCloseTaskModal = () => {
     setIsTaskModalOpen(false);
     setSelectedTaskId(null);
+  };
+
+  const handleHoursPlannedClick = (taskId: string, taskName: string) => {
+    setSelectedTaskForHours({ id: taskId, name: taskName });
+    setIsHoursModalOpen(true);
+  };
+
+  const handleCloseHoursModal = () => {
+    setIsHoursModalOpen(false);
+    setSelectedTaskForHours(null);
+  };
+
+  const handleHoursUpdated = () => {
+    loadSprintTasks(); // Refresh the task data to show updated hours
   };
 
   const getPriorityColor = (priority?: string) => {
@@ -196,16 +227,6 @@ const InSprintGroup: React.FC<InSprintGroupProps> = ({ projectId, refreshTrigger
     }
   };
 
-  const getPriorityBgColor = (priority?: string) => {
-    switch (priority?.toLowerCase()) {
-      case 'critical': return '#FECACA'; // Light Red background
-      case 'high': return '#FEE2E2'; // Light Red background
-      case 'medium': return '#FEF3C7'; // Light Yellow background
-      case 'low': return '#DCFCE7'; // Light Green background
-      default: return brandTheme.background.secondary;
-    }
-  };
-
   const getStatusColor = (status?: string) => {
     switch (status?.toLowerCase()) {
       case 'done': return brandTheme.status.success;
@@ -213,12 +234,6 @@ const InSprintGroup: React.FC<InSprintGroupProps> = ({ projectId, refreshTrigger
       case 'to do': return brandTheme.gray[500];
       default: return brandTheme.text.muted;
     }
-  };
-
-  const getSprintBadgeColor = (sprintType: string) => {
-    return sprintType === 'Sprint 1' 
-      ? { bg: brandTheme.status.infoLight, text: brandTheme.status.info }
-      : { bg: brandTheme.status.warningLight, text: brandTheme.status.warning };
   };
 
   if (isLoading) {
@@ -285,19 +300,17 @@ const InSprintGroup: React.FC<InSprintGroupProps> = ({ projectId, refreshTrigger
               color: brandTheme.text.primary 
             }}
           >
-            <div className="col-span-4">Task Name</div>
-            <div className="col-span-2">Sprint Group</div>
-            <div className="col-span-2">Status</div>
+            <div className="col-span-3">Task Name</div>
+            <div className="col-span-2">Hours Spent</div>
+            <div className="col-span-2">Hours Planned</div>
             <div className="col-span-1">Priority</div>
+            <div className="col-span-2">Status</div>
             <div className="col-span-2">Assignee</div>
-            <div className="col-span-1 text-center">Hours</div>
           </div>
 
           {/* Task Rows */}
           <div className="divide-y" style={{ borderColor: brandTheme.border.light }}>
             {sprintTasks.map((task) => {
-              const sprintColors = getSprintBadgeColor(task.sprintType);
-              
               return (
                 <div 
                   key={task.id} 
@@ -305,7 +318,7 @@ const InSprintGroup: React.FC<InSprintGroupProps> = ({ projectId, refreshTrigger
                   style={{ backgroundColor: 'transparent' }}
                 >
                   {/* Task Name */}
-                  <div className="col-span-4">
+                  <div className="col-span-3">
                     <div 
                       className="font-medium text-sm cursor-pointer hover:underline transition-colors"
                       style={{ color: brandTheme.primary.navy }}
@@ -316,50 +329,90 @@ const InSprintGroup: React.FC<InSprintGroupProps> = ({ projectId, refreshTrigger
                     </div>
                   </div>
 
-                  {/* Sprint Group */}
+                  {/* Hours Spent */}
                   <div className="col-span-2">
-                    <div 
-                      className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
-                      style={{
-                        backgroundColor: sprintColors.bg,
-                        color: sprintColors.text
-                      }}
-                    >
-                      {task.sprintType}
-                    </div>
+                    <span className="text-sm font-medium" style={{ color: brandTheme.text.primary }}>
+                      {task.hoursSpent.toFixed(1)}h
+                    </span>
                   </div>
 
-                  {/* Status */}
+                  {/* Hours Planned */}
                   <div className="col-span-2">
                     <div 
-                      className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
-                      style={{
-                        backgroundColor: task.status === 'done' ? brandTheme.status.successLight :
-                                         task.status === 'in-progress' ? brandTheme.status.infoLight :
-                                         brandTheme.gray[100],
-                        color: getStatusColor(task.status || '')
-                      }}
+                      className="text-sm font-medium cursor-pointer hover:underline transition-colors"
+                      style={{ color: brandTheme.primary.navy }}
+                      onClick={() => handleHoursPlannedClick(task.id, task.name)}
+                      title="Click to view/edit planned hours"
                     >
-                      {task.status === 'in-progress' ? 'In Progress' : 
-                       task.status === 'to do' ? 'To Do' : 
-                       (task.status ? task.status.charAt(0).toUpperCase() + task.status.slice(1) : 'Unknown')}
+                      {task.hoursPlanned.toFixed(1)}h
                     </div>
                   </div>
 
                   {/* Priority */}
-                  <div className="col-span-1">
-                    {task.priority && (
-                      <div 
-                        className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
-                        style={{
-                          backgroundColor: getPriorityBgColor(task.priority),
-                          color: getPriorityColor(task.priority)
-                        }}
-                      >
-                        <AlertCircle className="w-2 h-2 mr-1" />
-                        {task.priority?.charAt(0).toUpperCase() || 'N'}
-                      </div>
-                    )}
+                  <div className="col-span-1 -ml-2">
+                    <EditableCell
+                      task={task as Task}
+                      field="priority"
+                      value={task.priority || ''}
+                      displayValue={
+                        task.priority && (
+                          <div className="flex items-center space-x-1">
+                            <div 
+                              className="w-2 h-2 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: getPriorityColor(task.priority) }}
+                            />
+                            <span 
+                              className="text-xs font-medium"
+                              style={{ color: getPriorityColor(task.priority) }}
+                            >
+                              {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                            </span>
+                          </div>
+                        )
+                      }
+                      editingCell={editingCell}
+                      editValue={editValue}
+                      onEditStart={handleEditStart}
+                      onEditSave={handleEditSave}
+                      onEditCancel={handleEditCancel}
+                      onEditValueChange={handleEditValueChange}
+                    />
+                  </div>
+
+                  {/* Status */}
+                  <div className="col-span-2">
+                    <EditableCell
+                      task={task as Task}
+                      field="status"
+                      value={task.status || ''}
+                      displayValue={
+                        <div className="flex items-center">
+                          <div 
+                            className="w-2 h-2 rounded-full mr-2 flex-shrink-0"
+                            style={{ 
+                              backgroundColor: task.status === 'done' ? brandTheme.status.success :
+                                             task.status === 'in-progress' ? brandTheme.status.info :
+                                             task.status === 'to do' ? brandTheme.gray[400] :
+                                             brandTheme.text.muted
+                            }}
+                          />
+                          <span 
+                            className="text-xs font-medium"
+                            style={{ color: getStatusColor(task.status || '') }}
+                          >
+                            {task.status === 'in-progress' ? 'In Progress' : 
+                             task.status === 'to do' ? 'To Do' : 
+                             (task.status ? task.status.charAt(0).toUpperCase() + task.status.slice(1) : 'Unknown')}
+                          </span>
+                        </div>
+                      }
+                      editingCell={editingCell}
+                      editValue={editValue}
+                      onEditStart={handleEditStart}
+                      onEditSave={handleEditSave}
+                      onEditCancel={handleEditCancel}
+                      onEditValueChange={handleEditValueChange}
+                    />
                   </div>
 
                   {/* Assignee */}
@@ -391,24 +444,6 @@ const InSprintGroup: React.FC<InSprintGroupProps> = ({ projectId, refreshTrigger
                       </div>
                     )}
                   </div>
-
-                  {/* Hours */}
-                  <div className="col-span-1 text-center">
-                    <div className="flex flex-col items-center space-y-1">
-                      <div className="flex items-center space-x-1">
-                        <Clock className="w-3 h-3" style={{ color: brandTheme.text.secondary }} />
-                        <span className="text-xs font-medium" style={{ color: brandTheme.text.primary }}>
-                          {task.hoursSpent.toFixed(1)}
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <Target className="w-3 h-3" style={{ color: brandTheme.text.secondary }} />
-                        <span className="text-xs font-medium" style={{ color: brandTheme.text.primary }}>
-                          {task.hoursPlanned.toFixed(1)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               );
             })}
@@ -422,6 +457,17 @@ const InSprintGroup: React.FC<InSprintGroupProps> = ({ projectId, refreshTrigger
           isOpen={isTaskModalOpen}
           onClose={handleCloseTaskModal}
           taskId={selectedTaskId}
+        />
+      )}
+      
+      {/* Hours Planned Modal */}
+      {selectedTaskForHours && (
+        <HoursPlannedModal
+          isOpen={isHoursModalOpen}
+          onClose={handleCloseHoursModal}
+          taskId={selectedTaskForHours.id}
+          taskName={selectedTaskForHours.name}
+          onHoursUpdated={handleHoursUpdated}
         />
       )}
     </div>

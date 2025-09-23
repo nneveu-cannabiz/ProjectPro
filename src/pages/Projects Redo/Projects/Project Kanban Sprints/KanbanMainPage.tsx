@@ -25,6 +25,12 @@ import SprintReviewModal from './Sprint Review/SprintReviewModal';
 // Import Help Tips
 import TwoWeekSprintPlanHelpTips from './Help Information/2WeekSprintPlanHelpTips';
 
+// Import Main Sprint Section
+import MainSprintSection from './Sprint Review/Sprint Sections/MainSprintSection';
+
+// Import Sprint Calendar
+import SprintCalendarMain from './Sprint Review/Sprint Calendar/SprintCalendarMain';
+
 const KanbanMainPage: React.FC = () => {
   const [projectsByColumn, setProjectsByColumn] = useState<Record<string, any[]>>({
     ongoing: [],
@@ -125,10 +131,10 @@ const KanbanMainPage: React.FC = () => {
   };
 
   return (
-    <div className="h-full flex flex-col" style={{ backgroundColor: brandTheme.background.secondary }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: brandTheme.background.secondary }}>
       {/* Header */}
       <div 
-        className="p-6 border-b"
+        className="p-6 border-b flex-shrink-0"
         style={{ 
           backgroundColor: brandTheme.background.primary,
           borderColor: brandTheme.border.light 
@@ -205,88 +211,107 @@ const KanbanMainPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Kanban Board */}
-      <div className="flex-1 p-6 overflow-hidden">
-        <div className="h-full overflow-x-auto">
-          <div className="flex space-x-6 h-full min-w-max">
-            {/* All Columns */}
-            <div className={`${isOngoingExpanded ? 'w-64' : 'w-32'} flex-shrink-0 transition-all duration-300`}>
-              <OngoingColumn 
-                projects={getProjectsByColumn('ongoing')} 
-                onProjectAdded={handleProjectAdded}
-                onProjectClick={handleProjectClick}
-                onSprintReviewClick={handleSprintReviewClick}
-                onExpandedChange={setIsOngoingExpanded}
-              />
-            </div>
-            
-            <div className={`${isParkingLotExpanded ? 'w-64' : 'w-32'} flex-shrink-0 transition-all duration-300`}>
-              <ParkingLotColumn 
-                projects={getProjectsByColumn('parkinglot')} 
-                onProjectAdded={handleProjectAdded}
-                onProjectClick={handleProjectClick}
-                onSprintReviewClick={handleSprintReviewClick}
-                onExpandedChange={setIsParkingLotExpanded}
-              />
-            </div>
-            
-            <div className="w-96 flex-shrink-0">
-              <Sprint1Column 
-                onProjectClick={handleProjectClick}
-                onSprintReviewClick={handleSprintGroupClick}
-                refreshTrigger={refreshTrigger}
-              />
-            </div>
-            
-            <div className="w-96 flex-shrink-0">
-              <Sprint2Column 
-                onProjectClick={handleProjectClick}
-                onSprintReviewClick={handleSprintGroupClick}
-                refreshTrigger={refreshTrigger}
-              />
-            </div>
-            
-            <div className="w-80 flex-shrink-0">
-              <InProgressColumn 
-                projects={getProjectsByColumn('inprogress')} 
-                onProjectClick={handleProjectClick}
-                onSprintReviewClick={handleSprintReviewClick}
-                refreshTrigger={refreshTrigger}
-              />
-            </div>
-            
-            <div className="w-80 flex-shrink-0">
-              <StuckColumn 
-                projects={getProjectsByColumn('stuck')} 
-                onProjectClick={handleProjectClick}
-                onSprintReviewClick={handleSprintReviewClick}
-              />
-            </div>
-            
-            <div className="w-80 flex-shrink-0">
-              <ReadyForQAColumn 
-                projects={getProjectsByColumn('readyforqa')} 
-                onProjectClick={handleProjectClick}
-                onSprintReviewClick={handleSprintReviewClick}
-              />
-            </div>
-            
-            <div className="w-80 flex-shrink-0">
-              <ReadyForReleaseColumn 
-                projects={getProjectsByColumn('readyforrelease')} 
-                onProjectClick={handleProjectClick}
-                onSprintReviewClick={handleSprintReviewClick}
-              />
-            </div>
-            
-            <div className="w-80 flex-shrink-0">
-              <DoneColumn 
-                projects={getProjectsByColumn('done')} 
-                onProjectClick={handleProjectClick}
-                onSprintReviewClick={handleSprintReviewClick}
-              />
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-h-0">
+        {/* Kanban Board */}
+        <div className="p-6 flex-shrink-0">
+          <div className="h-[600px] overflow-x-auto">
+            <div className="flex space-x-6 h-full min-w-max">
+              {/* All Columns */}
+              <div className={`${isOngoingExpanded ? 'w-64' : 'w-32'} flex-shrink-0 transition-all duration-300`}>
+                <OngoingColumn 
+                  projects={getProjectsByColumn('ongoing')} 
+                  onProjectAdded={handleProjectAdded}
+                  onProjectClick={handleProjectClick}
+                  onSprintReviewClick={handleSprintReviewClick}
+                  onExpandedChange={setIsOngoingExpanded}
+                />
+              </div>
+              
+              <div className={`${isParkingLotExpanded ? 'w-64' : 'w-32'} flex-shrink-0 transition-all duration-300`}>
+                <ParkingLotColumn 
+                  projects={getProjectsByColumn('parkinglot')} 
+                  onProjectAdded={handleProjectAdded}
+                  onProjectClick={handleProjectClick}
+                  onSprintReviewClick={handleSprintReviewClick}
+                  onExpandedChange={setIsParkingLotExpanded}
+                />
+              </div>
+              
+              <div className="w-96 flex-shrink-0">
+                <Sprint1Column 
+                  onProjectClick={handleProjectClick}
+                  onSprintReviewClick={handleSprintGroupClick}
+                  refreshTrigger={refreshTrigger}
+                />
+              </div>
+              
+              <div className="w-96 flex-shrink-0">
+                <Sprint2Column 
+                  onProjectClick={handleProjectClick}
+                  onSprintReviewClick={handleSprintGroupClick}
+                  refreshTrigger={refreshTrigger}
+                />
+              </div>
+              
+              <div className="w-80 flex-shrink-0">
+                <InProgressColumn 
+                  projects={getProjectsByColumn('inprogress')} 
+                  onProjectClick={handleProjectClick}
+                  onSprintReviewClick={handleSprintReviewClick}
+                  refreshTrigger={refreshTrigger}
+                />
+              </div>
+              
+              <div className="w-80 flex-shrink-0">
+                <StuckColumn 
+                  projects={getProjectsByColumn('stuck')} 
+                  onProjectClick={handleProjectClick}
+                  onSprintReviewClick={handleSprintReviewClick}
+                />
+              </div>
+              
+              <div className="w-80 flex-shrink-0">
+                <ReadyForQAColumn 
+                  projects={getProjectsByColumn('readyforqa')} 
+                  onProjectClick={handleProjectClick}
+                  onSprintReviewClick={handleSprintReviewClick}
+                />
+              </div>
+              
+              <div className="w-80 flex-shrink-0">
+                <ReadyForReleaseColumn 
+                  projects={getProjectsByColumn('readyforrelease')} 
+                  onProjectClick={handleProjectClick}
+                  onSprintReviewClick={handleSprintReviewClick}
+                />
+              </div>
+              
+              <div className="w-80 flex-shrink-0">
+                <DoneColumn 
+                  projects={getProjectsByColumn('done')} 
+                  onProjectClick={handleProjectClick}
+                  onSprintReviewClick={handleSprintReviewClick}
+                />
+              </div>
             </div>
           </div>
+        </div>
+
+        {/* Sprint Groups Overview Section */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <MainSprintSection
+            refreshTrigger={refreshTrigger}
+            onProjectClick={handleProjectClick}
+            onSprintReviewClick={handleSprintReviewClick}
+          />
+
+          {/* Sprint Calendar Section */}
+          <SprintCalendarMain
+            refreshTrigger={refreshTrigger}
+            onProjectClick={handleProjectClick}
+            onSprintReviewClick={handleSprintReviewClick}
+          />
         </div>
       </div>
 

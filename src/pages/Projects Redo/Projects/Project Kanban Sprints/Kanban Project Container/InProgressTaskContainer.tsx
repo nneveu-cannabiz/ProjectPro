@@ -205,20 +205,6 @@ const InProgressTaskContainer: React.FC<InProgressTaskContainerProps> = ({ refre
     }
   };
 
-  const getPriorityBgColor = (priority?: string) => {
-    switch (priority?.toLowerCase()) {
-      case 'critical':
-        return '#FECACA'; // Light Red background for Bright Red text
-      case 'high':
-        return '#FEE2E2'; // Light Red background for Red text
-      case 'medium':
-        return '#FEF3C7'; // Light Yellow background for Yellow text
-      case 'low':
-        return '#DCFCE7'; // Light Green background for Green text
-      default:
-        return brandTheme.background.secondary;
-    }
-  };
 
   const getSprintBadgeColor = (sprintType: string) => {
     return sprintType === 'Sprint 1' 
@@ -256,108 +242,177 @@ const InProgressTaskContainer: React.FC<InProgressTaskContainerProps> = ({ refre
     <>
       <div className="space-y-3">
         {inProgressTasks.map((task) => {
-          const sprintColors = getSprintBadgeColor(task.sprint_type);
           
           return (
             <div 
               key={task.id} 
-              className="p-4 rounded-lg border shadow-sm hover:shadow-md transition-shadow"
+              className="rounded-lg border overflow-hidden hover:shadow-md transition-all duration-200"
               style={{ 
                 backgroundColor: brandTheme.background.primary,
-                borderColor: brandTheme.border.light 
+                borderColor: brandTheme.border.light,
+                boxShadow: brandTheme.shadow.sm
               }}
             >
-              {/* Task Header */}
-              <div className="mb-3">
+              {/* Header Section */}
+              <div 
+                className="px-4 py-3 border-b"
+                style={{ 
+                  backgroundColor: brandTheme.primary.navy,
+                  borderColor: brandTheme.border.light
+                }}
+              >
                 {/* Task Name - Clickable */}
                 <div 
-                  className="font-semibold text-sm cursor-pointer hover:underline transition-colors"
-                  style={{ color: brandTheme.primary.navy }}
+                  className="font-semibold text-sm cursor-pointer hover:underline transition-colors mb-1"
+                  style={{ color: brandTheme.background.primary }}
                   onClick={() => handleTaskClick(task.id)}
                   title="Click to view task details"
                 >
-                  <div className="truncate">{task.name}</div>
+                  {task.name}
                 </div>
-              </div>
-
-              {/* Project Name */}
-              <div className="mb-2">
-                <span 
-                  className="text-xs px-2 py-1 rounded"
-                  style={{
-                    backgroundColor: brandTheme.background.secondary,
-                    color: brandTheme.text.secondary
-                  }}
+                
+                {/* Project Name */}
+                <div 
+                  className="text-xs opacity-90"
+                  style={{ color: brandTheme.background.primary }}
                 >
                   {task.project.name}
-                </span>
+                </div>
               </div>
 
-              {/* Priority and Sprint Badges */}
-              <div className="mb-3 flex items-center space-x-2">
-                {/* Priority Badge */}
-                {task.priority && (
-                  <div 
-                    className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
-                    style={{
-                      backgroundColor: getPriorityBgColor(task.priority),
-                      color: getPriorityColor(task.priority),
-                    }}
-                  >
-                    <AlertCircle className="w-2 h-2 mr-1" />
-                    {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+              {/* Content Section */}
+              <div className="p-4 space-y-3">
+                {/* Priority and Sprint Row */}
+                <div className="flex items-center justify-between">
+                  {/* Priority */}
+                  <div className="flex items-center space-x-1">
+                    <span 
+                      className="text-xs font-medium"
+                      style={{ color: brandTheme.text.muted }}
+                    >
+                      Priority:
+                    </span>
+                    {task.priority && (
+                      <div className="flex items-center space-x-1">
+                        <AlertCircle 
+                          className="w-3 h-3" 
+                          style={{ color: getPriorityColor(task.priority) }}
+                        />
+                        <span 
+                          className="text-xs font-semibold"
+                          style={{ color: getPriorityColor(task.priority) }}
+                        >
+                          {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                )}
-                
-                {/* Sprint Badge */}
-                <div 
-                  className="px-2 py-1 rounded-full text-xs font-medium"
-                  style={{
-                    backgroundColor: sprintColors.bg,
-                    color: sprintColors.text
-                  }}
-                >
-                  {task.sprint_type}
+                  
+                  {/* Sprint */}
+                  <div className="flex items-center space-x-1">
+                    <span 
+                      className="text-xs font-medium"
+                      style={{ color: brandTheme.text.muted }}
+                    >
+                      Sprint:
+                    </span>
+                    <span 
+                      className="text-xs font-semibold"
+                      style={{ color: getSprintBadgeColor(task.sprint_type).text }}
+                    >
+                      {task.sprint_type}
+                    </span>
+                  </div>
                 </div>
-              </div>
 
-              {/* Progress Bar */}
-              <div className="mb-3">
-                <div className="flex items-center justify-between text-xs mb-1">
-                  <span style={{ color: brandTheme.text.secondary }}>Progress</span>
-                  <span style={{ color: brandTheme.text.primary }} className="font-medium">
-                    {task.hoursPlanned > 0 
-                      ? `${Math.min(Math.round((task.hoursSpent / task.hoursPlanned) * 100), 100)}%`
-                      : '0%'
-                    }
-                  </span>
-                </div>
-                <div 
-                  className="w-full h-2 rounded-full overflow-hidden"
-                  style={{ backgroundColor: brandTheme.gray[200] }}
-                >
+                {/* Progress Section */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span 
+                      className="text-xs font-medium"
+                      style={{ color: brandTheme.text.muted }}
+                    >
+                      Progress
+                    </span>
+                    <span 
+                      className="text-xs font-semibold"
+                      style={{ color: brandTheme.text.primary }}
+                    >
+                      {task.hoursPlanned > 0 
+                        ? `${Math.min(Math.round((task.hoursSpent / task.hoursPlanned) * 100), 100)}%`
+                        : '0%'
+                      }
+                    </span>
+                  </div>
                   <div 
-                    className="h-full rounded-full transition-all duration-300"
-                    style={{
-                      width: task.hoursPlanned > 0 
-                        ? `${Math.min((task.hoursSpent / task.hoursPlanned) * 100, 100)}%`
-                        : '0%',
-                      backgroundColor: (() => {
-                        if (task.hoursPlanned === 0) return brandTheme.gray[400];
-                        const progressRatio = task.hoursSpent / task.hoursPlanned;
-                        if (progressRatio >= 1) return brandTheme.status.success; // Green when complete/over
-                        if (progressRatio >= 0.75) return brandTheme.status.warning; // Orange when close
-                        return brandTheme.status.info; // Blue when in progress
-                      })()
-                    }}
-                  />
+                    className="w-full h-2 rounded-full overflow-hidden"
+                    style={{ backgroundColor: brandTheme.gray[200] }}
+                  >
+                    <div 
+                      className="h-full rounded-full transition-all duration-300"
+                      style={{
+                        width: task.hoursPlanned > 0 
+                          ? `${Math.min((task.hoursSpent / task.hoursPlanned) * 100, 100)}%`
+                          : '0%',
+                        backgroundColor: (() => {
+                          if (task.hoursPlanned === 0) return brandTheme.gray[400];
+                          const progressRatio = task.hoursSpent / task.hoursPlanned;
+                          if (progressRatio >= 1) return brandTheme.status.success; // Green when complete/over
+                          if (progressRatio >= 0.75) return brandTheme.status.warning; // Orange when close
+                          return brandTheme.status.info; // Blue when in progress
+                        })()
+                      }}
+                    />
+                  </div>
                 </div>
-              </div>
 
-              {/* Hours and Assignee Row */}
-              <div className="flex items-center justify-between">
-                {/* Assignee */}
-                <div className="flex items-center space-x-2">
+                {/* Hours Section */}
+                <div>
+                  <div 
+                    className="text-xs font-medium mb-2"
+                    style={{ color: brandTheme.text.muted }}
+                  >
+                    Time Tracking
+                  </div>
+                  <div className="flex items-center justify-between">
+                    {/* Hours Spent */}
+                    <div className="flex items-center space-x-1">
+                      <Clock className="w-3 h-3" style={{ color: brandTheme.text.secondary }} />
+                      <span className="text-xs" style={{ color: brandTheme.text.secondary }}>
+                        Spent:
+                      </span>
+                      <span 
+                        className="text-sm font-semibold"
+                        style={{ color: brandTheme.text.primary }}
+                      >
+                        {task.hoursSpent.toFixed(1)}h
+                      </span>
+                    </div>
+                    
+                    {/* Hours Planned */}
+                    <div className="flex items-center space-x-1">
+                      <Target className="w-3 h-3" style={{ color: brandTheme.text.secondary }} />
+                      <span className="text-xs" style={{ color: brandTheme.text.secondary }}>
+                        Planned:
+                      </span>
+                      <span 
+                        className="text-sm font-semibold"
+                        style={{ color: brandTheme.text.primary }}
+                      >
+                        {task.hoursPlanned.toFixed(1)}h
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Assignee Section */}
+                <div>
+                  <div 
+                    className="text-xs font-medium mb-2"
+                    style={{ color: brandTheme.text.muted }}
+                  >
+                    Assigned To
+                  </div>
                   {task.assignee ? (
                     <UserAvatar 
                       user={{
@@ -367,44 +422,26 @@ const InProgressTaskContainer: React.FC<InProgressTaskContainerProps> = ({ refre
                         lastName: task.assignee.last_name || '',
                         profileColor: task.assignee.profile_color
                       }}
-                      size="xs"
+                      size="sm"
                       showName={true}
-                      className="text-[10px]"
+                      className="text-xs"
                     />
                   ) : (
-                    <div className="flex items-center space-x-1">
+                    <div className="flex items-center space-x-2">
                       <div 
-                        className="w-4 h-4 rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: brandTheme.gray[300] }}
-                        title="Unassigned"
+                        className="w-6 h-6 rounded-full flex items-center justify-center"
+                        style={{ backgroundColor: brandTheme.gray[200] }}
                       >
                         <User 
-                          className="w-2 h-2" 
+                          className="w-3 h-3" 
                           style={{ color: brandTheme.text.muted }} 
                         />
                       </div>
-                      <span className="text-[10px]" style={{ color: brandTheme.text.secondary }}>
+                      <span className="text-xs" style={{ color: brandTheme.text.secondary }}>
                         Unassigned
                       </span>
                     </div>
                   )}
-                </div>
-
-                {/* Hours */}
-                <div className="flex items-center space-x-3 text-xs">
-                  <div className="flex items-center space-x-1">
-                    <Clock className="w-3 h-3" style={{ color: brandTheme.text.secondary }} />
-                    <span className="font-medium" style={{ color: brandTheme.text.primary }}>
-                      {task.hoursSpent.toFixed(1)}h
-                    </span>
-                  </div>
-                  <span style={{ color: brandTheme.text.muted }}>/</span>
-                  <div className="flex items-center space-x-1">
-                    <Target className="w-3 h-3" style={{ color: brandTheme.text.secondary }} />
-                    <span className="font-medium" style={{ color: brandTheme.text.primary }}>
-                      {task.hoursPlanned.toFixed(1)}h
-                    </span>
-                  </div>
                 </div>
               </div>
             </div>
