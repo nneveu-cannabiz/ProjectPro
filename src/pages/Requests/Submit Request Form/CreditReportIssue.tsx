@@ -187,7 +187,7 @@ const CreditReportIssue: React.FC<CreditReportIssueProps> = ({ onBack }) => {
         .insert([{
           title: formData.title,
           description: formData.description, // Use original description, not enhanced
-          request_type: 'data',
+          request_type: 'task',
           priority: formData.priority,
           submitter_name: formData.submitter_name,
           submitter_email: formData.submitter_email,
