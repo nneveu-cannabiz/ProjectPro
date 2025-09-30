@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { brandTheme } from '../../../../../styles/brandTheme';
 import { X } from 'lucide-react';
 import SprintTaskReview from './SprintTaskReview';
@@ -34,6 +34,37 @@ const SprintReviewModal: React.FC<SprintReviewModalProps> = ({
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [showSprintModal, setShowSprintModal] = useState(false);
   const [isCreatingSprint, setIsCreatingSprint] = useState(false);
+  const [modalMode, setModalMode] = useState<'create' | 'add'>('create'); // Track modal mode
+  const [existingSprints, setExistingSprints] = useState<Array<{ id: string; name: string; sprint_type: string }>>([]);
+
+  // Load existing sprints for this project
+  useEffect(() => {
+    if (project?.id && showSprintModal && modalMode === 'add') {
+      loadExistingSprints();
+    }
+  }, [project?.id, showSprintModal, modalMode]);
+
+  const loadExistingSprints = async () => {
+    if (!project?.id) return;
+    
+    try {
+      const { data, error } = await (supabase as any)
+        .from('PMA_Sprints')
+        .select('id, name, sprint_type')
+        .eq('project_id', project.id)
+        .eq('status', 'active')
+        .order('sprint_type', { ascending: true });
+
+      if (error) {
+        console.error('Error loading existing sprints:', error);
+        return;
+      }
+
+      setExistingSprints(data || []);
+    } catch (error) {
+      console.error('Error loading existing sprints:', error);
+    }
+  };
 
   const handleCreateSprint = async (sprintType: 'Sprint 1' | 'Sprint 2') => {
     if (!currentUser?.id || !project?.id || selectedTaskIds.length === 0) {
@@ -64,6 +95,7 @@ const SprintReviewModal: React.FC<SprintReviewModalProps> = ({
       alert(`${sprintType} created successfully with ${selectedTaskIds.length} tasks!`);
       setShowSprintModal(false);
       setSelectedTaskIds([]);
+      setModalMode('create');
       
       // Trigger refresh and close modal
       if (onSprintGroupCreated) {
@@ -72,6 +104,62 @@ const SprintReviewModal: React.FC<SprintReviewModalProps> = ({
     } catch (error) {
       console.error('Error creating sprint:', error);
       alert('Failed to create sprint. Please try again.');
+    } finally {
+      setIsCreatingSprint(false);
+    }
+  };
+
+  const handleAddToExistingSprint = async (sprintId: string) => {
+    if (!currentUser?.id || !project?.id || selectedTaskIds.length === 0) {
+      alert('Please select tasks and ensure you are logged in');
+      return;
+    }
+
+    setIsCreatingSprint(true);
+    try {
+      // Get the existing sprint to merge task IDs
+      const { data: existingSprint, error: fetchError } = await (supabase as any)
+        .from('PMA_Sprints')
+        .select('selected_task_ids, name')
+        .eq('id', sprintId)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching existing sprint:', fetchError);
+        alert('Failed to fetch sprint. Please try again.');
+        return;
+      }
+
+      // Merge existing task IDs with new ones (avoid duplicates)
+      const existingTaskIds = existingSprint.selected_task_ids || [];
+      const mergedTaskIds = [...new Set([...existingTaskIds, ...selectedTaskIds])];
+
+      // Update the sprint with merged task IDs
+      const { error: updateError } = await (supabase as any)
+        .from('PMA_Sprints')
+        .update({
+          selected_task_ids: mergedTaskIds
+        })
+        .eq('id', sprintId);
+
+      if (updateError) {
+        console.error('Error updating sprint:', updateError);
+        alert('Failed to add tasks to sprint. Please try again.');
+        return;
+      }
+
+      alert(`${selectedTaskIds.length} tasks added to "${existingSprint.name}" successfully!`);
+      setShowSprintModal(false);
+      setSelectedTaskIds([]);
+      setModalMode('create');
+      
+      // Trigger refresh and close modal
+      if (onSprintGroupCreated) {
+        onSprintGroupCreated();
+      }
+    } catch (error) {
+      console.error('Error adding tasks to sprint:', error);
+      alert('Failed to add tasks to sprint. Please try again.');
     } finally {
       setIsCreatingSprint(false);
     }
@@ -181,7 +269,14 @@ const SprintReviewModal: React.FC<SprintReviewModalProps> = ({
               <SprintTaskReview 
                 projectId={project.id} 
                 onTaskSelectionChange={handleTaskSelectionChange}
-                onCreateSprintGroup={() => setShowSprintModal(true)}
+                onCreateSprintGroup={() => {
+                  setModalMode('create');
+                  setShowSprintModal(true);
+                }}
+                onAddToSprintGroup={() => {
+                  setModalMode('add');
+                  setShowSprintModal(true);
+                }}
                 fromSprintGroup={fromSprintGroup}
               />
             </div>
@@ -246,58 +341,109 @@ const SprintReviewModal: React.FC<SprintReviewModalProps> = ({
                 borderColor: brandTheme.border.light 
               }}
             >
-              <h3 className="text-lg font-bold text-white">Create Sprint Group</h3>
+              <h3 className="text-lg font-bold text-white">
+                {modalMode === 'create' ? 'Create New Epic' : 'Add to Existing Epic'}
+              </h3>
               <p className="text-sm text-white opacity-90 mt-1">
-                Select which sprint to assign {selectedTaskIds.length} tasks to
+                {modalMode === 'create' 
+                  ? `Create a new epic with ${selectedTaskIds.length} selected tasks`
+                  : `Add ${selectedTaskIds.length} tasks to an existing epic`
+                }
               </p>
             </div>
 
             {/* Modal Content */}
             <div className="p-6">
-              <div className="space-y-4">
-                <button
-                  onClick={() => handleCreateSprint('Sprint 1')}
-                  disabled={isCreatingSprint}
-                  className="w-full p-4 border-2 rounded-lg text-left hover:border-blue-500 transition-colors disabled:opacity-50"
-                  style={{
-                    borderColor: brandTheme.border.medium,
-                    backgroundColor: brandTheme.background.secondary,
-                  }}
-                >
-                  <div className="font-semibold" style={{ color: brandTheme.text.primary }}>
-                    Sprint 1
-                  </div>
-                  <div className="text-sm mt-1" style={{ color: brandTheme.text.secondary }}>
-                    Assign selected tasks to Sprint 1 column
-                  </div>
-                </button>
+              {modalMode === 'create' ? (
+                <div className="space-y-4">
+                  <button
+                    onClick={() => handleCreateSprint('Sprint 1')}
+                    disabled={isCreatingSprint}
+                    className="w-full p-4 border-2 rounded-lg text-left hover:border-blue-500 transition-colors disabled:opacity-50"
+                    style={{
+                      borderColor: brandTheme.border.medium,
+                      backgroundColor: brandTheme.background.secondary,
+                    }}
+                  >
+                    <div className="font-semibold" style={{ color: brandTheme.text.primary }}>
+                      Sprint 1
+                    </div>
+                    <div className="text-sm mt-1" style={{ color: brandTheme.text.secondary }}>
+                      Create new epic in Sprint 1 column
+                    </div>
+                  </button>
 
-                <button
-                  onClick={() => handleCreateSprint('Sprint 2')}
-                  disabled={isCreatingSprint}
-                  className="w-full p-4 border-2 rounded-lg text-left hover:border-blue-500 transition-colors disabled:opacity-50"
-                  style={{
-                    borderColor: brandTheme.border.medium,
-                    backgroundColor: brandTheme.background.secondary,
-                  }}
-                >
-                  <div className="font-semibold" style={{ color: brandTheme.text.primary }}>
-                    Sprint 2
-                  </div>
-                  <div className="text-sm mt-1" style={{ color: brandTheme.text.secondary }}>
-                    Assign selected tasks to Sprint 2 column
-                  </div>
-                </button>
-              </div>
+                  <button
+                    onClick={() => handleCreateSprint('Sprint 2')}
+                    disabled={isCreatingSprint}
+                    className="w-full p-4 border-2 rounded-lg text-left hover:border-blue-500 transition-colors disabled:opacity-50"
+                    style={{
+                      borderColor: brandTheme.border.medium,
+                      backgroundColor: brandTheme.background.secondary,
+                    }}
+                  >
+                    <div className="font-semibold" style={{ color: brandTheme.text.primary }}>
+                      Sprint 2
+                    </div>
+                    <div className="text-sm mt-1" style={{ color: brandTheme.text.secondary }}>
+                      Create new epic in Sprint 2 column
+                    </div>
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {existingSprints.length > 0 ? (
+                    existingSprints.map((sprint) => (
+                      <button
+                        key={sprint.id}
+                        onClick={() => handleAddToExistingSprint(sprint.id)}
+                        disabled={isCreatingSprint}
+                        className="w-full p-4 border-2 rounded-lg text-left hover:border-blue-500 transition-colors disabled:opacity-50"
+                        style={{
+                          borderColor: brandTheme.border.medium,
+                          backgroundColor: brandTheme.background.secondary,
+                        }}
+                      >
+                        <div className="font-semibold" style={{ color: brandTheme.text.primary }}>
+                          {sprint.name}
+                        </div>
+                        <div className="text-sm mt-1" style={{ color: brandTheme.text.secondary }}>
+                          {sprint.sprint_type}
+                        </div>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="text-center py-8" style={{ color: brandTheme.text.muted }}>
+                      <p>No existing epics found for this project.</p>
+                      <p className="text-sm mt-2">Create a new epic instead.</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Modal Footer */}
             <div 
-              className="p-6 border-t flex justify-end space-x-3"
+              className="p-6 border-t flex justify-between space-x-3"
               style={{ borderColor: brandTheme.border.light }}
             >
               <button
-                onClick={() => setShowSprintModal(false)}
+                onClick={() => setModalMode(modalMode === 'create' ? 'add' : 'create')}
+                disabled={isCreatingSprint}
+                className="px-4 py-2 border rounded-lg transition-colors disabled:opacity-50"
+                style={{
+                  backgroundColor: brandTheme.primary.lightBlue,
+                  borderColor: brandTheme.primary.navy,
+                  color: brandTheme.primary.navy,
+                }}
+              >
+                {modalMode === 'create' ? 'Add to Existing Epic' : 'Create New Epic'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowSprintModal(false);
+                  setModalMode('create');
+                }}
                 disabled={isCreatingSprint}
                 className="px-4 py-2 border rounded-lg transition-colors disabled:opacity-50"
                 style={{

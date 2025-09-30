@@ -116,7 +116,8 @@ export const fetchProjects = async (): Promise<Project[]> => {
         endDate: p.end_date,
         deadline: p.deadline,
         tags: p.tags,
-        progress: p.progress
+        progress: p.progress,
+        ranking: p.ranking || {}
       }));
     },
     'Error fetching projects',
@@ -227,6 +228,7 @@ export const updateProject = async (project: Project): Promise<void> => {
     deadline: project.deadline === null ? null : project.deadline,
     tags: project.tags,
     progress: project.progress,
+    ranking: project.ranking || {},
     updated_at: timestamp
   };
   
@@ -898,7 +900,8 @@ export const fetchProductDevProjects = async (): Promise<Project[]> => {
         endDate: p.end_date,
         deadline: p.deadline,
         tags: p.tags,
-        progress: p.progress
+        progress: p.progress,
+        ranking: p.ranking || {}
       }));
     },
     'Error fetching Product Development projects',
@@ -1179,6 +1182,154 @@ export const updateProjectAssignee = async (projectId: string, assigneeId: strin
     console.error('Error updating project assignee:', error);
     throw error;
   }
+};
+
+// Update project ranking for a specific page
+export const updateProjectRanking = async (projectId: string, pageName: string, rank: number): Promise<void> => {
+  return safeSupabaseCall(
+    async () => {
+      // First, get the current project to access its ranking
+      const { data: project, error: fetchError } = await supabase
+        .from('PMA_Projects')
+        .select('ranking')
+        .eq('id', projectId)
+        .single();
+      
+      if (fetchError) throw fetchError;
+      
+      // Update the ranking for this specific page
+      const currentRanking = (project?.ranking as Record<string, number>) || {};
+      const updatedRanking = {
+        ...currentRanking,
+        [pageName]: rank
+      };
+      
+      const { error } = await supabase
+        .from('PMA_Projects')
+        .update({ 
+          ranking: updatedRanking,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', projectId);
+      
+      if (error) throw error;
+    },
+    'Failed to update project ranking',
+    undefined
+  );
+};
+
+// Batch update project rankings for a specific page
+export const batchUpdateProjectRankings = async (rankings: { projectId: string; rank: number }[], pageName: string): Promise<void> => {
+  return safeSupabaseCall(
+    async () => {
+      // Update each project's ranking
+      await Promise.all(
+        rankings.map(async ({ projectId, rank }) => {
+          // Get current project ranking
+          const { data: project, error: fetchError } = await supabase
+            .from('PMA_Projects')
+            .select('ranking')
+            .eq('id', projectId)
+            .single();
+          
+          if (fetchError) throw fetchError;
+          
+          // Update the ranking for this specific page
+          const currentRanking = (project?.ranking as Record<string, number>) || {};
+          const updatedRanking = {
+            ...currentRanking,
+            [pageName]: rank
+          };
+          
+          const { error } = await supabase
+            .from('PMA_Projects')
+            .update({ 
+              ranking: updatedRanking,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', projectId);
+          
+          if (error) throw error;
+        })
+      );
+    },
+    'Failed to batch update project rankings',
+    undefined
+  );
+};
+
+// Sprint Group ranking operations
+export const updateSprintGroupRanking = async (sprintGroupId: string, sprintType: string, rank: number): Promise<void> => {
+  return safeSupabaseCall(
+    async () => {
+      // First, get the current sprint group to access its ranking
+      const { data: sprintGroup, error: fetchError } = await supabase
+        .from('PMA_Sprints')
+        .select('ranking')
+        .eq('id', sprintGroupId)
+        .single();
+      
+      if (fetchError) throw fetchError;
+      
+      // Update the ranking for this specific sprint type
+      const currentRanking = (sprintGroup?.ranking as Record<string, number>) || {};
+      const updatedRanking = {
+        ...currentRanking,
+        [sprintType]: rank
+      };
+      
+      const { error } = await supabase
+        .from('PMA_Sprints')
+        .update({ 
+          ranking: updatedRanking
+        })
+        .eq('id', sprintGroupId);
+      
+      if (error) throw error;
+    },
+    'Failed to update sprint group ranking',
+    undefined
+  );
+};
+
+// Batch update sprint group rankings for a specific sprint type
+export const batchUpdateSprintGroupRankings = async (rankings: { sprintGroupId: string; rank: number }[], sprintType: string): Promise<void> => {
+  return safeSupabaseCall(
+    async () => {
+      // Update each sprint group's ranking
+      await Promise.all(
+        rankings.map(async ({ sprintGroupId, rank }) => {
+          // Get current sprint group ranking
+          const { data: sprintGroup, error: fetchError } = await supabase
+            .from('PMA_Sprints')
+            .select('ranking')
+            .eq('id', sprintGroupId)
+            .single();
+          
+          if (fetchError) throw fetchError;
+          
+          // Update the ranking for this specific sprint type
+          const currentRanking = (sprintGroup?.ranking as Record<string, number>) || {};
+          const updatedRanking = {
+            ...currentRanking,
+            [sprintType]: rank
+          };
+          
+          const { error } = await supabase
+            .from('PMA_Sprints')
+            .update({ 
+              ranking: updatedRanking
+            })
+            .eq('id', sprintGroupId);
+          
+          if (error) throw error;
+        })
+      );
+    },
+    'Failed to batch update sprint group rankings',
+    undefined
+  );
 };
 
 // Hour logging operations

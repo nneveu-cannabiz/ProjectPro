@@ -1,9 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { brandTheme } from '../../../../../styles/brandTheme';
-import { ChevronRight, ChevronLeft } from 'lucide-react';
+import { ChevronRight, ChevronLeft, GripVertical } from 'lucide-react';
 import { supabase } from '../../../../../lib/supabase';
 import KanbanProjectContainer from '../Kanban Project Container/KanbanProjectContainer';
 import ProjectSelector from '../ProjectSelector';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { batchUpdateProjectRankings } from '../../../../../data/supabase-store';
 
 interface ParkingLotColumnProps {
   projects?: any[];
@@ -13,11 +32,155 @@ interface ParkingLotColumnProps {
   onExpandedChange?: (expanded: boolean) => void;
 }
 
+// Sortable Project Item Component
+interface SortableProjectItemProps {
+  project: any;
+  index: number;
+  onProjectClick?: (project: any) => void;
+  onSprintReviewClick?: (project: any) => void;
+}
+
+const SortableProjectItem: React.FC<SortableProjectItemProps> = ({ project, index, onProjectClick, onSprintReviewClick }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: project.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  // Get the rank for this parking lot column
+  const currentRank = project.ranking?.[PAGE_NAME];
+  const hasRank = currentRank !== undefined;
+
+  return (
+    <div ref={setNodeRef} style={style} className="relative group">
+      <div className="flex items-center gap-2">
+        {/* Rank Badge */}
+        <div
+          className="flex-shrink-0 flex items-center justify-center font-bold text-xs rounded px-1.5 py-0.5 min-w-[24px]"
+          style={{
+            backgroundColor: hasRank ? brandTheme.primary.navy : brandTheme.gray[300],
+            color: hasRank ? '#FFFFFF' : brandTheme.text.muted,
+            fontSize: '10px'
+          }}
+          title={hasRank ? `Rank ${currentRank}` : 'Unranked'}
+        >
+          {hasRank ? `#${currentRank}` : '-'}
+        </div>
+
+        {/* Drag Handle */}
+        <div
+          ref={setActivatorNodeRef}
+          className="flex-shrink-0 p-1 rounded hover:bg-blue-100 transition-colors opacity-0 group-hover:opacity-100"
+          style={{
+            cursor: 'grab',
+            touchAction: 'none',
+            userSelect: 'none',
+            color: brandTheme.text.secondary,
+          }}
+          {...attributes}
+          {...listeners}
+          title="Drag to reorder"
+        >
+          <GripVertical size={16} />
+        </div>
+
+        {/* Project Container */}
+        <div className="flex-1">
+          <KanbanProjectContainer
+            project={project}
+            onProjectClick={onProjectClick}
+            onSprintReviewClick={onSprintReviewClick}
+          />
+        </div>
+      </div>
+
+      {/* Sprint Assignment Status Badge */}
+      {project.totalTasks > 0 && project.unassignedTasks > 0 && (
+        <div
+          className="absolute -top-2 -right-2 px-2 py-1 rounded-full text-xs font-medium shadow-sm"
+          style={{
+            backgroundColor: brandTheme.status.warningLight,
+            color: brandTheme.status.warning,
+            border: `1px solid ${brandTheme.status.warning}`
+          }}
+        >
+          {project.unassignedTasks}/{project.totalTasks} tasks unassigned to sprint
+        </div>
+      )}
+    </div>
+  );
+};
+
+const PAGE_NAME = 'Sprint: Parking Lot';
+
 const ParkingLotColumn: React.FC<ParkingLotColumnProps> = ({ projects = [], onProjectAdded, onProjectClick, onSprintReviewClick, onExpandedChange }) => {
   const [isProjectSelectorOpen, setIsProjectSelectorOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [projectsWithSprintStatus, setProjectsWithSprintStatus] = useState<any[]>([]);
   const [isLoadingSprintStatus, setIsLoadingSprintStatus] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(MouseSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200,
+        tolerance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Sort projects by ranking for this parking lot column
+  const sortedProjects = useMemo(() => {
+    const sorted = [...projectsWithSprintStatus].sort((a, b) => {
+      const aRank = a.ranking?.[PAGE_NAME];
+      const bRank = b.ranking?.[PAGE_NAME];
+
+      // Both have rankings for this page - lower rank number comes first
+      if (aRank !== undefined && bRank !== undefined) {
+        return aRank - bRank; // 1 comes before 2, 2 comes before 3, etc.
+      }
+
+      // Only a has ranking - a comes first (ranked items before unranked)
+      if (aRank !== undefined && bRank === undefined) {
+        return -1;
+      }
+
+      // Only b has ranking - b comes first (ranked items before unranked)
+      if (aRank === undefined && bRank !== undefined) {
+        return 1;
+      }
+
+      // Neither has ranking - keep original order
+      return 0;
+    });
+
+    // Debug: Log the sorted order
+    console.log('🔢 Parking Lot sorted projects:', sorted.map(p => ({
+      name: p.name,
+      rank: p.ranking?.[PAGE_NAME] || 'unranked'
+    })));
+
+    return sorted;
+  }, [projectsWithSprintStatus]);
 
   // Notify parent when expansion state changes
   useEffect(() => {
@@ -58,6 +221,23 @@ const ParkingLotColumn: React.FC<ParkingLotColumnProps> = ({ projects = [], onPr
         });
       });
 
+      // First, fetch full project data with ranking column for all projects
+      const projectIds = projects.map(p => p.id);
+      const { data: fullProjects, error: projectError } = await (supabase as any)
+        .from('PMA_Projects')
+        .select('id, name, ranking')
+        .in('id', projectIds);
+
+      if (projectError) {
+        console.error('Error fetching full project data:', projectError);
+      }
+
+      // Create a map of project rankings
+      const projectRankingMap = new Map();
+      (fullProjects || []).forEach((proj: any) => {
+        projectRankingMap.set(proj.id, proj.ranking || {});
+      });
+
       // Analyze each project
       const projectsWithStatus = await Promise.all(
         projects.map(async (project: any) => {
@@ -71,7 +251,13 @@ const ParkingLotColumn: React.FC<ParkingLotColumnProps> = ({ projects = [], onPr
 
             if (tasksError) {
               console.error(`Error fetching tasks for project ${project.id}:`, tasksError);
-              return { ...project, totalTasks: 0, assignedTasks: 0, shouldShow: true };
+              return { 
+                ...project, 
+                ranking: projectRankingMap.get(project.id) || {},
+                totalTasks: 0, 
+                assignedTasks: 0, 
+                shouldShow: true 
+              };
             }
 
             const totalActiveTasks = (projectTasks || []).length;
@@ -84,6 +270,7 @@ const ParkingLotColumn: React.FC<ParkingLotColumnProps> = ({ projects = [], onPr
 
             return {
               ...project,
+              ranking: projectRankingMap.get(project.id) || {}, // Include ranking
               totalTasks: totalActiveTasks,
               assignedTasks: assignedTasks,
               shouldShow: shouldShow,
@@ -91,19 +278,67 @@ const ParkingLotColumn: React.FC<ParkingLotColumnProps> = ({ projects = [], onPr
             };
           } catch (error) {
             console.error(`Error analyzing project ${project.id}:`, error);
-            return { ...project, totalTasks: 0, assignedTasks: 0, shouldShow: true };
+            return { 
+              ...project, 
+              ranking: projectRankingMap.get(project.id) || {},
+              totalTasks: 0, 
+              assignedTasks: 0, 
+              shouldShow: true 
+            };
           }
         })
       );
 
       // Filter to only show projects that should be displayed
       const filteredProjects = projectsWithStatus.filter(project => project.shouldShow);
+      console.log('📦 Loaded projects with rankings:', filteredProjects.map(p => ({
+        name: p.name,
+        ranking: p.ranking
+      })));
       setProjectsWithSprintStatus(filteredProjects);
     } catch (error) {
       console.error('Error analyzing sprint status:', error);
       setProjectsWithSprintStatus(projects);
     } finally {
       setIsLoadingSprintStatus(false);
+    }
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const oldIndex = sortedProjects.findIndex(p => p.id === active.id);
+    const newIndex = sortedProjects.findIndex(p => p.id === over.id);
+
+    console.log(`🎯 Parking Lot: Moving project from index ${oldIndex} to ${newIndex}`);
+
+    // Reorder locally for immediate feedback
+    const reorderedProjects = arrayMove(sortedProjects, oldIndex, newIndex);
+
+    // Save rankings to database
+    try {
+      setIsSaving(true);
+      const rankings = reorderedProjects.map((project, index) => {
+        console.log(`📍 Setting rank ${index + 1} for project: ${project.name}`);
+        return {
+          projectId: project.id,
+          rank: index + 1
+        };
+      });
+
+      await batchUpdateProjectRankings(rankings, PAGE_NAME);
+      console.log('✅ Parking lot rankings saved successfully');
+
+      // Refresh the sprint status analysis to get updated data from DB
+      await analyzeSprintStatus();
+    } catch (error) {
+      console.error('❌ Failed to save parking lot rankings:', error);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -186,33 +421,30 @@ const ParkingLotColumn: React.FC<ParkingLotColumnProps> = ({ projects = [], onPr
                   style={{ borderColor: brandTheme.primary.navy }}
                 />
                 <span className="ml-2 text-sm" style={{ color: brandTheme.text.secondary }}>
-                  Analyzing sprint assignments...
+                  {isSaving ? 'Saving order...' : 'Analyzing sprint assignments...'}
                 </span>
               </div>
-            ) : projectsWithSprintStatus.length > 0 ? (
-              projectsWithSprintStatus.map((project, index) => (
-                <div key={project.id || index} className="relative">
-                  <KanbanProjectContainer 
-                    project={project} 
-                    onProjectClick={onProjectClick}
-                    onSprintReviewClick={onSprintReviewClick}
-                  />
-                  
-                  {/* Sprint Assignment Status Badge */}
-                  {project.totalTasks > 0 && project.unassignedTasks > 0 && (
-                    <div 
-                      className="absolute -top-2 -right-2 px-2 py-1 rounded-full text-xs font-medium shadow-sm"
-                      style={{
-                        backgroundColor: brandTheme.status.warningLight,
-                        color: brandTheme.status.warning,
-                        border: `1px solid ${brandTheme.status.warning}`
-                      }}
-                    >
-{project.unassignedTasks}/{project.totalTasks} tasks unassigned to sprint
-                    </div>
-                  )}
-                </div>
-              ))
+            ) : sortedProjects.length > 0 ? (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={sortedProjects.map(p => p.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {sortedProjects.map((project, index) => (
+                    <SortableProjectItem
+                      key={project.id}
+                      project={project}
+                      index={index}
+                      onProjectClick={onProjectClick}
+                      onSprintReviewClick={onSprintReviewClick}
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
             ) : (
               <div 
                 className="text-center py-8 text-sm"
@@ -250,7 +482,7 @@ const ParkingLotColumn: React.FC<ParkingLotColumnProps> = ({ projects = [], onPr
               }}
             >
               <span className="text-xs">
-                {isLoadingSprintStatus ? '...' : projectsWithSprintStatus.length}
+                {isLoadingSprintStatus ? '...' : sortedProjects.length}
               </span>
             </div>
           </div>
@@ -267,8 +499,8 @@ const ParkingLotColumn: React.FC<ParkingLotColumnProps> = ({ projects = [], onPr
               <div className="text-center py-4 text-xs" style={{ color: brandTheme.text.muted }}>
                 Loading...
               </div>
-            ) : projectsWithSprintStatus.length > 0 ? (
-              projectsWithSprintStatus.map((project, index) => (
+            ) : sortedProjects.length > 0 ? (
+              sortedProjects.map((project, index) => (
                 <div
                   key={project.id || index}
                   className="relative p-2 rounded cursor-pointer hover:bg-white hover:bg-opacity-50 transition-colors"

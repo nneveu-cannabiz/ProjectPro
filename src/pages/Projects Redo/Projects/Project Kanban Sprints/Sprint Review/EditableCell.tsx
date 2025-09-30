@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Edit2, Save, X } from 'lucide-react';
 import { brandTheme } from '../../../../../styles/brandTheme';
 import { Task, EditingCell } from './types';
+import { supabase } from '../../../../../lib/supabase';
 
 interface EditableCellProps {
   task: Task;
@@ -28,7 +29,33 @@ const EditableCell: React.FC<EditableCellProps> = ({
   onEditCancel,
   onEditValueChange
 }) => {
+  const [users, setUsers] = useState<Array<{ id: string; first_name: string; last_name: string; email: string }>>([]);
   const isEditing = editingCell?.taskId === task.id && editingCell?.field === field;
+
+  // Fetch users when the assignee field is being edited
+  useEffect(() => {
+    if (isEditing && field === 'assignee_id') {
+      loadUsers();
+    }
+  }, [isEditing, field]);
+
+  const loadUsers = async () => {
+    try {
+      const { data, error } = await (supabase as any)
+        .from('PMA_Users')
+        .select('id, first_name, last_name, email')
+        .order('first_name', { ascending: true });
+
+      if (error) {
+        console.error('Error loading users:', error);
+        return;
+      }
+
+      setUsers(data || []);
+    } catch (error) {
+      console.error('Error loading users:', error);
+    }
+  };
   
   if (isEditing) {
     return (
@@ -56,6 +83,20 @@ const EditableCell: React.FC<EditableCellProps> = ({
             <option value="todo">To Do</option>
             <option value="in-progress">In Progress</option>
             <option value="done">Done</option>
+          </select>
+        ) : field === 'assignee_id' ? (
+          <select
+            value={editValue}
+            onChange={(e) => onEditValueChange(e.target.value)}
+            className="px-2 py-1 border rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[150px]"
+            style={{ borderColor: brandTheme.border.medium }}
+          >
+            <option value="">Unassigned</option>
+            {users.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.first_name} {user.last_name}
+              </option>
+            ))}
           </select>
         ) : (
           <input

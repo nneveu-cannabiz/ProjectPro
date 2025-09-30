@@ -126,6 +126,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
     profileColor: string;
     email: string;
   } | null>(null);
+  const [isSprintPlanExpanded, setIsSprintPlanExpanded] = useState(false);
   
   // Load profile data when component mounts
   useEffect(() => {
@@ -233,13 +234,59 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
           isCollapsed={isCollapsed}
         />
         
-        <SidebarItem
-          to="/sprint-plan"
-          icon={<CheckSquare size={20} />}
-          label="2 Week Sprint Plan"
-          isActive={location.pathname === '/sprint-plan'}
-          isCollapsed={isCollapsed}
-        />
+        {/* 2 Week Sprint Plan with Submenu */}
+        <div>
+          <div className="relative">
+            <SidebarItem
+              to="/sprint-plan"
+              icon={<CheckSquare size={20} />}
+              label="2 Week Sprint Plan"
+              isActive={location.pathname === '/sprint-plan' || location.pathname === '/story-points'}
+              isCollapsed={isCollapsed}
+            />
+            {!isCollapsed && (
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsSprintPlanExpanded(!isSprintPlanExpanded);
+                }}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 hover:bg-white hover:bg-opacity-30 rounded transition-colors"
+                style={{ color: brandTheme.primary.navy }}
+              >
+                <ChevronDown
+                  className={`w-4 h-4 transition-transform duration-200 ${isSprintPlanExpanded ? 'rotate-180' : ''}`}
+                />
+              </button>
+            )}
+          </div>
+          
+          {/* Submenu */}
+          {!isCollapsed && isSprintPlanExpanded && (
+            <div className="ml-8 mt-1 mb-2 space-y-1">
+              <Link
+                to="/story-points"
+                className="flex items-center space-x-2 p-2 rounded text-sm transition-colors"
+                style={{
+                  backgroundColor: location.pathname === '/story-points' ? brandTheme.primary.paleBlue : 'transparent',
+                  color: brandTheme.primary.navy
+                }}
+                onMouseEnter={(e) => {
+                  if (location.pathname !== '/story-points') {
+                    e.currentTarget.style.backgroundColor = brandTheme.background.secondary;
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (location.pathname !== '/story-points') {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }
+                }}
+              >
+                <span>Story Points</span>
+              </Link>
+            </div>
+          )}
+        </div>
         
         <SidebarItem
           to="/product-dev-kpis"

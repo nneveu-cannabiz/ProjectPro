@@ -18,6 +18,7 @@ create table public."PMA_Projects" (
   multi_assignee_id jsonb null,
   documents jsonb[] null,
   sprint_plan_column text null,
+  ranking jsonb null,
   constraint PMA_Projects_pkey primary key (id),
   constraint pma_projects_assignee_id_fkey foreign KEY (assignee_id) references "PMA_Users" (id) on delete set null,
   constraint PMA_Projects_priority_check check (
@@ -60,8 +61,6 @@ after INSERT
 or
 update on "PMA_Projects" for EACH row
 execute FUNCTION create_field_change_updates ();
----------------------------------------------------------------------------------
-
 create table public."PMA_Updates" (
   id uuid not null,
   message text not null,
@@ -108,6 +107,7 @@ create table public."PMA_Tasks" (
   flow_chart text null,
   priority text null,
   sprint_plan_group_id text null,
+  ranking jsonb null,
   constraint PMA_Tasks_pkey primary key (id),
   constraint PMA_Tasks_project_id_fkey foreign KEY (project_id) references "PMA_Projects" (id) on delete CASCADE,
   constraint PMA_Tasks_status_check check (

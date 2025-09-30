@@ -13,6 +13,7 @@ interface SprintGroup {
   name: string;
   description?: string;
   created_at: string;
+  ranking?: Record<string, number>;
   project: {
     id: string;
     name: string;
@@ -62,6 +63,7 @@ const SprintSection: React.FC<SprintSectionProps> = ({
           name,
           description,
           created_at,
+          ranking,
           PMA_Projects!inner (
             id,
             name,
@@ -72,8 +74,7 @@ const SprintSection: React.FC<SprintSectionProps> = ({
           )
         `)
         .eq('sprint_type', sprintType)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false });
+        .eq('status', 'active');
 
       if (error) {
         console.error('Error loading sprint groups:', error);
@@ -136,7 +137,28 @@ const SprintSection: React.FC<SprintSectionProps> = ({
         })
       );
 
-      setSprintGroups(enrichedGroups);
+      // Sort by ranking for this sprint type, then by created_at
+      const rankingKey = `Sprint: ${sprintType}`;
+      const sortedGroups = enrichedGroups.sort((a, b) => {
+        const rankA = a.ranking?.[rankingKey];
+        const rankB = b.ranking?.[rankingKey];
+
+        // If both have ranks, sort by rank (ascending)
+        if (rankA !== undefined && rankB !== undefined) {
+          return rankA - rankB;
+        }
+
+        // If only A has a rank, it comes first
+        if (rankA !== undefined) return -1;
+
+        // If only B has a rank, it comes first
+        if (rankB !== undefined) return 1;
+
+        // If neither has a rank, sort by created_at (newest first)
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+
+      setSprintGroups(sortedGroups);
     } catch (error) {
       console.error('Error loading sprint groups:', error);
     } finally {

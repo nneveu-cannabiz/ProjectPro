@@ -21,6 +21,7 @@ export interface Project {
     document_link: string;
     document_description: string;
   }>; // Array of project documents/resources
+  ranking?: Record<string, number>; // JSONB column for page-specific rankings
 }
 
 export interface Task {

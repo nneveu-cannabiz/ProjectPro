@@ -8,13 +8,15 @@ interface SprintSummaryProps {
   isSelectionMode?: boolean;
   selectedTaskCount?: number;
   onCreateSprintGroup?: () => void;
+  onAddToSprintGroup?: () => void;
 }
 
 const SprintSummary: React.FC<SprintSummaryProps> = ({ 
   tasks, 
   isSelectionMode = false, 
   selectedTaskCount = 0, 
-  onCreateSprintGroup 
+  onCreateSprintGroup,
+  onAddToSprintGroup
 }) => {
   const [showTeamBreakdown, setShowTeamBreakdown] = useState(false);
   
@@ -68,15 +70,27 @@ const SprintSummary: React.FC<SprintSummaryProps> = ({
           <p className="text-white text-xs opacity-75 mt-1">Active tasks only (excludes completed tasks)</p>
         </div>
         <div className="flex items-center space-x-3">
-          {/* Create Sprint Group Button */}
+          {/* Create Epic Button */}
           {selectedTaskCount > 0 && onCreateSprintGroup && (
             <button
               onClick={onCreateSprintGroup}
-              className="flex items-center space-x-2 px-3 py-1 bg-white bg-opacity-90 hover:bg-opacity-100 rounded-lg transition-colors text-sm font-medium"
+              className="flex items-center space-x-2 px-4 py-2 bg-white bg-opacity-90 hover:bg-opacity-100 rounded-lg transition-colors text-sm font-semibold shadow-sm"
               style={{ color: brandTheme.primary.navy }}
             >
               <Plus className="w-4 h-4" />
-              <span>Create Sprint Group ({selectedTaskCount})</span>
+              <span>Create Epic ({selectedTaskCount})</span>
+            </button>
+          )}
+          
+          {/* Add to Epic Button */}
+          {selectedTaskCount > 0 && onAddToSprintGroup && (
+            <button
+              onClick={onAddToSprintGroup}
+              className="flex items-center space-x-2 px-4 py-2 bg-white bg-opacity-80 hover:bg-opacity-90 rounded-lg transition-colors text-sm font-medium shadow-sm"
+              style={{ color: brandTheme.primary.navy }}
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add to Epic ({selectedTaskCount})</span>
             </button>
           )}
           

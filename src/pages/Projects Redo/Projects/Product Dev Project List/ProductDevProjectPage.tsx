@@ -1,20 +1,39 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ChevronDown, ChevronRight, Users, Calendar, CheckSquare, AlertCircle, FolderOpen, Plus, Search } from 'lucide-react';
+import { AlertCircle, FolderOpen, Plus, Search } from 'lucide-react';
 import { Project, Task, User } from '../../../../types';
-import { fetchProductDevProjects, fetchProductDevProjectTasks, fetchUsers } from '../../../../data/supabase-store';
+import { fetchProductDevProjects, fetchProductDevProjectTasks, fetchUsers, batchUpdateProjectRankings } from '../../../../data/supabase-store';
 import { brandTheme } from '../../../../styles/brandTheme';
-import Badge from '../../../../components/ui/Badge';
 import Button from '../../../../components/ui/Button';
-import UserAvatar from '../../../../components/UserAvatar';
 import { Card } from '../../../../components/ui/Card';
 import ProjectDetailsModal from '../Flow Chart/utils/Profiles/ProjectDetailsModal';
 import TaskDetailsModal from '../Flow Chart/utils/Profiles/TaskDetailsModal';
 import { useAppContext } from '../../../../context/AppContext';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  MouseSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 
 interface ProjectWithTasks extends Project {
   tasks: Task[];
   assignedUsers: User[];
 }
+
+import SortableProjectCard from './SortableProjectCard';
+
+const PAGE_NAME = 'Product Dev Project Page';
 
 const ProductDevProjectPage: React.FC = () => {
   // Get data from AppContext
@@ -32,12 +51,31 @@ const ProductDevProjectPage: React.FC = () => {
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   
   // Modal state
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(MouseSensor, {
+      activationConstraint: {
+        distance: 5, // Require 5px of movement before drag starts
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200,
+        tolerance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   // Effect to process AppContext data and combine with Product Dev specific data
   useEffect(() => {
@@ -134,14 +172,40 @@ const ProductDevProjectPage: React.FC = () => {
     processData();
   }, [allProjects, allTasks, getUsers, contextLoading]);
 
+  // Sort projects by ranking for this page, then alphabetically
+  const sortedProjects = useMemo(() => {
+    return [...projects].sort((a, b) => {
+      const aRank = a.ranking?.[PAGE_NAME];
+      const bRank = b.ranking?.[PAGE_NAME];
+
+      // Both have rankings for this page
+      if (aRank !== undefined && bRank !== undefined) {
+        return aRank - bRank;
+      }
+
+      // Only a has ranking - a comes first
+      if (aRank !== undefined) {
+        return -1;
+      }
+
+      // Only b has ranking - b comes first
+      if (bRank !== undefined) {
+        return 1;
+      }
+
+      // Neither has ranking - sort alphabetically
+      return a.name.localeCompare(b.name);
+    });
+  }, [projects]);
+
   // Filter projects based on search query
   const filteredProjects = useMemo(() => {
     if (!searchQuery.trim()) {
-      return projects;
+      return sortedProjects;
     }
 
     const query = searchQuery.toLowerCase().trim();
-    return projects.filter(project => {
+    return sortedProjects.filter(project => {
       // Search in project name
       if (project.name.toLowerCase().includes(query)) {
         return true;
@@ -179,7 +243,160 @@ const ProductDevProjectPage: React.FC = () => {
       
       return taskMatch;
     });
-  }, [projects, searchQuery]);
+  }, [sortedProjects, searchQuery]);
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    console.log('🎯 Drag ended!', { active: active.id, over: over?.id });
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const oldIndex = filteredProjects.findIndex(p => p.id === active.id);
+    const newIndex = filteredProjects.findIndex(p => p.id === over.id);
+    
+    console.log('📍 Moving project from index', oldIndex, 'to', newIndex);
+
+    // Reorder locally
+    const reorderedProjects = arrayMove(filteredProjects, oldIndex, newIndex);
+    
+    // Update the main projects array to reflect the new order
+    const updatedProjects = projects.map(project => {
+      const newPosition = reorderedProjects.findIndex(p => p.id === project.id);
+      if (newPosition !== -1) {
+        return reorderedProjects[newPosition];
+      }
+      return project;
+    });
+    
+    setProjects(updatedProjects);
+
+    // Save rankings to database - assign rank 1, 2, 3, etc. based on new order
+    try {
+      setIsSaving(true);
+      const rankings = reorderedProjects.map((project, index) => ({
+        projectId: project.id,
+        rank: index + 1 // Rank starts at 1
+      }));
+      
+      console.log('💾 Saving rankings:', rankings);
+      
+      await batchUpdateProjectRankings(rankings, PAGE_NAME);
+      
+      // Refresh the page data from database to get updated rankings
+      console.log('🔄 Refreshing data from database...');
+      const [usersData, projectsData] = await Promise.all([
+        fetchUsers(),
+        fetchProductDevProjects()
+      ]);
+
+      setUsers(usersData);
+
+      if (projectsData.length > 0) {
+        const projectIds = projectsData.map(p => p.id);
+        const tasksData = await fetchProductDevProjectTasks(projectIds);
+
+        const projectsWithTasks: ProjectWithTasks[] = projectsData.map(project => {
+          const projectTasks = tasksData.filter(task => task.projectId === project.id);
+          
+          const assigneeIds = new Set<string>();
+          if (project.assigneeId) assigneeIds.add(project.assigneeId);
+          if (project.multiAssigneeIds) {
+            project.multiAssigneeIds.forEach(id => assigneeIds.add(id));
+          }
+          projectTasks.forEach(task => {
+            if (task.assigneeId) assigneeIds.add(task.assigneeId);
+          });
+
+          const assignedUsers = usersData.filter(user => assigneeIds.has(user.id));
+
+          return {
+            ...project,
+            tasks: projectTasks,
+            assignedUsers
+          };
+        });
+
+        setProjects(projectsWithTasks);
+        console.log('✅ Data refreshed successfully!');
+      }
+    } catch (error) {
+      console.error('Failed to save project rankings:', error);
+      setError('Failed to save new project order. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleRankChange = async (projectId: string, newRank: number) => {
+    try {
+      setIsSaving(true);
+      
+      // Find the project that's being ranked
+      const projectToRank = filteredProjects.find(p => p.id === projectId);
+      if (!projectToRank) return;
+
+      // Create a new array with the project moved to the new rank position
+      const otherProjects = filteredProjects.filter(p => p.id !== projectId);
+      const insertIndex = Math.min(Math.max(0, newRank - 1), otherProjects.length);
+      const reorderedProjects = [
+        ...otherProjects.slice(0, insertIndex),
+        projectToRank,
+        ...otherProjects.slice(insertIndex)
+      ];
+
+      // Save all rankings to database first
+      const rankings = reorderedProjects.map((project, index) => ({
+        projectId: project.id,
+        rank: index + 1
+      }));
+      
+      await batchUpdateProjectRankings(rankings, PAGE_NAME);
+
+      // Refresh the page data from database to get updated rankings
+      const [usersData, projectsData] = await Promise.all([
+        fetchUsers(),
+        fetchProductDevProjects()
+      ]);
+
+      setUsers(usersData);
+
+      if (projectsData.length > 0) {
+        const projectIds = projectsData.map(p => p.id);
+        const tasksData = await fetchProductDevProjectTasks(projectIds);
+
+        const projectsWithTasks: ProjectWithTasks[] = projectsData.map(project => {
+          const projectTasks = tasksData.filter(task => task.projectId === project.id);
+          
+          const assigneeIds = new Set<string>();
+          if (project.assigneeId) assigneeIds.add(project.assigneeId);
+          if (project.multiAssigneeIds) {
+            project.multiAssigneeIds.forEach(id => assigneeIds.add(id));
+          }
+          projectTasks.forEach(task => {
+            if (task.assigneeId) assigneeIds.add(task.assigneeId);
+          });
+
+          const assignedUsers = usersData.filter(user => assigneeIds.has(user.id));
+
+          return {
+            ...project,
+            tasks: projectTasks,
+            assignedUsers
+          };
+        });
+
+        setProjects(projectsWithTasks);
+      }
+    } catch (error) {
+      console.error('Failed to update project rank:', error);
+      setError('Failed to update project rank. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const toggleProjectExpansion = (projectId: string) => {
     const newExpanded = new Set(expandedProjects);
@@ -313,6 +530,7 @@ const ProductDevProjectPage: React.FC = () => {
               </h1>
               <p style={{ color: brandTheme.text.muted }}>
                 View and manage all projects in the Product Development flow chart
+                {isSaving && <span className="ml-2 text-sm italic">(Saving order...)</span>}
               </p>
             </div>
             <div className="flex items-center gap-4">
@@ -385,315 +603,40 @@ const ProductDevProjectPage: React.FC = () => {
             </Button>
           </Card>
         ) : (
-          <div className="space-y-4">
-            {filteredProjects.map((project) => {
-              const isExpanded = expandedProjects.has(project.id);
-              const completedTasks = project.tasks.filter(task => task.status === 'done').length;
-              const totalTasks = project.tasks.length;
-              const statusColors = getStatusColor(project.status);
-
-              return (
-                <Card key={project.id} className="overflow-hidden">
-                  {/* Project Header */}
-                  <div 
-                    className="p-6 cursor-pointer transition-colors"
-                    style={{ backgroundColor: brandTheme.primary.paleBlue }}
-                    onClick={() => toggleProjectExpansion(project.id)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <button 
-                          className="flex-shrink-0 p-1 rounded-full transition-colors"
-                          style={{ color: brandTheme.text.secondary }}
-                        >
-                          {isExpanded ? (
-                            <ChevronDown size={20} />
-                          ) : (
-                            <ChevronRight size={20} />
-                          )}
-                        </button>
-                        
-                        <div className="min-w-0 flex-1">
-                          <h3 className="text-lg font-semibold truncate" 
-                              style={{ color: brandTheme.text.primary }}>
-                            <button
-                              onClick={(e) => handleProjectClick(project.id, e)}
-                              className="text-left hover:underline focus:outline-none focus:underline transition-all"
-                              style={{ color: brandTheme.primary.navy }}
-                            >
-                              {project.name}
-                            </button>
-                          </h3>
-                          <div className="flex items-center space-x-3 mt-1">
-                            <span 
-                              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-                              style={{
-                                backgroundColor: statusColors.bg,
-                                color: statusColors.text
-                              }}
-                            >
-                              {getStatusText(project.status)}
-                            </span>
-                            <Badge variant="secondary">
-                              {project.category}
-                            </Badge>
-                            <Badge variant="default">
-                              {project.projectType}
-                            </Badge>
-                          </div>
-                          {!isExpanded && project.description && (
-                            <p className="text-sm mt-2 truncate" 
-                               style={{ color: brandTheme.text.muted }}>
-                              {project.description}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center space-x-6">
-                        {/* Task Progress */}
-                        <div className="text-center">
-                          <div className="flex items-center space-x-1">
-                            <CheckSquare size={16} style={{ color: brandTheme.text.muted }} />
-                            <span className="text-sm font-medium" style={{ color: brandTheme.text.secondary }}>
-                              {completedTasks}/{totalTasks}
-                            </span>
-                          </div>
-                          <div className="text-xs" style={{ color: brandTheme.text.muted }}>
-                            tasks
-                          </div>
-                        </div>
-
-                        {/* Team Members */}
-                        {project.assignedUsers.length > 0 && (
-                          <div className="flex items-center space-x-1">
-                            <Users size={16} style={{ color: brandTheme.text.muted }} />
-                            <div className="flex -space-x-2">
-                              {project.assignedUsers.slice(0, 3).map((user, index) => (
-                                <div key={user.id} style={{ zIndex: 10 - index }}>
-                                  <UserAvatar user={user} size="sm" />
-                                </div>
-                              ))}
-                              {project.assignedUsers.length > 3 && (
-                                <div 
-                                  className="flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium border-2 border-white"
-                                  style={{ 
-                                    backgroundColor: brandTheme.gray[200],
-                                    color: brandTheme.text.muted
-                                  }}
-                                >
-                                  +{project.assignedUsers.length - 3}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Dates */}
-                        <div className="text-right">
-                          <div className="flex items-center space-x-1">
-                            <Calendar size={16} style={{ color: brandTheme.text.muted }} />
-                            <span className="text-sm" style={{ color: brandTheme.text.secondary }}>
-                              {formatDate(project.deadline || project.endDate)}
-                            </span>
-                          </div>
-                          <div className="text-xs" style={{ color: brandTheme.text.muted }}>
-                            {project.deadline ? 'deadline' : 'end date'}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Expanded Content */}
-                  {isExpanded && (
-                    <div 
-                      className="border-t"
-                      style={{ 
-                        backgroundColor: brandTheme.background.secondary,
-                        borderColor: brandTheme.border.light 
-                      }}
-                    >
-                      {/* Project Details */}
-                      <div className="p-6 border-b" style={{ borderColor: brandTheme.border.light }}>
-                        {project.description && (
-                          <div className="mb-4">
-                            <h4 className="text-sm font-semibold mb-2" 
-                                style={{ color: brandTheme.text.fieldLabel }}>
-                              Description
-                            </h4>
-                            <p style={{ color: brandTheme.text.muted }}>
-                              {project.description}
-                            </p>
-                          </div>
-                        )}
-
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                          <div>
-                            <h4 className="text-sm font-semibold mb-1" 
-                                style={{ color: brandTheme.text.fieldLabel }}>
-                              Created
-                            </h4>
-                            <p className="text-sm" style={{ color: brandTheme.text.muted }}>
-                              {formatDate(project.createdAt)}
-                            </p>
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-semibold mb-1" 
-                                style={{ color: brandTheme.text.fieldLabel }}>
-                              Start Date
-                            </h4>
-                            <p className="text-sm" style={{ color: brandTheme.text.muted }}>
-                              {formatDate(project.startDate)}
-                            </p>
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-semibold mb-1" 
-                                style={{ color: brandTheme.text.fieldLabel }}>
-                              End Date
-                            </h4>
-                            <p className="text-sm" style={{ color: brandTheme.text.muted }}>
-                              {formatDate(project.endDate)}
-                            </p>
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-semibold mb-1" 
-                                style={{ color: brandTheme.text.fieldLabel }}>
-                              Progress
-                            </h4>
-                            <div className="flex items-center space-x-2">
-                              <div 
-                                className="flex-1 h-2 rounded-full"
-                                style={{ backgroundColor: brandTheme.gray[200] }}
-                              >
-                                <div
-                                  className="h-2 rounded-full transition-all duration-300"
-                                  style={{
-                                    width: `${project.progress || 0}%`,
-                                    backgroundColor: project.progress === 100 
-                                      ? brandTheme.status.success 
-                                      : brandTheme.primary.navy
-                                  }}
-                                />
-                              </div>
-                              <span className="text-sm font-medium" 
-                                    style={{ color: brandTheme.text.secondary }}>
-                                {project.progress || 0}%
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Tasks List */}
-                      <div className="p-6">
-                        <div className="flex items-center justify-between mb-4">
-                          <h4 className="text-lg font-semibold" 
-                              style={{ color: brandTheme.text.fieldLabel }}>
-                            Tasks ({project.tasks.length})
-                          </h4>
-                        </div>
-
-                        {project.tasks.length === 0 ? (
-                          <div className="text-center py-8">
-                            <CheckSquare size={48} style={{ color: brandTheme.gray[400] }} className="mx-auto mb-4" />
-                            <p style={{ color: brandTheme.text.muted }}>
-                              No tasks created for this project yet.
-                            </p>
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                            {project.tasks.map((task) => {
-                              const taskStatusColors = getStatusColor(task.status);
-                              const priorityColors = getPriorityColor(task.priority);
-                              const taskAssignee = task.assigneeId 
-                                ? users.find(user => user.id === task.assigneeId) 
-                                : null;
-
-                              return (
-                                <div 
-                                  key={task.id}
-                                  className="p-4 rounded-lg border transition-colors hover:shadow-sm"
-                                  style={{ 
-                                    backgroundColor: brandTheme.background.primary,
-                                    borderColor: brandTheme.border.light 
-                                  }}
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex-1 min-w-0">
-                                      <h5 className="font-medium truncate" 
-                                          style={{ color: brandTheme.text.primary }}>
-                                        <button
-                                          onClick={(e) => handleTaskClick(task.id, e)}
-                                          className="text-left hover:underline focus:outline-none focus:underline transition-all"
-                                          style={{ color: brandTheme.primary.navy }}
-                                        >
-                                          {task.name}
-                                        </button>
-                                      </h5>
-                                      {task.description && (
-                                        <p className="text-sm mt-1 line-clamp-2" 
-                                           style={{ color: brandTheme.text.muted }}>
-                                          {task.description}
-                                        </p>
-                                      )}
-                                      <div className="flex items-center space-x-2 mt-2">
-                                        <span 
-                                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-                                          style={{
-                                            backgroundColor: taskStatusColors.bg,
-                                            color: taskStatusColors.text
-                                          }}
-                                        >
-                                          {getStatusText(task.status)}
-                                        </span>
-                                        <Badge variant="default" className="text-xs">
-                                          {task.taskType}
-                                        </Badge>
-                                        {task.priority && (
-                                          <span 
-                                            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-                                            style={{
-                                              backgroundColor: priorityColors.bg,
-                                              color: priorityColors.text
-                                            }}
-                                          >
-                                            {task.priority}
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
-
-                                    <div className="flex items-center space-x-3 ml-4">
-                                      {task.deadline && (
-                                        <div className="text-right">
-                                          <div className="text-xs" style={{ color: brandTheme.text.muted }}>
-                                            Deadline
-                                          </div>
-                                          <div className="text-sm font-medium" 
-                                               style={{ color: brandTheme.status.warning }}>
-                                            {formatDate(task.deadline)}
-                                          </div>
-                                        </div>
-                                      )}
-                                      
-                                      {taskAssignee && (
-                                        <UserAvatar user={taskAssignee} size="sm" />
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </Card>
-              );
-            })}
-          </div>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={(event) => {
+              console.log('🚀 Drag started!', event.active.id);
+            }}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={filteredProjects.map(p => p.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-4">
+                {filteredProjects.map((project, index) => (
+                  <SortableProjectCard
+                    key={project.id}
+                    project={project}
+                    isExpanded={expandedProjects.has(project.id)}
+                    onToggleExpand={() => toggleProjectExpansion(project.id)}
+                    onProjectClick={handleProjectClick}
+                    onTaskClick={handleTaskClick}
+                    getStatusColor={getStatusColor}
+                    getStatusText={getStatusText}
+                    getPriorityColor={getPriorityColor}
+                    formatDate={formatDate}
+                    users={users}
+                    pageName={PAGE_NAME}
+                    displayRank={index + 1}
+                    onRankChange={handleRankChange}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         )}
       </div>
       

@@ -30,6 +30,7 @@ const BudgetAndHours = lazy(() => import('./pages/Projects Redo/Projects/Budget 
 const ProductDevKPIs = lazy(() => import('./pages/Projects Redo/Projects/Product Dev KPIs/ProductDevKPIs'));
 const ProductDevProjects = lazy(() => import('./pages/Projects Redo/Projects/Product Dev Project List/ProductDevProjectPage'));
 const KanbanMainPage = lazy(() => import('./pages/Projects Redo/Projects/Project Kanban Sprints/KanbanMainPage'));
+const StoryPointsPage = lazy(() => import('./pages/Projects Redo/Projects/Project Kanban Sprints/Sprint Review/Story Points/storypointspage'));
 const SubmitRequestPage = lazy(() => import('./pages/Requests/Submit Request Form/SubmitRequestPage'));
 const InternalRequestPage = lazy(() => import('./pages/Requests/InternalRequestPage'));
 const ManagementDashboard = lazy(() => import('./pages/Projects Redo/Projects/Management Dashboard/ManagementDashboard'));
@@ -158,6 +159,11 @@ function App() {
                 <Route path="sprint-plan" element={
                   <ErrorBoundaryWrapper pageName="2 Week Sprint Plan">
                     <KanbanMainPage />
+                  </ErrorBoundaryWrapper>
+                } />
+                <Route path="story-points" element={
+                  <ErrorBoundaryWrapper pageName="Story Points">
+                    <StoryPointsPage />
                   </ErrorBoundaryWrapper>
                 } />
                 <Route path="settings" element={

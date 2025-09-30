@@ -23,6 +23,7 @@ interface SprintGroup {
   name: string;
   description?: string;
   created_at: string;
+  ranking?: Record<string, number>;
   project: {
     id: string;
     name: string;
@@ -269,6 +270,11 @@ const SprintGroupRow: React.FC<SprintGroupRowProps> = ({
     });
   };
 
+  // Get the rank for this sprint type
+  const rankingKey = `Sprint: ${sprintGroup.sprint_type}`;
+  const currentRank = sprintGroup.ranking?.[rankingKey];
+  const hasRank = currentRank !== undefined;
+
   return (
     <div 
       className="rounded-lg border hover:shadow-lg transition-all duration-200"
@@ -283,6 +289,18 @@ const SprintGroupRow: React.FC<SprintGroupRowProps> = ({
         <div className="flex items-center justify-between">
           {/* Left Side - Project Info */}
           <div className="flex items-center space-x-4 flex-1 min-w-0">
+            {/* Rank Badge */}
+            <div
+              className="flex-shrink-0 flex items-center justify-center font-bold text-xs rounded px-2 py-1 min-w-[40px]"
+              style={{
+                backgroundColor: hasRank ? brandTheme.primary.navy : brandTheme.gray[300],
+                color: hasRank ? '#FFFFFF' : brandTheme.text.muted,
+              }}
+              title={hasRank ? `Rank ${currentRank}` : 'Unranked'}
+            >
+              {hasRank ? `#${currentRank}` : '-'}
+            </div>
+
             <button
               onClick={() => setIsExpanded(!isExpanded)}
               className="flex-shrink-0 p-2 rounded-lg transition-all duration-200"

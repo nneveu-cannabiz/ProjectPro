@@ -16,10 +16,11 @@ interface SprintTaskReviewProps {
   projectId: string;
   onTaskSelectionChange?: (selectedTaskIds: string[]) => void;
   onCreateSprintGroup?: () => void;
+  onAddToSprintGroup?: () => void;
   fromSprintGroup?: boolean; // Optional: indicates opened from sprint group
 }
 
-const SprintTaskReview: React.FC<SprintTaskReviewProps> = ({ projectId, onTaskSelectionChange, onCreateSprintGroup, fromSprintGroup = false }) => {
+const SprintTaskReview: React.FC<SprintTaskReviewProps> = ({ projectId, onTaskSelectionChange, onCreateSprintGroup, onAddToSprintGroup, fromSprintGroup = false }) => {
   const { tasks, isLoading, loadTasks } = useTaskData(projectId);
   const [localTasks, setLocalTasks] = useState<Task[]>([]);
   const [hoursModalOpen, setHoursModalOpen] = useState(false);
@@ -154,24 +155,18 @@ const SprintTaskReview: React.FC<SprintTaskReviewProps> = ({ projectId, onTaskSe
           isSelectionMode={isSelectionMode}
           selectedTaskCount={localTasks.filter(task => task.isSelected).length}
           onCreateSprintGroup={onCreateSprintGroup}
+          onAddToSprintGroup={onAddToSprintGroup}
         />
       )}
 
       <div className="mb-6">
         <SectionHeader 
-          title="Task Review" 
+          title="Task Review (not in epic)" 
           showSelectRows={true}
           onSelectRowsToggle={handleSelectRowsToggle}
           isSelectionMode={isSelectionMode}
         />
       </div>
-
-      {/* Always show InSprintGroup section if there are tasks in sprint groups */}
-      <InSprintGroup 
-        projectId={projectId} 
-        refreshTrigger={refreshTrigger}
-        defaultExpanded={fromSprintGroup}
-      />
 
       {localTasks.length > 0 ? (
         <div className="space-y-6">
@@ -187,6 +182,13 @@ const SprintTaskReview: React.FC<SprintTaskReviewProps> = ({ projectId, onTaskSe
             onEditValueChange={handleEditValueChange}
             onTaskSelectionChange={handleTaskSelectionChange}
             onHoursPlannedClick={handleHoursPlannedClick}
+          />
+
+          {/* Always show InSprintGroup section if there are tasks in sprint groups */}
+          <InSprintGroup 
+            projectId={projectId} 
+            refreshTrigger={refreshTrigger}
+            defaultExpanded={fromSprintGroup}
           />
 
           {/* Completed Tasks Section */}
