@@ -12,7 +12,7 @@ import { Task } from './types';
 interface InSprintGroupProps {
   projectId: string;
   refreshTrigger?: number;
-  sprintGroupId?: string; // Optional: filter to specific sprint group
+  sprintGroupId?: string; // Optional: filter to specific epic
   defaultExpanded?: boolean; // Optional: start expanded
 }
 
@@ -46,14 +46,14 @@ const InSprintGroup: React.FC<InSprintGroupProps> = ({ projectId, refreshTrigger
   const loadSprintTasks = async () => {
     setIsLoading(true);
     try {
-      // Get sprint groups for this project (all or specific one)
+      // Get epics for this project (all or specific one)
       let sprintQuery = (supabase as any)
         .from('PMA_Sprints')
         .select('id, name, sprint_type, selected_task_ids')
         .eq('project_id', projectId)
         .eq('status', 'active');
       
-      // If sprintGroupId is provided, filter to that specific group
+      // If sprintGroupId is provided, filter to that specific epic
       if (sprintGroupId) {
         sprintQuery = sprintQuery.eq('id', sprintGroupId);
       }
@@ -61,7 +61,7 @@ const InSprintGroup: React.FC<InSprintGroupProps> = ({ projectId, refreshTrigger
       const { data: sprintGroups, error: sprintError } = await sprintQuery;
 
       if (sprintError) {
-        console.error('Error fetching sprint groups:', sprintError);
+        console.error('Error fetching epics:', sprintError);
         return;
       }
 
@@ -70,7 +70,7 @@ const InSprintGroup: React.FC<InSprintGroupProps> = ({ projectId, refreshTrigger
         return;
       }
 
-      // Collect all task IDs from all sprint groups
+      // Collect all task IDs from all epics
       const allSprintTaskIds = new Set<string>();
       const taskToSprintMap = new Map<string, { sprintType: string, sprintGroupId: string, sprintGroupName: string }>();
 
@@ -157,7 +157,7 @@ const InSprintGroup: React.FC<InSprintGroupProps> = ({ projectId, refreshTrigger
             hoursPlanned: totalHoursPlanned,
             sprintType: sprintInfo?.sprintType || 'Unknown',
             sprintGroupId: sprintInfo?.sprintGroupId || '',
-            sprintGroupName: sprintInfo?.sprintGroupName || 'Unknown Sprint',
+            sprintGroupName: sprintInfo?.sprintGroupName || 'Unknown Epic',
             description: task.description || undefined
           } as SprintGroupTask;
         })
@@ -274,7 +274,7 @@ const InSprintGroup: React.FC<InSprintGroupProps> = ({ projectId, refreshTrigger
             <ChevronRight className="w-4 h-4" />
           )}
           <h3 className="text-lg font-bold">
-            {sprintGroupId ? 'Sprint Group Tasks' : 'Already in Sprint Groups'}
+            {sprintGroupId ? 'Epic Tasks' : 'Already in Epics'}
           </h3>
         </div>
         <div className="text-sm opacity-90">

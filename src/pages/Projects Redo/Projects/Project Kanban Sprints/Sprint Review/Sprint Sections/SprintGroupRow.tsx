@@ -6,11 +6,9 @@ import {
   Clock, 
   Target, 
   Users, 
-  AlertCircle, 
   ChevronRight,
   User,
-  ExternalLink,
-  Settings
+  ExternalLink
 } from 'lucide-react';
 import UserAvatar from '../../../../../../components/UserAvatar';
 import HoursPlannedModal from '../HoursPlannedModal';
@@ -289,8 +287,7 @@ const SprintGroupRow: React.FC<SprintGroupRowProps> = ({
               onClick={() => setIsExpanded(!isExpanded)}
               className="flex-shrink-0 p-2 rounded-lg transition-all duration-200"
               style={{
-                backgroundColor: 'transparent',
-                ':hover': { backgroundColor: brandTheme.background.secondary }
+                backgroundColor: 'transparent'
               }}
               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = brandTheme.background.secondary}
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}

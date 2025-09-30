@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../../context/AuthContext';
 import { isUserAdmin } from '../../../../data/supabase-store';
-import { DollarSign, Clock, Shield, AlertCircle } from 'lucide-react';
+import { DollarSign, Clock, Shield, AlertCircle, Monitor } from 'lucide-react';
 import HoursOverview from './HoursOverview';
+import Software from './Spending/Software';
+import ThisMonthSpending from './ThisMonthSpending';
 import Button from '../../../../components/ui/Button';
 
 const BudgetAndHoursPage: React.FC = () => {
@@ -12,6 +14,7 @@ const BudgetAndHoursPage: React.FC = () => {
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [accessDenied, setAccessDenied] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'hours' | 'software'>('hours');
 
   useEffect(() => {
     const checkAdminAccess = async () => {
@@ -109,11 +112,35 @@ const BudgetAndHoursPage: React.FC = () => {
         </div>
       </div>
 
+      {/* This Month Summary - Always Visible */}
+      <div className="mb-6">
+        <ThisMonthSpending />
+      </div>
+
       {/* Navigation Tabs */}
       <div className="mb-6">
         <nav className="flex space-x-8">
-          <button className="border-b-2 border-blue-500 pb-2 text-sm font-medium text-blue-600">
+          <button 
+            className={`border-b-2 pb-2 text-sm font-medium transition-colors ${
+              activeTab === 'hours' 
+                ? 'border-blue-500 text-blue-600' 
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+            onClick={() => setActiveTab('hours')}
+          >
+            <Clock className="w-4 h-4 inline mr-2" />
             Hours Overview
+          </button>
+          <button 
+            className={`border-b-2 pb-2 text-sm font-medium transition-colors ${
+              activeTab === 'software' 
+                ? 'border-blue-500 text-blue-600' 
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+            onClick={() => setActiveTab('software')}
+          >
+            <Monitor className="w-4 h-4 inline mr-2" />
+            Software
           </button>
           <button className="border-b-2 border-transparent pb-2 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
             Budget Analysis
@@ -132,12 +159,23 @@ const BudgetAndHoursPage: React.FC = () => {
 
       {/* Main Content */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="flex items-center gap-2 mb-6">
-          <Clock className="w-6 h-6 text-blue-600" />
-          <h2 className="text-xl font-semibold text-gray-900">Hours Overview</h2>
-        </div>
-        
-        <HoursOverview />
+        {activeTab === 'hours' ? (
+          <>
+            <div className="flex items-center gap-2 mb-6">
+              <Clock className="w-6 h-6 text-blue-600" />
+              <h2 className="text-xl font-semibold text-gray-900">Hours Overview</h2>
+            </div>
+            <HoursOverview />
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-2 mb-6">
+              <Monitor className="w-6 h-6 text-blue-600" />
+              <h2 className="text-xl font-semibold text-gray-900">Software Spending</h2>
+            </div>
+            <Software />
+          </>
+        )}
       </div>
 
       {/* Future Sections Placeholder */}

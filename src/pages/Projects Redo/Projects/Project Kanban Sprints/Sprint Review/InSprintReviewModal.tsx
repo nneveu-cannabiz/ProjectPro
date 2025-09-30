@@ -239,7 +239,7 @@ const InSprintReviewModal: React.FC<InSprintReviewModalProps> = ({
         >
           <div>
             <h2 className="text-xl font-bold text-white">
-              Sprint Group Review
+              Epic Review
             </h2>
             <p className="text-sm text-white opacity-90 mt-1">
               {sprintGroup.name} • {sprintGroup.sprint_type}
@@ -654,7 +654,7 @@ const InSprintReviewModal: React.FC<InSprintReviewModalProps> = ({
                 className="text-center py-12"
                 style={{ color: brandTheme.text.muted }}
               >
-                <h3 className="text-lg font-semibold mb-2">Sprint Group Summary</h3>
+                <h3 className="text-lg font-semibold mb-2">Epic Summary</h3>
                 <p>Summary view coming soon...</p>
               </div>
             </div>
@@ -666,7 +666,7 @@ const InSprintReviewModal: React.FC<InSprintReviewModalProps> = ({
                 className="text-center py-12"
                 style={{ color: brandTheme.text.muted }}
               >
-                <h3 className="text-lg font-semibold mb-2">Sprint Group Reports</h3>
+                <h3 className="text-lg font-semibold mb-2">Epic Reports</h3>
                 <p>Reports view coming soon...</p>
               </div>
             </div>

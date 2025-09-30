@@ -32,6 +32,7 @@ const ProductDevProjects = lazy(() => import('./pages/Projects Redo/Projects/Pro
 const KanbanMainPage = lazy(() => import('./pages/Projects Redo/Projects/Project Kanban Sprints/KanbanMainPage'));
 const SubmitRequestPage = lazy(() => import('./pages/Requests/Submit Request Form/SubmitRequestPage'));
 const InternalRequestPage = lazy(() => import('./pages/Requests/InternalRequestPage'));
+const ManagementDashboard = lazy(() => import('./pages/Projects Redo/Projects/Management Dashboard/ManagementDashboard'));
 
 // Loading fallback for lazy-loaded components
 const PageLoader = () => (
@@ -137,6 +138,11 @@ function App() {
                 <Route path="product-dev-dashboard" element={
                   <ErrorBoundaryWrapper pageName="Product Dev Dashboard">
                     <ProjectsFlowChart />
+                  </ErrorBoundaryWrapper>
+                } />
+                <Route path="management-dashboard" element={
+                  <ErrorBoundaryWrapper pageName="Management Dashboard">
+                    <ManagementDashboard />
                   </ErrorBoundaryWrapper>
                 } />
                 <Route path="product-dev-kpis" element={

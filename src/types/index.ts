@@ -106,4 +106,28 @@ export interface Hour {
   date: string;
   createdAt: string;
   updatedAt: string;
+  is_planning_hours?: boolean;
+}
+
+export interface PMASpending {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  name: string;
+  description?: string;
+  category: 'software' | 'hardware' | 'services' | 'other';
+  purchase_type: 'one_time' | 'recurring';
+  amount: number;
+  currency: string;
+  billing_frequency?: 'monthly' | 'quarterly' | 'yearly' | 'weekly';
+  next_billing_date?: string;
+  vendor?: string;
+  vendor_contact?: string;
+  project_id?: string;
+  added_by?: string;
+  status: 'active' | 'cancelled' | 'expired' | 'pending';
+  notes?: string;
+  attachment_url?: string;
+  tags?: string[];
+  is_essential: boolean;
 }

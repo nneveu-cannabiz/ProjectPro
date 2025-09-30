@@ -226,6 +226,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
         />
         
         <SidebarItem
+          to="/management-dashboard"
+          icon={<Users size={20} />}
+          label="Team Task View"
+          isActive={location.pathname === '/management-dashboard'}
+          isCollapsed={isCollapsed}
+        />
+        
+        <SidebarItem
           to="/sprint-plan"
           icon={<CheckSquare size={20} />}
           label="2 Week Sprint Plan"

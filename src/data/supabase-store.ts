@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../lib/supabase';
-import { Project, Task, SubTask, Category, TaskType, User, Update, Hour } from '../types';
+import { Project, Task, SubTask, Category, TaskType, User, Update, Hour, PMASpending } from '../types';
 
 // Test function to diagnose connection issues
 export const diagnoseSupabaseConnection = async () => {
@@ -1378,6 +1378,92 @@ export const isUserAdmin = async (userId: string): Promise<boolean> => {
   return role === 'Admin';
 };
 
+// User management functions
+export const fetchAllUsers = async (): Promise<User[]> => {
+  return safeSupabaseCall(
+    async () => {
+      const { data, error } = await supabase
+        .from('PMA_Users')
+        .select('*')
+        .order('first_name', { ascending: true });
+      
+      if (error) {
+        console.error('Error fetching all users:', error);
+        throw error;
+      }
+      
+      return data.map(user => ({
+        id: user.id,
+        email: user.email,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        profileColor: user.profile_color,
+        department: user.department,
+        flowChart: user.flow_chart
+      }));
+    },
+    'Failed to fetch users'
+  );
+};
+
+// Task management functions
+export const fetchAllTasks = async (): Promise<(Task & { project: Project })[]> => {
+  return safeSupabaseCall(
+    async () => {
+      const { data, error } = await supabase
+        .from('PMA_Tasks')
+        .select(`
+          *,
+          PMA_Projects!inner(*)
+        `)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching all tasks:', error);
+        throw error;
+      }
+      
+      return data.map(task => ({
+        id: task.id,
+        projectId: task.project_id,
+        name: task.name,
+        description: task.description,
+        taskType: task.task_type,
+        status: task.status,
+        assigneeId: task.assignee_id,
+        flowChart: task.flow_chart,
+        priority: task.priority,
+        createdAt: task.created_at,
+        updatedAt: task.updated_at,
+        startDate: task.start_date,
+        endDate: task.end_date,
+        deadline: task.deadline,
+        tags: task.tags,
+        progress: task.progress,
+        project: {
+          id: task.PMA_Projects.id,
+          name: task.PMA_Projects.name,
+          description: task.PMA_Projects.description,
+          category: task.PMA_Projects.category,
+          status: task.PMA_Projects.status,
+          projectType: task.PMA_Projects.project_type,
+          assigneeId: task.PMA_Projects.assignee_id,
+          flowChart: task.PMA_Projects.flow_chart,
+          createdAt: task.PMA_Projects.created_at,
+          updatedAt: task.PMA_Projects.updated_at,
+          startDate: task.PMA_Projects.start_date,
+          endDate: task.PMA_Projects.end_date,
+          deadline: task.PMA_Projects.deadline,
+          tags: task.PMA_Projects.tags,
+          progress: task.PMA_Projects.progress,
+          documents: task.PMA_Projects.documents
+        }
+      }));
+    },
+    'Failed to fetch tasks'
+  );
+};
+
 // Admin-only functions for Budget & Hours page
 export const fetchAllUsersHours = async (): Promise<(Hour & { user: User; task: Task; project: Project })[]> => {
   return safeSupabaseCall(
@@ -1499,4 +1585,170 @@ export const deleteHourEntry = async (hourId: string): Promise<void> => {
     'Failed to delete hour entry',
     undefined
   );
+};
+
+// PMA Spending operations
+export const fetchPMASpending = async (): Promise<PMASpending[]> => {
+  return safeSupabaseCall(
+    async () => {
+      const { data, error } = await supabase
+        .from('pma_spending')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching PMA spending:', error);
+        throw error;
+      }
+      
+      return data.map(s => ({
+        id: s.id,
+        created_at: s.created_at,
+        updated_at: s.updated_at,
+        name: s.name,
+        description: s.description,
+        category: s.category,
+        purchase_type: s.purchase_type,
+        amount: s.amount,
+        currency: s.currency,
+        billing_frequency: s.billing_frequency,
+        next_billing_date: s.next_billing_date,
+        vendor: s.vendor,
+        vendor_contact: s.vendor_contact,
+        project_id: s.project_id,
+        added_by: s.added_by,
+        status: s.status,
+        notes: s.notes,
+        attachment_url: s.attachment_url,
+        tags: s.tags,
+        is_essential: s.is_essential
+      }));
+    },
+    'Failed to fetch PMA spending',
+    []
+  );
+};
+
+export const fetchPMASpendingByCategory = async (category: string): Promise<PMASpending[]> => {
+  return safeSupabaseCall(
+    async () => {
+      const { data, error } = await supabase
+        .from('pma_spending')
+        .select('*')
+        .eq('category', category)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching PMA spending by category:', error);
+        throw error;
+      }
+      
+      return data.map(s => ({
+        id: s.id,
+        created_at: s.created_at,
+        updated_at: s.updated_at,
+        name: s.name,
+        description: s.description,
+        category: s.category,
+        purchase_type: s.purchase_type,
+        amount: s.amount,
+        currency: s.currency,
+        billing_frequency: s.billing_frequency,
+        next_billing_date: s.next_billing_date,
+        vendor: s.vendor,
+        vendor_contact: s.vendor_contact,
+        project_id: s.project_id,
+        added_by: s.added_by,
+        status: s.status,
+        notes: s.notes,
+        attachment_url: s.attachment_url,
+        tags: s.tags,
+        is_essential: s.is_essential
+      }));
+    },
+    'Failed to fetch PMA spending by category',
+    []
+  );
+};
+
+export const addPMASpending = async (spending: Omit<PMASpending, 'id' | 'created_at' | 'updated_at'>): Promise<string> => {
+  const timestamp = new Date().toISOString();
+  const id = uuidv4();
+  
+  const { error } = await supabase
+    .from('pma_spending')
+    .insert({
+      id,
+      name: spending.name,
+      description: spending.description,
+      category: spending.category,
+      purchase_type: spending.purchase_type,
+      amount: spending.amount,
+      currency: spending.currency,
+      billing_frequency: spending.billing_frequency,
+      next_billing_date: spending.next_billing_date,
+      vendor: spending.vendor,
+      vendor_contact: spending.vendor_contact,
+      project_id: spending.project_id,
+      added_by: spending.added_by,
+      status: spending.status,
+      notes: spending.notes,
+      attachment_url: spending.attachment_url,
+      tags: spending.tags,
+      is_essential: spending.is_essential,
+      created_at: timestamp,
+      updated_at: timestamp
+    });
+  
+  if (error) {
+    console.error('Error adding PMA spending:', error);
+    throw error;
+  }
+  
+  return id;
+};
+
+export const updatePMASpending = async (spending: PMASpending): Promise<void> => {
+  const timestamp = new Date().toISOString();
+  
+  const { error } = await supabase
+    .from('pma_spending')
+    .update({
+      name: spending.name,
+      description: spending.description,
+      category: spending.category,
+      purchase_type: spending.purchase_type,
+      amount: spending.amount,
+      currency: spending.currency,
+      billing_frequency: spending.billing_frequency,
+      next_billing_date: spending.next_billing_date,
+      vendor: spending.vendor,
+      vendor_contact: spending.vendor_contact,
+      project_id: spending.project_id,
+      added_by: spending.added_by,
+      status: spending.status,
+      notes: spending.notes,
+      attachment_url: spending.attachment_url,
+      tags: spending.tags,
+      is_essential: spending.is_essential,
+      updated_at: timestamp
+    })
+    .eq('id', spending.id);
+  
+  if (error) {
+    console.error('Error updating PMA spending:', error);
+    throw error;
+  }
+};
+
+export const deletePMASpending = async (id: string): Promise<void> => {
+  const { error } = await supabase
+    .from('pma_spending')
+    .delete()
+    .eq('id', id);
+  
+  if (error) {
+    console.error('Error deleting PMA spending:', error);
+    throw error;
+  }
 };
