@@ -226,14 +226,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
           isCollapsed={isCollapsed}
         />
         
-        <SidebarItem
-          to="/management-dashboard"
-          icon={<Users size={20} />}
-          label="Team Task View"
-          isActive={location.pathname === '/management-dashboard'}
-          isCollapsed={isCollapsed}
-        />
-        
         {/* 2 Week Sprint Plan with Submenu */}
         <div>
           <div className="relative">
@@ -251,7 +243,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
                   e.stopPropagation();
                   setIsSprintPlanExpanded(!isSprintPlanExpanded);
                 }}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 hover:bg-white hover:bg-opacity-30 rounded transition-colors"
+                className="absolute right-1 top-1/2 transform -translate-y-1/2 p-1 hover:bg-white hover:bg-opacity-30 rounded transition-colors"
                 style={{ color: brandTheme.primary.navy }}
               >
                 <ChevronDown
@@ -302,7 +294,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
                   }
                 }}
               >
-                <span>Sprints Task List</span>
+                <span>Current Sprint Tasks</span>
               </Link>
               <Link
                 to="/sprint-history"

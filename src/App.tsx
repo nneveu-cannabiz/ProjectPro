@@ -82,7 +82,7 @@ function App() {
                   <MainLayout />
                 </ProtectedRoute>
               }>
-                <Route index element={<Navigate to="/projects" replace />} />
+                <Route index element={<Navigate to="/sprints-task-list" replace />} />
                 <Route path="dashboard" element={
                   <ErrorBoundaryWrapper pageName="Dashboard">
                     <Dashboard />
@@ -216,7 +216,7 @@ function App() {
               </Route>
               
               {/* Fallback route */}
-              <Route path="*" element={<Navigate to="/projects" replace />} />
+              <Route path="*" element={<Navigate to="/sprints-task-list" replace />} />
             </Routes>
           </Router>
         </AppProvider>

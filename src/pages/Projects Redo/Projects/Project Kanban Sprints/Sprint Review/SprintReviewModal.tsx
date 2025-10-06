@@ -144,10 +144,10 @@ const SprintReviewModal: React.FC<SprintReviewModalProps> = ({
 
     setIsCreatingSprint(true);
     try {
-      // Get the existing sprint to merge task IDs
+      // Get the existing sprint to merge task IDs and fetch its dates and sprint_id
       const { data: existingSprint, error: fetchError } = await (supabase as any)
         .from('PMA_Sprints')
-        .select('selected_task_ids, name')
+        .select('selected_task_ids, name, start_date, end_date, sprint_id')
         .eq('id', sprintId)
         .single();
 
@@ -161,12 +161,25 @@ const SprintReviewModal: React.FC<SprintReviewModalProps> = ({
       const existingTaskIds = existingSprint.selected_task_ids || [];
       const mergedTaskIds = [...new Set([...existingTaskIds, ...selectedTaskIds])];
 
-      // Update the sprint with merged task IDs
+      // Update the sprint with merged task IDs, maintaining dates and sprint_id
+      const updateData: any = {
+        selected_task_ids: mergedTaskIds
+      };
+
+      // Ensure start_date, end_date, and sprint_id are maintained
+      if (existingSprint.start_date) {
+        updateData.start_date = existingSprint.start_date;
+      }
+      if (existingSprint.end_date) {
+        updateData.end_date = existingSprint.end_date;
+      }
+      if (existingSprint.sprint_id) {
+        updateData.sprint_id = existingSprint.sprint_id;
+      }
+
       const { error: updateError } = await (supabase as any)
         .from('PMA_Sprints')
-        .update({
-          selected_task_ids: mergedTaskIds
-        })
+        .update(updateData)
         .eq('id', sprintId);
 
       if (updateError) {

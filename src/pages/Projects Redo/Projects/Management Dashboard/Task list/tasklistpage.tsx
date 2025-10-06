@@ -31,19 +31,20 @@ const SprintsTaskListPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [filterPriority, setFilterPriority] = useState<string>('all');
+  const [filterAssignee, setFilterAssignee] = useState<string | null>(null);
   const [activeSprintGroups, setActiveSprintGroups] = useState<SprintGroupInfo[]>([]);
   
   // Column widths state
   const [todoColumnWidths, setTodoColumnWidths] = useState({
     taskName: 300,
-    assignee: 140,
-    priority: 120,
+    assignee: 60,
+    priority: 90,
     sprint: 200,
   });
   const [inProgressColumnWidths, setInProgressColumnWidths] = useState({
     taskName: 300,
-    assignee: 140,
-    priority: 120,
+    assignee: 60,
+    priority: 90,
     sprint: 200,
   });
 
@@ -97,6 +98,20 @@ const SprintsTaskListPage: React.FC = () => {
 
     // Convert to array and sort by total tasks (descending)
     return Array.from(breakdownMap.values()).sort((a, b) => b.total - a.total);
+  }, [tasks]);
+
+  const uniqueAssignees = useMemo(() => {
+    const assigneesMap = new Map<string, User>();
+    
+    tasks.forEach((task) => {
+      if (task.assignee && !assigneesMap.has(task.assignee.id)) {
+        assigneesMap.set(task.assignee.id, task.assignee);
+      }
+    });
+    
+    return Array.from(assigneesMap.values()).sort((a, b) => 
+      `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`)
+    );
   }, [tasks]);
 
   useEffect(() => {
@@ -379,8 +394,13 @@ const SprintsTaskListPage: React.FC = () => {
       filtered = filtered.filter((task) => task.priority === filterPriority);
     }
 
+    // Filter by assignee
+    if (filterAssignee) {
+      filtered = filtered.filter((task) => task.assignee?.id === filterAssignee);
+    }
+
     return filtered;
-  }, [tasks, searchQuery, filterPriority]);
+  }, [tasks, searchQuery, filterPriority, filterAssignee]);
 
   const getPriorityColor = (priority?: string): { bg: string; text: string } => {
     switch (priority) {
@@ -429,7 +449,7 @@ const SprintsTaskListPage: React.FC = () => {
         >
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-white mb-2">Sprints Task List</h1>
+              <h1 className="text-3xl font-bold text-white mb-2">Current Sprint Tasks</h1>
               <p className="text-white opacity-90">
                 View all tasks across active sprint groups
               </p>
@@ -481,6 +501,51 @@ const SprintsTaskListPage: React.FC = () => {
             <option value="Low">Low</option>
           </select>
         </div>
+
+        {/* Assignee Filter */}
+        {uniqueAssignees.length > 0 && (
+          <div
+            className="mb-4 p-2 rounded-lg"
+            style={{ backgroundColor: brandTheme.background.secondary }}
+          >
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-medium" style={{ color: brandTheme.text.secondary }}>
+                Filter:
+              </span>
+              
+              {/* All button */}
+              <button
+                onClick={() => setFilterAssignee(null)}
+                className="px-2 py-1 rounded text-xs font-medium transition-all"
+                style={{
+                  backgroundColor: filterAssignee === null ? brandTheme.primary.navy : brandTheme.background.primary,
+                  color: filterAssignee === null ? '#FFFFFF' : brandTheme.text.primary,
+                  borderColor: filterAssignee === null ? brandTheme.primary.lightBlue : brandTheme.border.medium,
+                  border: filterAssignee === null ? `2px solid ${brandTheme.primary.lightBlue}` : '1px solid',
+                }}
+              >
+                All
+              </button>
+
+              {/* Assignee avatars */}
+              {uniqueAssignees.map((user) => (
+                <button
+                  key={user.id}
+                  onClick={() => setFilterAssignee(user.id)}
+                  className="transition-all rounded-full"
+                  style={{
+                    opacity: filterAssignee === user.id ? 1 : 0.7,
+                    outline: filterAssignee === user.id ? `2px solid ${brandTheme.primary.lightBlue}` : 'none',
+                    outlineOffset: '1px',
+                  }}
+                  title={`${user.firstName} ${user.lastName}`}
+                >
+                  <UserAvatar user={user} size="sm" />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Two Column Layout - To Do and In Progress */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -660,15 +725,12 @@ const SprintsTaskListPage: React.FC = () => {
                               }}
                             >
                               {task.assignee ? (
-                                <div className="flex items-center gap-1">
-                                  <UserAvatar user={task.assignee} size="xs" />
-                                  <span style={{ color: brandTheme.text.primary, fontSize: '0.65rem' }}>
-                                    {task.assignee.firstName} {task.assignee.lastName}
-                                  </span>
+                                <div className="flex items-center justify-center">
+                                  <UserAvatar user={task.assignee} size="sm" />
                                 </div>
                               ) : (
                                 <span style={{ color: brandTheme.text.muted, fontSize: '0.65rem' }}>
-                                  Unassigned
+                                  -
                                 </span>
                               )}
                               <div
@@ -935,15 +997,12 @@ const SprintsTaskListPage: React.FC = () => {
                               }}
                             >
                               {task.assignee ? (
-                                <div className="flex items-center gap-1">
-                                  <UserAvatar user={task.assignee} size="xs" />
-                                  <span style={{ color: brandTheme.text.primary, fontSize: '0.65rem' }}>
-                                    {task.assignee.firstName} {task.assignee.lastName}
-                                  </span>
+                                <div className="flex items-center justify-center">
+                                  <UserAvatar user={task.assignee} size="sm" />
                                 </div>
                               ) : (
                                 <span style={{ color: brandTheme.text.muted, fontSize: '0.65rem' }}>
-                                  Unassigned
+                                  -
                                 </span>
                               )}
                               <div
