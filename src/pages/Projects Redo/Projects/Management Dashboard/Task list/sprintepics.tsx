@@ -1,0 +1,309 @@
+import React, { useMemo } from 'react';
+import { brandTheme } from '../../../../../styles/brandTheme';
+import { ListTodo, Calendar } from 'lucide-react';
+import { Task, User } from '../../../../../types';
+
+interface TaskWithSprintInfo extends Task {
+  assignee?: User;
+  sprintGroupName: string;
+  sprintGroupId: string;
+  sprintRank?: number;
+  sprintType?: string;
+}
+
+interface SprintGroupInfo {
+  id: string;
+  start_date: string | null;
+  end_date: string | null;
+  sprint_id: string | null;
+}
+
+interface SprintEpicsProps {
+  tasks: TaskWithSprintInfo[];
+  sprintGroupsInfo: SprintGroupInfo[];
+}
+
+interface SprintGroup {
+  name: string;
+  id: string;
+  taskCount: number;
+  todoCount: number;
+  inProgressCount: number;
+  doneCount: number;
+  lowestRank: number;
+  sprintType?: string;
+  startDate: string | null;
+  endDate: string | null;
+  sprintId: string | null;
+}
+
+const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) => {
+  const sprintGroups = useMemo(() => {
+    const groupsMap = new Map<string, SprintGroup>();
+
+    // Create a map of sprint group info for quick lookup
+    const sprintInfoMap = new Map(
+      sprintGroupsInfo.map(info => [info.id, info])
+    );
+
+    tasks.forEach((task) => {
+      const groupId = task.sprintGroupId;
+      const taskRank = typeof task.sprintRank === 'number' ? task.sprintRank : Infinity;
+      const groupInfo = sprintInfoMap.get(groupId);
+      
+      if (!groupsMap.has(groupId)) {
+        groupsMap.set(groupId, {
+          name: task.sprintGroupName,
+          id: groupId,
+          taskCount: 0,
+          todoCount: 0,
+          inProgressCount: 0,
+          doneCount: 0,
+          lowestRank: taskRank,
+          sprintType: task.sprintType,
+          startDate: groupInfo?.start_date || null,
+          endDate: groupInfo?.end_date || null,
+          sprintId: groupInfo?.sprint_id || null,
+        });
+      }
+
+      const group = groupsMap.get(groupId)!;
+      group.taskCount++;
+      
+      // Count by status
+      if (task.status === 'todo') {
+        group.todoCount++;
+      } else if (task.status === 'in-progress') {
+        group.inProgressCount++;
+      } else if (task.status === 'done') {
+        group.doneCount++;
+      }
+      
+      // Keep track of the lowest rank number (which appears first)
+      if (typeof task.sprintRank === 'number' && task.sprintRank < group.lowestRank) {
+        group.lowestRank = task.sprintRank;
+      }
+    });
+
+    // Convert to array and sort by rank (lowest rank number first)
+    return Array.from(groupsMap.values()).sort((a, b) => {
+      if (a.lowestRank === Infinity && b.lowestRank === Infinity) {
+        return a.name.localeCompare(b.name);
+      }
+      if (a.lowestRank === Infinity) return 1;
+      if (b.lowestRank === Infinity) return -1;
+      return a.lowestRank - b.lowestRank;
+    });
+  }, [tasks, sprintGroupsInfo]);
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'N/A';
+    
+    // Parse ISO date string to avoid timezone shift
+    const [year, month, day] = dateString.split('T')[0].split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  const getSprintTypeColor = (sprintType?: string) => {
+    switch (sprintType) {
+      case 'sprint-1':
+        return { bg: '#dbeafe', text: brandTheme.primary.lightBlue, border: brandTheme.primary.lightBlue };
+      case 'sprint-2':
+        return { bg: '#fef3c7', text: '#f59e0b', border: '#f59e0b' };
+      default:
+        return { bg: brandTheme.primary.paleBlue, text: brandTheme.primary.navy, border: brandTheme.primary.navy };
+    }
+  };
+
+  if (sprintGroups.length === 0) {
+    return null;
+  }
+
+  // Get dates from first group (all groups have same dates since they're filtered by same sprint_id)
+  const firstGroup = sprintGroups[0];
+  const sprintId = firstGroup?.sprintId;
+  const startDate = firstGroup?.startDate;
+  const endDate = firstGroup?.endDate;
+
+  // Calculate sprint progress
+  const calculateSprintProgress = () => {
+    if (!startDate || !endDate) return null;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [startYear, startMonth, startDay] = startDate.split('T')[0].split('-');
+    const start = new Date(parseInt(startYear), parseInt(startMonth) - 1, parseInt(startDay));
+    
+    const [endYear, endMonth, endDay] = endDate.split('T')[0].split('-');
+    const end = new Date(parseInt(endYear), parseInt(endMonth) - 1, parseInt(endDay));
+
+    const totalDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const daysInto = Math.ceil((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const daysRemaining = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+    return {
+      daysInto: Math.max(1, daysInto),
+      daysRemaining: Math.max(0, daysRemaining),
+      totalDays
+    };
+  };
+
+  const sprintProgress = calculateSprintProgress();
+
+  return (
+    <div className="mb-6 space-y-4">
+      {/* Sprint Dates Section */}
+      {sprintId && (startDate || endDate) && sprintProgress && (
+        <div
+          className="rounded-lg shadow-sm p-4"
+          style={{ backgroundColor: brandTheme.background.secondary }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium" style={{ color: brandTheme.text.secondary }}>
+                Day {sprintProgress.daysInto} of {sprintProgress.totalDays}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4" style={{ color: brandTheme.primary.navy }} />
+              <span className="text-base font-bold" style={{ color: brandTheme.text.primary }}>
+                {formatDate(startDate)} - {formatDate(endDate)}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium" style={{ color: brandTheme.text.secondary }}>
+                {sprintProgress.daysRemaining} {sprintProgress.daysRemaining === 1 ? 'day' : 'days'} remaining
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Active Sprint Groups */}
+      <div
+        className="rounded-lg shadow-sm p-5"
+        style={{ backgroundColor: brandTheme.background.secondary }}
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <ListTodo className="w-5 h-5" style={{ color: brandTheme.primary.navy }} />
+          <h2 className="text-lg font-bold" style={{ color: brandTheme.text.primary }}>
+            Active Sprint Groups
+          </h2>
+          <span
+            className="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold"
+            style={{
+              backgroundColor: brandTheme.primary.paleBlue,
+              color: brandTheme.primary.navy,
+            }}
+          >
+            {sprintGroups.length}
+          </span>
+        </div>
+
+      <div className="space-y-2">
+        {sprintGroups.map((group) => {
+          const colors = getSprintTypeColor(group.sprintType);
+          return (
+            <div
+              key={group.id}
+              className="flex items-center justify-between p-3 rounded-lg border-l-4 transition-all hover:shadow-md"
+              style={{
+                backgroundColor: colors.bg,
+                borderLeftColor: colors.border,
+              }}
+            >
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                {group.lowestRank !== Infinity && (
+                  <div
+                    className="px-2 py-1 rounded-full text-xs font-bold flex-shrink-0"
+                    style={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                      color: colors.text,
+                    }}
+                  >
+                    #{group.lowestRank}
+                  </div>
+                )}
+                <h3
+                  className="font-semibold text-sm flex-1 truncate"
+                  style={{ color: colors.text }}
+                >
+                  {group.name}
+                </h3>
+                {/* Progress Bar */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <div
+                    className="relative rounded-full overflow-hidden"
+                    style={{
+                      width: '60px',
+                      height: '8px',
+                      backgroundColor: 'rgba(255, 255, 255, 0.5)',
+                      border: '1px solid rgba(0, 0, 0, 0.15)',
+                    }}
+                  >
+                    <div
+                      className="absolute top-0 left-0 h-full transition-all"
+                      style={{
+                        width: `${Math.round(((group.doneCount * 100) + (group.inProgressCount * 50)) / (group.taskCount || 1))}%`,
+                        backgroundColor: colors.text,
+                      }}
+                    />
+                  </div>
+                  <span
+                    className="text-xs font-bold whitespace-nowrap"
+                    style={{ color: colors.text, minWidth: '32px' }}
+                  >
+                    {Math.round(((group.doneCount * 100) + (group.inProgressCount * 50)) / (group.taskCount || 1))}%
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-1">
+                  <ListTodo className="w-3.5 h-3.5" style={{ color: colors.text, opacity: 0.7 }} />
+                  <span
+                    className="text-xs font-bold whitespace-nowrap"
+                    style={{ color: colors.text }}
+                  >
+                    {group.taskCount}
+                  </span>
+                </div>
+                <span className="text-xs" style={{ color: colors.text, opacity: 0.5 }}>|</span>
+                <span
+                  className="text-xs font-medium whitespace-nowrap"
+                  style={{ color: colors.text, opacity: 0.7 }}
+                >
+                  To Do: {group.todoCount}
+                </span>
+                <span className="text-xs" style={{ color: colors.text, opacity: 0.5 }}>•</span>
+                <span
+                  className="text-xs font-medium whitespace-nowrap"
+                  style={{ color: colors.text, opacity: 0.7 }}
+                >
+                  In Progress: {group.inProgressCount}
+                </span>
+                <span className="text-xs" style={{ color: colors.text, opacity: 0.5 }}>•</span>
+                <span
+                  className="text-xs font-medium whitespace-nowrap"
+                  style={{ color: colors.text, opacity: 0.7 }}
+                >
+                  Done: {group.doneCount}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      </div>
+    </div>
+  );
+};
+
+export default SprintEpics;
+

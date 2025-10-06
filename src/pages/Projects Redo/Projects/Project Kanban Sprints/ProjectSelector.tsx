@@ -10,6 +10,7 @@ interface Project {
   priority?: string;
   assignee_id?: string;
   created_at?: string;
+  sprint_plan_column?: string | null;
 }
 
 interface ProjectSelectorProps {

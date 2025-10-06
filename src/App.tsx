@@ -31,6 +31,8 @@ const ProductDevKPIs = lazy(() => import('./pages/Projects Redo/Projects/Product
 const ProductDevProjects = lazy(() => import('./pages/Projects Redo/Projects/Product Dev Project List/ProductDevProjectPage'));
 const KanbanMainPage = lazy(() => import('./pages/Projects Redo/Projects/Project Kanban Sprints/KanbanMainPage'));
 const StoryPointsPage = lazy(() => import('./pages/Projects Redo/Projects/Project Kanban Sprints/Sprint Review/Story Points/storypointspage'));
+const SprintsTaskListPage = lazy(() => import('./pages/Projects Redo/Projects/Management Dashboard/Task list/tasklistpage'));
+const SprintHistory = lazy(() => import('./pages/Projects Redo/Projects/Project Kanban Sprints/Sprint Review/Sprint History/SprintHistory'));
 const SubmitRequestPage = lazy(() => import('./pages/Requests/Submit Request Form/SubmitRequestPage'));
 const InternalRequestPage = lazy(() => import('./pages/Requests/InternalRequestPage'));
 const ManagementDashboard = lazy(() => import('./pages/Projects Redo/Projects/Management Dashboard/ManagementDashboard'));
@@ -164,6 +166,16 @@ function App() {
                 <Route path="story-points" element={
                   <ErrorBoundaryWrapper pageName="Story Points">
                     <StoryPointsPage />
+                  </ErrorBoundaryWrapper>
+                } />
+                <Route path="sprints-task-list" element={
+                  <ErrorBoundaryWrapper pageName="Sprints Task List">
+                    <SprintsTaskListPage />
+                  </ErrorBoundaryWrapper>
+                } />
+                <Route path="sprint-history" element={
+                  <ErrorBoundaryWrapper pageName="Sprint History">
+                    <SprintHistory />
                   </ErrorBoundaryWrapper>
                 } />
                 <Route path="settings" element={

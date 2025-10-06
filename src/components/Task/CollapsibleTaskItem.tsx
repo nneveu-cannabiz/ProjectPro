@@ -14,13 +14,15 @@ interface CollapsibleTaskItemProps {
   projectId: string;
   onEditTask: (task: Task) => void;
   onDeleteTask: (taskId: string) => void;
+  onViewTask?: (taskId: string) => void;
 }
 
 const CollapsibleTaskItem: React.FC<CollapsibleTaskItemProps> = ({
   task,
   projectId,
   onEditTask,
-  onDeleteTask
+  onDeleteTask,
+  onViewTask
 }) => {
   const navigate = useNavigate();
   const { 
@@ -90,7 +92,11 @@ const CollapsibleTaskItem: React.FC<CollapsibleTaskItemProps> = ({
   
   const handleViewDetails = (e: React.MouseEvent) => {
     e.stopPropagation();
-    navigate(`/projects/${projectId}/tasks/${task.id}`);
+    if (onViewTask) {
+      onViewTask(task.id);
+    } else {
+      navigate(`/projects/${projectId}/tasks/${task.id}`);
+    }
   };
   
   const handleEdit = (e: React.MouseEvent) => {
@@ -161,7 +167,12 @@ const CollapsibleTaskItem: React.FC<CollapsibleTaskItemProps> = ({
               {isOpen ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
             </button>
             <div>
-              <h3 className="text-md font-medium text-gray-800">{task.name}</h3>
+              <h3 
+                className="text-md font-medium text-gray-800 hover:text-blue-600 cursor-pointer transition-colors"
+                onClick={handleViewDetails}
+              >
+                {task.name}
+              </h3>
             </div>
           </div>
           

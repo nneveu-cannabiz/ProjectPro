@@ -74,6 +74,30 @@ const SprintReviewModal: React.FC<SprintReviewModalProps> = ({
 
     setIsCreatingSprint(true);
     try {
+      // Get the highest ranking for this sprint type to assign next available rank
+      const { data: existingSprintsData, error: rankingError } = await (supabase as any)
+        .from('PMA_Sprints')
+        .select('ranking')
+        .eq('sprint_type', sprintType)
+        .eq('status', 'active')
+        .order('ranking->Project Kanban Sprints', { ascending: false, nullsFirst: false })
+        .limit(1);
+
+      if (rankingError) {
+        console.error('Error fetching existing sprint rankings:', rankingError);
+      }
+
+      // Determine the next ranking
+      let nextRanking = 1;
+      if (existingSprintsData && existingSprintsData.length > 0) {
+        const highestRanking = existingSprintsData[0]?.ranking?.['Project Kanban Sprints'];
+        if (typeof highestRanking === 'number') {
+          nextRanking = highestRanking + 1;
+        }
+      }
+
+      console.log(`Creating ${sprintType} with ranking:`, nextRanking);
+
       const { error } = await (supabase as any)
         .from('PMA_Sprints')
         .insert({
@@ -83,7 +107,10 @@ const SprintReviewModal: React.FC<SprintReviewModalProps> = ({
           status: 'active',
           created_by: currentUser.id,
           name: `${project.name} - ${sprintType}`,
-          description: `Sprint created from ${selectedTaskIds.length} selected tasks`
+          description: `Sprint created from ${selectedTaskIds.length} selected tasks`,
+          ranking: {
+            'Project Kanban Sprints': nextRanking
+          }
         });
 
       if (error) {

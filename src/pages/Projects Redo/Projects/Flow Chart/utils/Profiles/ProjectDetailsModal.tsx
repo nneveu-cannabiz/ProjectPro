@@ -13,6 +13,7 @@ import ProjectDetailsSection from './ProjectDetailsSection';
 import ProjectDocumentsSection from './ProjectDocumentsSection';
 import ProjectUpdates from './ProjectUpdates';
 import ProjectDetailsHeader from './ProjectDetailsHeader';
+import TaskDetailsModal from './TaskDetailsModal';
 
 interface ProjectDetailsModalProps {
   isOpen: boolean;
@@ -39,7 +40,9 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isUpdatesModalOpen, setIsUpdatesModalOpen] = useState(false);
+  const [isTaskDetailsModalOpen, setIsTaskDetailsModalOpen] = useState(false);
   const [currentTask, setCurrentTask] = useState<any>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   
   // Tab management state
   const [activeTab, setActiveTab] = useState<'details' | 'documents'>('details');
@@ -71,6 +74,11 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
     setIsTaskModalOpen(true);
   };
   
+  const handleViewTask = (taskId: string) => {
+    setSelectedTaskId(taskId);
+    setIsTaskDetailsModalOpen(true);
+  };
+  
   const handleAddTask = () => {
     setCurrentTask(null);
     setIsTaskModalOpen(true);
@@ -79,6 +87,11 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
   const handleTaskModalClose = () => {
     setIsTaskModalOpen(false);
     setCurrentTask(null);
+  };
+  
+  const handleTaskDetailsModalClose = () => {
+    setIsTaskDetailsModalOpen(false);
+    setSelectedTaskId(null);
   };
   
   const handleOpenUpdatesModal = () => {
@@ -262,6 +275,7 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
                           projectId={projectId}
                           onEditTask={handleEditTask}
                           onDeleteTask={deleteTask}
+                          onViewTask={handleViewTask}
                         />
                       ))}
                     </div>
@@ -423,6 +437,15 @@ const ProjectDetailsModal: React.FC<ProjectDetailsModalProps> = ({
         directUpdates={directUpdates}
         relatedUpdates={allRelatedUpdates}
       />
+      
+      {/* Task Details Modal */}
+      {selectedTaskId && (
+        <TaskDetailsModal
+          isOpen={isTaskDetailsModalOpen}
+          onClose={handleTaskDetailsModalClose}
+          taskId={selectedTaskId}
+        />
+      )}
     </>
   );
 };

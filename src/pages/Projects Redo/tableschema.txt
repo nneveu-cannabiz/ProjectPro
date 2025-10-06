@@ -308,3 +308,52 @@ create index IF not exists idx_pma_requests_created_at on public."PMA_Requests" 
 create trigger trigger_update_pma_requests_updated_at BEFORE
 update on "PMA_Requests" for EACH row
 execute FUNCTION update_pma_requests_updated_at ();
+
+
+
+create table public."PMA_Sprints" (
+  id uuid not null default gen_random_uuid (),
+  project_id uuid not null,
+  selected_task_ids jsonb not null default '[]'::jsonb,
+  sprint_type text not null,
+  status text not null default 'active'::text,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  created_by uuid not null,
+  name text null,
+  description text null,
+  start_date date null,
+  end_date date null,
+  ranking jsonb null default '{}'::jsonb,
+  sprint_id text null,
+  constraint PMA_Sprints_pkey primary key (id),
+  constraint PMA_Sprints_created_by_fkey foreign KEY (created_by) references "PMA_Users" (id) on delete set null,
+  constraint PMA_Sprints_project_id_fkey foreign KEY (project_id) references "PMA_Projects" (id) on delete CASCADE,
+  constraint PMA_Sprints_sprint_type_check check (
+    (
+      sprint_type = any (array['Sprint 1'::text, 'Sprint 2'::text])
+    )
+  ),
+  constraint PMA_Sprints_status_check check (
+    (
+      status = any (
+        array[
+          'active'::text,
+          'completed'::text,
+          'cancelled'::text,
+          'on-hold'::text
+        ]
+      )
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists idx_pma_sprints_project_id on public."PMA_Sprints" using btree (project_id) TABLESPACE pg_default;
+
+create index IF not exists idx_pma_sprints_sprint_type on public."PMA_Sprints" using btree (sprint_type) TABLESPACE pg_default;
+
+create index IF not exists idx_pma_sprints_status on public."PMA_Sprints" using btree (status) TABLESPACE pg_default;
+
+create index IF not exists idx_pma_sprints_created_by on public."PMA_Sprints" using btree (created_by) TABLESPACE pg_default;
+
+create index IF not exists idx_pma_sprints_ranking on public."PMA_Sprints" using gin (ranking) TABLESPACE pg_default;

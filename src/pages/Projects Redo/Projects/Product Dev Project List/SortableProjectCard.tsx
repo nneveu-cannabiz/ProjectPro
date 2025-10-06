@@ -30,6 +30,7 @@ interface SortableProjectCardProps {
   pageName: string;
   displayRank?: number;
   onRankChange: (projectId: string, newRank: number) => void;
+  isDragDisabled?: boolean;
 }
 
 const SortableProjectCard: React.FC<SortableProjectCardProps> = ({
@@ -46,6 +47,7 @@ const SortableProjectCard: React.FC<SortableProjectCardProps> = ({
   pageName,
   displayRank,
   onRankChange,
+  isDragDisabled = false,
 }) => {
   const [isRankModalOpen, setIsRankModalOpen] = useState(false);
   const [rankInput, setRankInput] = useState('');
@@ -58,7 +60,10 @@ const SortableProjectCard: React.FC<SortableProjectCardProps> = ({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: project.id });
+  } = useSortable({ 
+    id: project.id,
+    disabled: isDragDisabled,
+  });
   
   console.log('🔧 Sortable setup:', { 
     projectId: project.id, 
@@ -113,8 +118,8 @@ const SortableProjectCard: React.FC<SortableProjectCardProps> = ({
         className="p-6 transition-colors"
         style={{ backgroundColor: brandTheme.primary.paleBlue }}
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4 flex-1">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center space-x-4 flex-1 min-w-0">
             {/* Rank Badge */}
             <button
               onClick={handleRankClick}
@@ -131,17 +136,18 @@ const SortableProjectCard: React.FC<SortableProjectCardProps> = ({
             {/* Drag Handle */}
             <div
               ref={setActivatorNodeRef}
-              className="flex-shrink-0 p-2 rounded hover:bg-blue-100 transition-colors"
+              className="flex-shrink-0 p-2 rounded transition-colors"
               style={{ 
-                color: brandTheme.text.secondary,
-                cursor: 'grab',
-                touchAction: 'none',
+                color: isDragDisabled ? brandTheme.gray[400] : brandTheme.text.secondary,
+                cursor: isDragDisabled ? 'not-allowed' : 'grab',
+                touchAction: isDragDisabled ? 'auto' : 'none',
                 userSelect: 'none',
                 WebkitUserSelect: 'none',
+                opacity: isDragDisabled ? 0.5 : 1,
               }}
-              {...attributes}
-              {...listeners}
-              title="Drag to reorder"
+              {...(isDragDisabled ? {} : attributes)}
+              {...(isDragDisabled ? {} : listeners)}
+              title={isDragDisabled ? "Clear search to enable reordering" : "Drag to reorder"}
             >
               <GripVertical size={20} />
             </div>
@@ -193,7 +199,7 @@ const SortableProjectCard: React.FC<SortableProjectCardProps> = ({
                 </Badge>
               </div>
               {!isExpanded && project.description && (
-                <p className="text-sm mt-2 truncate" 
+                <p className="text-sm mt-2 line-clamp-2 overflow-hidden" 
                    style={{ color: brandTheme.text.muted }}>
                   {project.description}
                 </p>
@@ -201,7 +207,7 @@ const SortableProjectCard: React.FC<SortableProjectCardProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-6 flex-shrink-0">
             {/* Task Progress */}
             <div className="text-center">
               <div className="flex items-center space-x-1">

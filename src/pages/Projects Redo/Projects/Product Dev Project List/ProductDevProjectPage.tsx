@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { AlertCircle, FolderOpen, Plus, Search } from 'lucide-react';
+import { AlertCircle, FolderOpen, Plus, Search, RefreshCw } from 'lucide-react';
 import { Project, Task, User } from '../../../../types';
 import { fetchProductDevProjects, fetchProductDevProjectTasks, fetchUsers, batchUpdateProjectRankings } from '../../../../data/supabase-store';
 import { brandTheme } from '../../../../styles/brandTheme';
@@ -12,7 +12,6 @@ import {
   DndContext,
   closestCenter,
   KeyboardSensor,
-  PointerSensor,
   MouseSensor,
   TouchSensor,
   useSensor,
@@ -94,6 +93,13 @@ const ProductDevProjectPage: React.FC = () => {
           project.flowChart === 'Product Development'
         );
 
+        // Debug: Log ranking data from AppContext
+        console.log('📦 Product Dev projects from AppContext:', productDevProjects.map(p => ({
+          name: p.name,
+          ranking: p.ranking,
+          rankForThisPage: p.ranking?.[PAGE_NAME]
+        })));
+
         if (productDevProjects.length > 0 || allProjects.length > 0) {
           // Create enhanced project objects with tasks and assigned users
           const projectsWithTasks: ProjectWithTasks[] = productDevProjects.map(project => {
@@ -127,6 +133,13 @@ const ProductDevProjectPage: React.FC = () => {
           ]);
 
           setUsers(usersData);
+
+          // Debug: Log ranking data from direct Supabase fetch
+          console.log('📦 Product Dev projects from direct Supabase:', projectsData.map(p => ({
+            name: p.name,
+            ranking: p.ranking,
+            rankForThisPage: p.ranking?.[PAGE_NAME]
+          })));
 
           if (projectsData.length > 0) {
             const projectIds = projectsData.map(p => p.id);
@@ -174,7 +187,7 @@ const ProductDevProjectPage: React.FC = () => {
 
   // Sort projects by ranking for this page, then alphabetically
   const sortedProjects = useMemo(() => {
-    return [...projects].sort((a, b) => {
+    const sorted = [...projects].sort((a, b) => {
       const aRank = a.ranking?.[PAGE_NAME];
       const bRank = b.ranking?.[PAGE_NAME];
 
@@ -196,6 +209,15 @@ const ProductDevProjectPage: React.FC = () => {
       // Neither has ranking - sort alphabetically
       return a.name.localeCompare(b.name);
     });
+    
+    // Debug logging
+    console.log('🎨 Sorted projects by ranking:', sorted.map(p => ({
+      name: p.name,
+      rank: p.ranking?.[PAGE_NAME],
+      hasRanking: p.ranking?.[PAGE_NAME] !== undefined
+    })));
+    
+    return sorted;
   }, [projects]);
 
   // Filter projects based on search query
@@ -254,24 +276,30 @@ const ProductDevProjectPage: React.FC = () => {
       return;
     }
 
+    // Don't allow reordering when search is active
+    if (searchQuery.trim()) {
+      console.warn('⚠️ Cannot reorder while search is active');
+      setError('Please clear the search filter to reorder projects.');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
     const oldIndex = filteredProjects.findIndex(p => p.id === active.id);
     const newIndex = filteredProjects.findIndex(p => p.id === over.id);
     
     console.log('📍 Moving project from index', oldIndex, 'to', newIndex);
 
-    // Reorder locally
+    // Reorder locally (filteredProjects = sortedProjects when no search)
     const reorderedProjects = arrayMove(filteredProjects, oldIndex, newIndex);
     
-    // Update the main projects array to reflect the new order
-    const updatedProjects = projects.map(project => {
-      const newPosition = reorderedProjects.findIndex(p => p.id === project.id);
-      if (newPosition !== -1) {
-        return reorderedProjects[newPosition];
-      }
-      return project;
+    // Optimistically update local state to reflect new order
+    setProjects(prevProjects => {
+      // Create a map of reordered projects for quick lookup
+      const reorderedMap = new Map(reorderedProjects.map(p => [p.id, p]));
+      
+      // Replace matching projects with their reordered versions, keep order from reorderedProjects
+      return prevProjects.map(project => reorderedMap.get(project.id) || project);
     });
-    
-    setProjects(updatedProjects);
 
     // Save rankings to database - assign rank 1, 2, 3, etc. based on new order
     try {
@@ -282,6 +310,7 @@ const ProductDevProjectPage: React.FC = () => {
       }));
       
       console.log('💾 Saving rankings:', rankings);
+      console.log('📊 Total projects being ranked:', rankings.length);
       
       await batchUpdateProjectRankings(rankings, PAGE_NAME);
       
@@ -293,6 +322,13 @@ const ProductDevProjectPage: React.FC = () => {
       ]);
 
       setUsers(usersData);
+
+      // Debug: Log ranking data after refresh
+      console.log('🔄 Refreshed projects with rankings:', projectsData.map(p => ({
+        name: p.name,
+        ranking: p.ranking,
+        rankForThisPage: p.ranking?.[PAGE_NAME]
+      })));
 
       if (projectsData.length > 0) {
         const projectIds = projectsData.map(p => p.id);
@@ -363,6 +399,13 @@ const ProductDevProjectPage: React.FC = () => {
 
       setUsers(usersData);
 
+      // Debug: Log ranking data after rank change
+      console.log('🔄 Projects after rank change:', projectsData.map(p => ({
+        name: p.name,
+        ranking: p.ranking,
+        rankForThisPage: p.ranking?.[PAGE_NAME]
+      })));
+
       if (projectsData.length > 0) {
         const projectIds = projectsData.map(p => p.id);
         const tasksData = await fetchProductDevProjectTasks(projectIds);
@@ -389,6 +432,7 @@ const ProductDevProjectPage: React.FC = () => {
         });
 
         setProjects(projectsWithTasks);
+        console.log('✅ Rank change saved and data refreshed!');
       }
     } catch (error) {
       console.error('Failed to update project rank:', error);
@@ -421,16 +465,68 @@ const ProductDevProjectPage: React.FC = () => {
     setIsTaskModalOpen(true);
   };
 
-  const handleCloseProjectModal = () => {
-    setIsProjectModalOpen(false);
-    setSelectedProjectId(null);
-    // No need to refresh data manually since AppContext handles updates automatically
+  const refreshPageData = async () => {
+    try {
+      setLoading(true);
+      
+      // Refresh from database to get latest changes
+      const [usersData, projectsData] = await Promise.all([
+        fetchUsers(),
+        fetchProductDevProjects()
+      ]);
+
+      setUsers(usersData);
+
+      if (projectsData.length > 0) {
+        const projectIds = projectsData.map(p => p.id);
+        const tasksData = await fetchProductDevProjectTasks(projectIds);
+
+        const projectsWithTasks: ProjectWithTasks[] = projectsData.map(project => {
+          const projectTasks = tasksData.filter(task => task.projectId === project.id);
+          
+          const assigneeIds = new Set<string>();
+          if (project.assigneeId) assigneeIds.add(project.assigneeId);
+          if (project.multiAssigneeIds) {
+            project.multiAssigneeIds.forEach(id => assigneeIds.add(id));
+          }
+          projectTasks.forEach(task => {
+            if (task.assigneeId) assigneeIds.add(task.assigneeId);
+          });
+
+          const assignedUsers = usersData.filter(user => assigneeIds.has(user.id));
+
+          return {
+            ...project,
+            tasks: projectTasks,
+            assignedUsers
+          };
+        });
+
+        setProjects(projectsWithTasks);
+        console.log('✅ Page data refreshed after modal close');
+      } else {
+        setProjects([]);
+      }
+    } catch (err) {
+      console.error('Error refreshing page data:', err);
+      setError('Failed to refresh data. Please reload the page.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleCloseTaskModal = () => {
+  const handleCloseProjectModal = async () => {
+    setIsProjectModalOpen(false);
+    setSelectedProjectId(null);
+    // Refresh page data to reflect any changes made in the modal
+    await refreshPageData();
+  };
+
+  const handleCloseTaskModal = async () => {
     setIsTaskModalOpen(false);
     setSelectedTaskId(null);
-    // No need to refresh data manually since AppContext handles updates automatically
+    // Refresh page data to reflect any changes made in the modal
+    await refreshPageData();
   };
 
   const getStatusColor = (status: string) => {
@@ -534,6 +630,21 @@ const ProductDevProjectPage: React.FC = () => {
               </p>
             </div>
             <div className="flex items-center gap-4">
+              <Button
+                onClick={refreshPageData}
+                variant="outline"
+                size="sm"
+                disabled={loading}
+                className="flex items-center gap-2"
+                style={{
+                  borderColor: brandTheme.primary.navy,
+                  color: brandTheme.primary.navy,
+                }}
+                title="Refresh page data"
+              >
+                <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                Refresh
+              </Button>
               <div className="text-right">
                 <div className="text-sm" style={{ color: brandTheme.text.muted }}>
                   {searchQuery ? `${filteredProjects.length} of ${projects.length}` : 'Total Projects'}
@@ -570,6 +681,11 @@ const ProductDevProjectPage: React.FC = () => {
               >
                 <span className="text-lg hover:opacity-70 transition-opacity">×</span>
               </button>
+            )}
+            {searchQuery && (
+              <p className="text-sm mt-2" style={{ color: brandTheme.text.muted }}>
+                💡 <span style={{ color: brandTheme.status.warning }}>Tip:</span> Clear the search to enable drag-and-drop reordering
+              </p>
             )}
           </div>
         </div>
@@ -632,6 +748,7 @@ const ProductDevProjectPage: React.FC = () => {
                     pageName={PAGE_NAME}
                     displayRank={index + 1}
                     onRankChange={handleRankChange}
+                    isDragDisabled={!!searchQuery.trim()}
                   />
                 ))}
               </div>

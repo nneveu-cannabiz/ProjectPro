@@ -4,13 +4,20 @@ import { User, Task, Project } from '../../../../types';
 import { Users, RefreshCw, AlertCircle, CheckSquare, Clock, CheckCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import { brandTheme } from '../../../../styles/brandTheme';
 import TaskDetailsModal from '../Flow Chart/utils/Profiles/TaskDetailsModal';
+import { supabase } from '../../../../lib/supabase';
+
+interface TaskWithSprintInfo extends Task {
+  project: Project;
+  sprintRank?: number;
+  sprintName?: string;
+}
 
 interface UserWithTasks {
   user: User;
   tasks: {
-    todo: (Task & { project: Project })[];
-    inProgress: (Task & { project: Project })[];
-    done: (Task & { project: Project })[];
+    todo: TaskWithSprintInfo[];
+    inProgress: TaskWithSprintInfo[];
+    done: TaskWithSprintInfo[];
   };
 }
 
@@ -31,11 +38,56 @@ const ManagementDashboard: React.FC = () => {
     setError(null);
     
     try {
-      // Fetch all users and tasks
+      // Fetch all users, tasks, and sprint groups
       const [users, tasks] = await Promise.all([
         fetchAllUsers(),
         fetchAllTasks()
       ]);
+
+      // Fetch all active sprint groups
+      const { data: sprintGroups, error: sprintError } = await (supabase as any)
+        .from('PMA_Sprints')
+        .select('id, name, selected_task_ids, ranking, sprint_type')
+        .eq('status', 'active');
+
+      if (sprintError) {
+        console.error('Error fetching sprint groups:', sprintError);
+        throw sprintError;
+      }
+
+      // Create a mapping of task ID to sprint info (rank and sprint name)
+      const taskSprintMap = new Map<string, { rank: number; sprintName: string; sprintType: string }>();
+      
+      (sprintGroups || []).forEach((sprint: any) => {
+        const taskIds = sprint.selected_task_ids || [];
+        const sprintRanking = sprint.ranking?.['Project Kanban Sprints'];
+        
+        taskIds.forEach((taskId: string) => {
+          // Store the sprint rank for ordering
+          taskSprintMap.set(taskId, {
+            rank: sprintRanking || 999, // Use sprint's rank, or 999 if not ranked
+            sprintName: sprint.name,
+            sprintType: sprint.sprint_type
+          });
+        });
+      });
+
+      console.log(`Found ${taskSprintMap.size} tasks in sprint groups`);
+
+      // Filter tasks to only include those in sprint groups
+      const sprintTasks = tasks.filter(task => taskSprintMap.has(task.id));
+
+      console.log(`Filtered to ${sprintTasks.length} sprint tasks from ${tasks.length} total tasks`);
+
+      // Enhance tasks with sprint information
+      const enhancedSprintTasks: TaskWithSprintInfo[] = sprintTasks.map(task => {
+        const sprintInfo = taskSprintMap.get(task.id);
+        return {
+          ...task,
+          sprintRank: sprintInfo?.rank,
+          sprintName: sprintInfo?.sprintName
+        } as TaskWithSprintInfo;
+      });
 
       // Filter users by Product Development department
       const productDevUsers = users.filter(user => 
@@ -44,14 +96,21 @@ const ManagementDashboard: React.FC = () => {
         user.department?.toLowerCase() === 'product development'
       );
 
-      // Group tasks by user and status
+      // Group sprint tasks by user and status
       const usersWithTasksData: UserWithTasks[] = productDevUsers.map(user => {
-        const userTasks = tasks.filter(task => task.assigneeId === user.id);
+        const userSprintTasks = enhancedSprintTasks.filter(task => task.assigneeId === user.id);
         
+        // Sort tasks by sprint rank (lower rank number comes first)
+        const sortBySprintRank = (a: TaskWithSprintInfo, b: TaskWithSprintInfo) => {
+          const rankA = a.sprintRank || 999;
+          const rankB = b.sprintRank || 999;
+          return rankA - rankB;
+        };
+
         const tasksByStatus = {
-          todo: userTasks.filter(task => task.status === 'todo'),
-          inProgress: userTasks.filter(task => task.status === 'in-progress'),
-          done: userTasks.filter(task => task.status === 'done')
+          todo: userSprintTasks.filter(task => task.status === 'todo').sort(sortBySprintRank),
+          inProgress: userSprintTasks.filter(task => task.status === 'in-progress').sort(sortBySprintRank),
+          done: userSprintTasks.filter(task => task.status === 'done').sort(sortBySprintRank)
         };
 
         return {
@@ -60,8 +119,16 @@ const ManagementDashboard: React.FC = () => {
         };
       });
 
-      // Add unassigned tasks as a special "user"
-      const unassignedTasks = tasks.filter(task => !task.assigneeId || task.assigneeId.trim() === '');
+      // Add unassigned sprint tasks as a special "user"
+      const unassignedSprintTasks = enhancedSprintTasks.filter(task => !task.assigneeId || task.assigneeId.trim() === '');
+      
+      // Sort by sprint rank
+      const sortBySprintRank = (a: TaskWithSprintInfo, b: TaskWithSprintInfo) => {
+        const rankA = a.sprintRank || 999;
+        const rankB = b.sprintRank || 999;
+        return rankA - rankB;
+      };
+
       const unassignedUser: UserWithTasks = {
         user: {
           id: 'unassigned',
@@ -73,14 +140,14 @@ const ManagementDashboard: React.FC = () => {
           profileColor: '#6B7280' // Gray color for unassigned
         } as User,
         tasks: {
-          todo: unassignedTasks.filter(task => task.status === 'todo'),
-          inProgress: unassignedTasks.filter(task => task.status === 'in-progress'),
-          done: unassignedTasks.filter(task => task.status === 'done')
+          todo: unassignedSprintTasks.filter(task => task.status === 'todo').sort(sortBySprintRank),
+          inProgress: unassignedSprintTasks.filter(task => task.status === 'in-progress').sort(sortBySprintRank),
+          done: unassignedSprintTasks.filter(task => task.status === 'done').sort(sortBySprintRank)
         }
       };
 
       // Add unassigned tasks at the end if there are any
-      if (unassignedTasks.length > 0) {
+      if (unassignedSprintTasks.length > 0) {
         setUsersWithTasks([...usersWithTasksData, unassignedUser]);
       } else {
         setUsersWithTasks(usersWithTasksData);
@@ -124,7 +191,7 @@ const ManagementDashboard: React.FC = () => {
       <div className="flex items-center justify-center h-[70vh]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading team task view...</p>
+          <p className="mt-4 text-gray-600">Loading team sprint tasks...</p>
         </div>
       </div>
     );
@@ -162,8 +229,8 @@ const ManagementDashboard: React.FC = () => {
           <div className="flex items-center gap-3">
             <Users className="w-8 h-8" style={{ color: brandTheme.primary.navy }} />
             <div>
-              <h1 className="text-2xl font-bold" style={{ color: brandTheme.text.primary }}>Team Task View</h1>
-              <p style={{ color: brandTheme.text.secondary }}>Product Development Team Task Overview</p>
+              <h1 className="text-2xl font-bold" style={{ color: brandTheme.text.primary }}>Team Sprint Tasks</h1>
+              <p style={{ color: brandTheme.text.secondary }}>Product Development Team - Sprint Tasks Only</p>
             </div>
           </div>
           <button
@@ -193,10 +260,10 @@ const ManagementDashboard: React.FC = () => {
           }}
         >
           <Users className="w-16 h-16 mx-auto mb-4" style={{ color: brandTheme.gray[400] }} />
-          <h3 className="text-lg font-semibold mb-2" style={{ color: brandTheme.text.primary }}>No Product Development Users Found</h3>
+          <h3 className="text-lg font-semibold mb-2" style={{ color: brandTheme.text.primary }}>No Sprint Tasks Found</h3>
           <p style={{ color: brandTheme.text.secondary }}>
-            No users found in the Product Development department. 
-            Please check user department assignments.
+            No tasks found in active sprint groups for Product Development team members. 
+            Tasks must be assigned to sprint groups to appear here.
           </p>
         </div>
       ) : (
@@ -475,7 +542,7 @@ const ManagementDashboard: React.FC = () => {
 };
 
 // Task Card Component
-const TaskCard: React.FC<{ task: Task & { project: Project }; onClick: () => void }> = ({ task, onClick }) => {
+const TaskCard: React.FC<{ task: TaskWithSprintInfo; onClick: () => void }> = ({ task, onClick }) => {
   const getTaskPriorityColors = (priority?: string) => {
     switch (priority) {
       case 'Critical':
@@ -536,15 +603,36 @@ const TaskCard: React.FC<{ task: Task & { project: Project }; onClick: () => voi
           {task.description}
         </p>
       )}
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium" style={{ color: brandTheme.primary.navy }}>
-          {task.project.name}
-        </span>
-        {task.deadline && (
-          <span className="text-xs" style={{ color: brandTheme.text.muted }}>
-            {new Date(task.deadline).toLocaleDateString()}
-          </span>
+      <div className="space-y-2">
+        {/* Sprint Name Badge */}
+        {task.sprintName && (
+          <div className="flex items-center gap-2">
+            <span 
+              className="text-xs font-semibold px-2 py-1 rounded"
+              style={{ 
+                backgroundColor: brandTheme.primary.lightBlue + '20',
+                color: brandTheme.primary.navy
+              }}
+            >
+              {task.sprintName}
+            </span>
+            {task.sprintRank && (
+              <span className="text-xs" style={{ color: brandTheme.text.muted }}>
+                Rank: {task.sprintRank}
+              </span>
+            )}
+          </div>
         )}
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium" style={{ color: brandTheme.primary.navy }}>
+            {task.project.name}
+          </span>
+          {task.deadline && (
+            <span className="text-xs" style={{ color: brandTheme.text.muted }}>
+              {new Date(task.deadline).toLocaleDateString()}
+            </span>
+          )}
+        </div>
       </div>
       {task.progress !== undefined && (
         <div className="mt-2">

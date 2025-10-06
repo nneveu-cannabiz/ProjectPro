@@ -13,7 +13,7 @@ export async function updateProjectSprintColumn(
   columnType: string
 ): Promise<boolean> {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('PMA_Projects')
       .update({ 
         sprint_plan_column: columnType,
@@ -36,11 +36,12 @@ export async function updateProjectSprintColumn(
 }
 
 /**
- * Fetch all Product Development projects that don't have a sprint_plan_column set
+ * Fetch all Product Development projects that don't have a sprint column assigned (null or empty)
  */
 export async function fetchProductDevelopmentProjects(): Promise<any[]> {
   try {
-    const { data, error } = await supabase
+    // Fetch all Product Development projects
+    const { data, error } = await (supabase as any)
       .from('PMA_Projects')
       .select(`
         id,
@@ -54,18 +55,24 @@ export async function fetchProductDevelopmentProjects(): Promise<any[]> {
         end_date,
         deadline,
         progress,
-        status
+        status,
+        sprint_plan_column
       `)
       .eq('flow_chart', 'Product Development')
-      .is('sprint_plan_column', null)
-      .order('created_at', { ascending: false });
+      .order('name', { ascending: true });
 
     if (error) {
       console.error('Error fetching Product Development projects:', error);
       throw error;
     }
 
-    return data || [];
+    // Filter for projects with null or empty sprint_plan_column
+    const filteredData = (data || []).filter((project: any) => 
+      !project.sprint_plan_column || project.sprint_plan_column.trim() === ''
+    );
+
+    console.log(`Fetched ${filteredData.length} Product Development projects without sprint column assignment`);
+    return filteredData;
   } catch (error) {
     console.error('Failed to fetch Product Development projects:', error);
     return [];
@@ -77,7 +84,7 @@ export async function fetchProductDevelopmentProjects(): Promise<any[]> {
  */
 export async function fetchProjectsBySprintColumn(columnType: string): Promise<any[]> {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('PMA_Projects')
       .select(`
         id,
@@ -115,7 +122,7 @@ export async function fetchProjectsBySprintColumn(columnType: string): Promise<a
  */
 export async function fetchAllSprintProjects(): Promise<Record<string, any[]>> {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('PMA_Projects')
       .select(`
         id,
@@ -154,7 +161,7 @@ export async function fetchAllSprintProjects(): Promise<Record<string, any[]>> {
       done: []
     };
 
-    (data || []).forEach(project => {
+    (data || []).forEach((project: any) => {
       const dbColumn = project.sprint_plan_column?.toLowerCase();
       
       // Map database column values to frontend keys

@@ -241,7 +241,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
               to="/sprint-plan"
               icon={<CheckSquare size={20} />}
               label="2 Week Sprint Plan"
-              isActive={location.pathname === '/sprint-plan' || location.pathname === '/story-points'}
+              isActive={location.pathname === '/sprint-plan' || location.pathname === '/story-points' || location.pathname === '/sprints-task-list' || location.pathname === '/sprint-history'}
               isCollapsed={isCollapsed}
             />
             {!isCollapsed && (
@@ -283,6 +283,46 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
                 }}
               >
                 <span>Story Points</span>
+              </Link>
+              <Link
+                to="/sprints-task-list"
+                className="flex items-center space-x-2 p-2 rounded text-sm transition-colors"
+                style={{
+                  backgroundColor: location.pathname === '/sprints-task-list' ? brandTheme.primary.paleBlue : 'transparent',
+                  color: brandTheme.primary.navy
+                }}
+                onMouseEnter={(e) => {
+                  if (location.pathname !== '/sprints-task-list') {
+                    e.currentTarget.style.backgroundColor = brandTheme.background.secondary;
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (location.pathname !== '/sprints-task-list') {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }
+                }}
+              >
+                <span>Sprints Task List</span>
+              </Link>
+              <Link
+                to="/sprint-history"
+                className="flex items-center space-x-2 p-2 rounded text-sm transition-colors"
+                style={{
+                  backgroundColor: location.pathname === '/sprint-history' ? brandTheme.primary.paleBlue : 'transparent',
+                  color: brandTheme.primary.navy
+                }}
+                onMouseEnter={(e) => {
+                  if (location.pathname !== '/sprint-history') {
+                    e.currentTarget.style.backgroundColor = brandTheme.background.secondary;
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (location.pathname !== '/sprint-history') {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }
+                }}
+              >
+                <span>Sprint History</span>
               </Link>
             </div>
           )}

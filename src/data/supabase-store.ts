@@ -876,8 +876,8 @@ export const fetchProductDevProjects = async (): Promise<Project[]> => {
       const { data, error } = await supabase
         .from('PMA_Projects')
         .select('*')
-        .eq('flow_chart', 'Product Development')
-        .order('created_at', { ascending: false });
+        .eq('flow_chart', 'Product Development');
+      // Note: No .order() here - sorting by ranking is handled in the frontend
       
       if (error) {
         console.error('Error fetching Product Development projects:', error);
