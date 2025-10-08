@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
-import { fetchTasksAssignedToUser, fetchHoursWithTaskDetails, logHours } from '../../../../data/supabase-store';
+import { fetchAllTasks, fetchHoursWithTaskDetails, logHours } from '../../../../data/supabase-store';
 import { Task, Hour, Project } from '../../../../types';
 import Modal from '../../../../components/ui/Modal';
 import Button from '../../../../components/ui/Button';
@@ -157,7 +157,7 @@ const HourLogModal: React.FC<HourLogModalProps> = ({ isOpen, onClose, task, onSu
 
 const HourLoggingPage: React.FC<HourLoggingPageProps> = ({ isOpen, onClose }) => {
   const { currentUser } = useAuth();
-  const [assignedTasks, setAssignedTasks] = useState<Task[]>([]);
+  const [allTasks, setAllTasks] = useState<(Task & { project: Project })[]>([]);
   const [loggedHours, setLoggedHours] = useState<(Hour & { task: Task; project: Project })[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -170,11 +170,16 @@ const HourLoggingPage: React.FC<HourLoggingPageProps> = ({ isOpen, onClose }) =>
     setLoading(true);
     try {
       const [tasks, hours] = await Promise.all([
-        fetchTasksAssignedToUser(currentUser.id),
+        fetchAllTasks(),
         fetchHoursWithTaskDetails(currentUser.id)
       ]);
 
-      setAssignedTasks(tasks);
+      // Filter to only show active tasks (todo or in-progress)
+      const activeTasks = tasks.filter(
+        task => task.status === 'todo' || task.status === 'in-progress'
+      );
+
+      setAllTasks(activeTasks);
       setLoggedHours(hours);
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -236,16 +241,16 @@ const HourLoggingPage: React.FC<HourLoggingPageProps> = ({ isOpen, onClose }) =>
             </div>
           ) : (
             <div className="space-y-6">
-              {/* Assigned Tasks Section */}
+              {/* All Tasks Section */}
               <div>
                 <div className="flex items-center gap-2 mb-4">
                   <Clock className="w-5 h-5 text-blue-600" />
                   <h3 className="text-lg font-semibold text-gray-900">
-                    Log Hours for Assigned Tasks
+                    Log Hours for Tasks
                   </h3>
                 </div>
                 <AssignedProjectsTasksList
-                  tasks={assignedTasks}
+                  tasks={allTasks}
                   onTaskClick={handleTaskClick}
                 />
               </div>

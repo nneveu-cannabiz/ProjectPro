@@ -76,11 +76,17 @@ const HoursOverview: React.FC<HoursOverviewProps> = () => {
     }
   };
 
+  // Parse ISO date string as local date to avoid timezone offset issues
+  const parseISODate = (dateString: string): Date => {
+    const [year, month, day] = dateString.split('T')[0].split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
   const weeklyData = useMemo((): WeekData[] => {
     const weekMap = new Map<string, WeekData>();
 
     hoursData.forEach(entry => {
-      const entryDate = new Date(entry.date);
+      const entryDate = parseISODate(entry.date);
       const weekStart = getWeekStart(entryDate);
       const weekEnd = getWeekEnd(weekStart);
       const weekKey = weekStart.toISOString().split('T')[0];
@@ -119,7 +125,7 @@ const HoursOverview: React.FC<HoursOverviewProps> = () => {
     const monthMap = new Map<string, MonthData>();
 
     hoursData.forEach(entry => {
-      const entryDate = new Date(entry.date);
+      const entryDate = parseISODate(entry.date);
       const month = entryDate.toLocaleDateString('en-US', { month: 'long' });
       const year = entryDate.getFullYear();
       const monthKey = `${year}-${entryDate.getMonth()}`;
@@ -278,28 +284,78 @@ const HoursOverview: React.FC<HoursOverviewProps> = () => {
                     <div className="p-4 space-y-3">
                       {Object.values(week.userHours)
                         .sort((a, b) => b.totalHours - a.totalHours)
-                        .map((userHour) => (
-                          <div key={userHour.user.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
-                            <div className="flex items-center gap-3">
-                              <div
-                                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold"
-                                style={{ backgroundColor: userHour.user.profileColor || '#2563eb' }}
+                        .map((userHour) => {
+                          const userKey = `${weekKey}-user-${userHour.user.id}`;
+                          const isUserExpanded = expandedItems.has(userKey);
+                          
+                          return (
+                            <div key={userHour.user.id} className="border border-gray-200 rounded-md overflow-hidden">
+                              <div 
+                                className="flex items-center justify-between p-3 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
+                                onClick={() => toggleExpanded(userKey)}
                               >
-                                {userHour.user.firstName?.charAt(0) || userHour.user.email.charAt(0).toUpperCase()}
+                                <div className="flex items-center gap-3">
+                                  {isUserExpanded ? (
+                                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                                  ) : (
+                                    <ChevronRight className="w-4 h-4 text-gray-500" />
+                                  )}
+                                  <div
+                                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold"
+                                    style={{ backgroundColor: userHour.user.profileColor || '#2563eb' }}
+                                  >
+                                    {userHour.user.firstName?.charAt(0) || userHour.user.email.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-gray-900">{getUserDisplayName(userHour.user)}</p>
+                                    <p className="text-sm text-gray-600">{userHour.entries.length} entr{userHour.entries.length !== 1 ? 'ies' : 'y'}</p>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-semibold text-gray-900">{userHour.totalHours.toFixed(2)}h</p>
+                                  <p className="text-xs text-gray-500">
+                                    {((userHour.totalHours / week.totalHours) * 100).toFixed(1)}%
+                                  </p>
+                                </div>
                               </div>
-                              <div>
-                                <p className="font-medium text-gray-900">{getUserDisplayName(userHour.user)}</p>
-                                <p className="text-sm text-gray-600">{userHour.entries.length} entr{userHour.entries.length !== 1 ? 'ies' : 'y'}</p>
-                              </div>
+                              
+                              {isUserExpanded && (
+                                <div className="p-3 bg-white space-y-2">
+                                  {userHour.entries
+                                    .sort((a, b) => parseISODate(b.date).getTime() - parseISODate(a.date).getTime())
+                                    .map((entry, idx) => (
+                                      <div key={idx} className="p-3 bg-gray-50 rounded border border-gray-200">
+                                        <div className="flex items-start justify-between mb-2">
+                                          <div className="flex items-center gap-2">
+                                            <Calendar className="w-4 h-4 text-gray-500" />
+                                            <span className="text-sm font-medium text-gray-900">
+                                              {parseISODate(entry.date).toLocaleDateString('en-US', { 
+                                                weekday: 'short',
+                                                month: 'short', 
+                                                day: 'numeric',
+                                                year: 'numeric'
+                                              })}
+                                            </span>
+                                          </div>
+                                          <span className="text-sm font-semibold text-blue-600">
+                                            {entry.hours.toFixed(2)}h
+                                          </span>
+                                        </div>
+                                        <div className="ml-6 space-y-1">
+                                          <p className="text-sm text-gray-700">
+                                            <span className="font-medium">Project:</span> {entry.project.name}
+                                          </p>
+                                          <p className="text-sm text-gray-700">
+                                            <span className="font-medium">Task:</span> {entry.task.name}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    ))}
+                                </div>
+                              )}
                             </div>
-                            <div className="text-right">
-                              <p className="font-semibold text-gray-900">{userHour.totalHours.toFixed(2)}h</p>
-                              <p className="text-xs text-gray-500">
-                                {((userHour.totalHours / week.totalHours) * 100).toFixed(1)}%
-                              </p>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                     </div>
                   )}
                 </div>
@@ -348,28 +404,78 @@ const HoursOverview: React.FC<HoursOverviewProps> = () => {
                     <div className="p-4 space-y-3">
                       {Object.values(month.userHours)
                         .sort((a, b) => b.totalHours - a.totalHours)
-                        .map((userHour) => (
-                          <div key={userHour.user.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
-                            <div className="flex items-center gap-3">
-                              <div
-                                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold"
-                                style={{ backgroundColor: userHour.user.profileColor || '#2563eb' }}
+                        .map((userHour) => {
+                          const userKey = `${monthKey}-user-${userHour.user.id}`;
+                          const isUserExpanded = expandedItems.has(userKey);
+                          
+                          return (
+                            <div key={userHour.user.id} className="border border-gray-200 rounded-md overflow-hidden">
+                              <div 
+                                className="flex items-center justify-between p-3 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
+                                onClick={() => toggleExpanded(userKey)}
                               >
-                                {userHour.user.firstName?.charAt(0) || userHour.user.email.charAt(0).toUpperCase()}
+                                <div className="flex items-center gap-3">
+                                  {isUserExpanded ? (
+                                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                                  ) : (
+                                    <ChevronRight className="w-4 h-4 text-gray-500" />
+                                  )}
+                                  <div
+                                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold"
+                                    style={{ backgroundColor: userHour.user.profileColor || '#2563eb' }}
+                                  >
+                                    {userHour.user.firstName?.charAt(0) || userHour.user.email.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-gray-900">{getUserDisplayName(userHour.user)}</p>
+                                    <p className="text-sm text-gray-600">{userHour.entries.length} entr{userHour.entries.length !== 1 ? 'ies' : 'y'}</p>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-semibold text-gray-900">{userHour.totalHours.toFixed(2)}h</p>
+                                  <p className="text-xs text-gray-500">
+                                    {((userHour.totalHours / month.totalHours) * 100).toFixed(1)}%
+                                  </p>
+                                </div>
                               </div>
-                              <div>
-                                <p className="font-medium text-gray-900">{getUserDisplayName(userHour.user)}</p>
-                                <p className="text-sm text-gray-600">{userHour.entries.length} entr{userHour.entries.length !== 1 ? 'ies' : 'y'}</p>
-                              </div>
+                              
+                              {isUserExpanded && (
+                                <div className="p-3 bg-white space-y-2">
+                                  {userHour.entries
+                                    .sort((a, b) => parseISODate(b.date).getTime() - parseISODate(a.date).getTime())
+                                    .map((entry, idx) => (
+                                      <div key={idx} className="p-3 bg-gray-50 rounded border border-gray-200">
+                                        <div className="flex items-start justify-between mb-2">
+                                          <div className="flex items-center gap-2">
+                                            <Calendar className="w-4 h-4 text-gray-500" />
+                                            <span className="text-sm font-medium text-gray-900">
+                                              {parseISODate(entry.date).toLocaleDateString('en-US', { 
+                                                weekday: 'short',
+                                                month: 'short', 
+                                                day: 'numeric',
+                                                year: 'numeric'
+                                              })}
+                                            </span>
+                                          </div>
+                                          <span className="text-sm font-semibold text-blue-600">
+                                            {entry.hours.toFixed(2)}h
+                                          </span>
+                                        </div>
+                                        <div className="ml-6 space-y-1">
+                                          <p className="text-sm text-gray-700">
+                                            <span className="font-medium">Project:</span> {entry.project.name}
+                                          </p>
+                                          <p className="text-sm text-gray-700">
+                                            <span className="font-medium">Task:</span> {entry.task.name}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    ))}
+                                </div>
+                              )}
                             </div>
-                            <div className="text-right">
-                              <p className="font-semibold text-gray-900">{userHour.totalHours.toFixed(2)}h</p>
-                              <p className="text-xs text-gray-500">
-                                {((userHour.totalHours / month.totalHours) * 100).toFixed(1)}%
-                              </p>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                     </div>
                   )}
                 </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Edit, Trash2, MessageSquare, Eye, MoreVertical } from 'lucide-react';
 import Button from '../ui/Button';
@@ -18,9 +18,28 @@ interface SubTaskItemProps {
 
 const SubTaskItem: React.FC<SubTaskItemProps> = ({ subTask, onEdit, taskId, projectId }) => {
   const navigate = useNavigate();
-  const { deleteSubTask, getUsers, getUpdatesForEntity } = useAppContext();
+  const { deleteSubTask, getUsers, getUpdatesForEntity, updateSubTask } = useAppContext();
   const [isHovered, setIsHovered] = useState(false);
   const [isUpdatesModalOpen, setIsUpdatesModalOpen] = useState(false);
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowStatusDropdown(false);
+      }
+    };
+
+    if (showStatusDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showStatusDropdown]);
   
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -35,6 +54,24 @@ const SubTaskItem: React.FC<SubTaskItemProps> = ({ subTask, onEdit, taskId, proj
   const handleUpdatesClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsUpdatesModalOpen(true);
+  };
+  
+  const handleStatusClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowStatusDropdown(!showStatusDropdown);
+  };
+
+  const handleStatusChange = async (e: React.MouseEvent, newStatus: 'todo' | 'in-progress' | 'done') => {
+    e.stopPropagation();
+    try {
+      await updateSubTask({
+        ...subTask,
+        status: newStatus
+      });
+      setShowStatusDropdown(false);
+    } catch (error) {
+      console.error('Error updating subtask status:', error);
+    }
   };
   
   const handleClick = () => {
@@ -112,7 +149,7 @@ const SubTaskItem: React.FC<SubTaskItemProps> = ({ subTask, onEdit, taskId, proj
   return (
     <>
       <div 
-        className="flex items-center py-3 px-4 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors cursor-pointer"
+        className="flex items-start py-3 px-4 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors cursor-pointer"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         onClick={handleClick}
@@ -120,18 +157,61 @@ const SubTaskItem: React.FC<SubTaskItemProps> = ({ subTask, onEdit, taskId, proj
         <div className="flex-1">
           <div className="font-medium text-gray-800">{subTask.name}</div>
           {subTask.description && (
-            <div className="text-sm text-gray-600 truncate mt-1">{subTask.description}</div>
+            <div className="text-sm text-gray-600 whitespace-pre-wrap break-words mt-1">{subTask.description}</div>
           )}
         </div>
         
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3 pt-0.5">
           <Badge variant={getTypeVariant(subTask.taskType)}>
             {subTask.taskType}
           </Badge>
           
-          <Badge variant={getStatusVariant(subTask.status)}>
-            {getStatusText(subTask.status)}
-          </Badge>
+          <div className="relative" ref={dropdownRef}>
+            <div 
+              onClick={handleStatusClick}
+              className="cursor-pointer hover:opacity-80 transition-opacity"
+              title="Click to change status"
+            >
+              <Badge variant={getStatusVariant(subTask.status)}>
+                {getStatusText(subTask.status)}
+              </Badge>
+            </div>
+            
+            {showStatusDropdown && (
+              <div 
+                className="absolute top-full mt-1 right-0 bg-white border rounded-lg shadow-lg z-10 py-1 min-w-[140px]"
+                style={{ borderColor: '#e5e7eb' }}
+              >
+                <button
+                  onClick={(e) => handleStatusChange(e, 'todo')}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 transition-colors"
+                  style={{ color: subTask.status === 'todo' ? '#2563eb' : '#374151' }}
+                >
+                  <span className={`font-medium ${subTask.status === 'todo' ? 'font-bold' : ''}`}>
+                    To Do
+                  </span>
+                </button>
+                <button
+                  onClick={(e) => handleStatusChange(e, 'in-progress')}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 transition-colors"
+                  style={{ color: subTask.status === 'in-progress' ? '#f59e0b' : '#374151' }}
+                >
+                  <span className={`font-medium ${subTask.status === 'in-progress' ? 'font-bold' : ''}`}>
+                    In Progress
+                  </span>
+                </button>
+                <button
+                  onClick={(e) => handleStatusChange(e, 'done')}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 transition-colors"
+                  style={{ color: subTask.status === 'done' ? '#16a34a' : '#374151' }}
+                >
+                  <span className={`font-medium ${subTask.status === 'done' ? 'font-bold' : ''}`}>
+                    Done
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
           
           {assignee && (
             <div>

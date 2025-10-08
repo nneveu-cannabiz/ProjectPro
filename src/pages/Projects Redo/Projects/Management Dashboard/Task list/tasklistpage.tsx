@@ -8,6 +8,7 @@ import Input from '../../../../../components/ui/Input';
 import TaskDetailsModal from '../../Flow Chart/utils/Profiles/TaskDetailsModal';
 import SprintEpics from './sprintepics';
 import SprintSummary from './sprintsummary';
+import SprintUpdatesSection from './sprintupdatessection';
 
 interface TaskWithSprintInfo extends Task {
   project: Project;
@@ -16,6 +17,12 @@ interface TaskWithSprintInfo extends Task {
   sprintGroupId: string;
   sprintRank?: number;
   sprintType?: string;
+  hoursSpent?: number;
+  totalSubtasks?: number;
+  completedSubtasks?: number;
+  isSubtask?: boolean;
+  parentTaskName?: string;
+  parentTaskId?: string;
 }
 
 interface SprintGroupInfo {
@@ -38,12 +45,16 @@ const SprintsTaskListPage: React.FC = () => {
   const [todoColumnWidths, setTodoColumnWidths] = useState({
     taskName: 300,
     assignee: 60,
+    subtasks: 120,
     priority: 90,
     sprint: 200,
   });
   const [inProgressColumnWidths, setInProgressColumnWidths] = useState({
     taskName: 300,
     assignee: 60,
+    hoursSpent: 100,
+    progress: 90,
+    subtasks: 120,
     priority: 90,
     sprint: 200,
   });
@@ -303,6 +314,45 @@ const SprintsTaskListPage: React.FC = () => {
         });
       }
 
+      // Fetch hours data for all tasks
+      const { data: hoursData } = await (supabase as any)
+        .from('PMA_Hours')
+        .select('task_id, hours, is_planning_hours')
+        .in('task_id', allTaskIds);
+
+      // Calculate hours spent per task (excluding planning hours)
+      const hoursMap: Record<string, number> = {};
+      if (hoursData) {
+        hoursData.forEach((hour: any) => {
+          if (!hour.is_planning_hours) {
+            if (!hoursMap[hour.task_id]) {
+              hoursMap[hour.task_id] = 0;
+            }
+            hoursMap[hour.task_id] += hour.hours || 0;
+          }
+        });
+      }
+
+      // Fetch subtasks for all tasks with full details
+      const { data: subtasksData } = await supabase
+        .from('PMA_SubTasks')
+        .select('*')
+        .in('task_id', allTaskIds);
+
+      // Calculate subtasks per task
+      const subtasksMap: Record<string, { total: number; completed: number }> = {};
+      if (subtasksData) {
+        subtasksData.forEach((subtask: any) => {
+          if (!subtasksMap[subtask.task_id]) {
+            subtasksMap[subtask.task_id] = { total: 0, completed: 0 };
+          }
+          subtasksMap[subtask.task_id].total++;
+          if (subtask.status === 'done') {
+            subtasksMap[subtask.task_id].completed++;
+          }
+        });
+      }
+
       // Map tasks with sprint info and ranking
       const enrichedTasks: TaskWithSprintInfo[] = (tasksData || []).map((task: any) => {
         const sprintInfo = taskToSprintMap[task.id];
@@ -351,11 +401,62 @@ const SprintsTaskListPage: React.FC = () => {
           sprintGroupId: sprintInfo?.groupId || '',
           sprintRank: sprintGroupRanking,
           sprintType: sprintInfo?.sprintType,
+          hoursSpent: hoursMap[task.id] || 0,
+          totalSubtasks: subtasksMap[task.id]?.total || 0,
+          completedSubtasks: subtasksMap[task.id]?.completed || 0,
         };
       });
 
-      // Sort tasks by sprint rank (lower rank number comes first)
-      enrichedTasks.sort((a, b) => {
+      // Create a map of task IDs to tasks for quick lookup
+      const tasksMap = new Map<string, TaskWithSprintInfo>();
+      enrichedTasks.forEach(task => tasksMap.set(task.id, task));
+
+      // Add subtasks as individual entries (only if assignee differs from parent task)
+      const subtaskEntries: TaskWithSprintInfo[] = [];
+      if (subtasksData) {
+        subtasksData.forEach((subtask: any) => {
+          const parentTask = tasksMap.get(subtask.task_id);
+          // Only add subtask if it has a different assignee than the parent task
+          if (parentTask && subtask.assignee_id !== parentTask.assigneeId) {
+            subtaskEntries.push({
+              id: subtask.id,
+              projectId: parentTask.projectId,
+              name: subtask.name,
+              description: subtask.description || '',
+              taskType: 'subtask',
+              status: subtask.status,
+              assigneeId: subtask.assignee_id,
+              flowChart: parentTask.flowChart,
+              priority: parentTask.priority, // Inherit parent priority
+              createdAt: subtask.created_at,
+              updatedAt: subtask.updated_at,
+              startDate: undefined,
+              endDate: undefined,
+              deadline: undefined,
+              tags: [],
+              progress: 0,
+              project: parentTask.project,
+              assignee: subtask.assignee_id ? usersMap[subtask.assignee_id] : undefined,
+              sprintGroupName: parentTask.sprintGroupName,
+              sprintGroupId: parentTask.sprintGroupId,
+              sprintRank: parentTask.sprintRank,
+              sprintType: parentTask.sprintType,
+              hoursSpent: 0,
+              totalSubtasks: 0,
+              completedSubtasks: 0,
+              isSubtask: true,
+              parentTaskName: parentTask.name,
+              parentTaskId: parentTask.id,
+            });
+          }
+        });
+      }
+
+      // Combine tasks and subtasks
+      const allItems = [...enrichedTasks, ...subtaskEntries];
+
+      // Sort all items by sprint rank (lower rank number comes first)
+      allItems.sort((a, b) => {
         const aRank = a.sprintRank;
         const bRank = b.sprintRank;
 
@@ -367,7 +468,7 @@ const SprintsTaskListPage: React.FC = () => {
         return a.name.localeCompare(b.name);
       });
 
-      setTasks(enrichedTasks);
+      setTasks(allItems);
     } catch (error) {
       console.error('Error loading sprint group tasks:', error);
     }
@@ -417,8 +518,10 @@ const SprintsTaskListPage: React.FC = () => {
     }
   };
 
-  const handleTaskClick = (taskId: string) => {
-    setSelectedTaskId(taskId);
+  const handleTaskClick = (task: TaskWithSprintInfo) => {
+    // If it's a subtask, open the parent task's modal instead
+    const taskIdToOpen = task.isSubtask && task.parentTaskId ? task.parentTaskId : task.id;
+    setSelectedTaskId(taskIdToOpen);
   };
 
   const handleCloseTaskModal = () => {
@@ -631,6 +734,27 @@ const SprintsTaskListPage: React.FC = () => {
                         className="px-3 py-2 text-left text-xs font-bold whitespace-nowrap relative group" 
                         style={{ 
                           color: brandTheme.text.secondary, 
+                          width: `${todoColumnWidths.subtasks}px`,
+                          backgroundColor: hoveredColumn?.table === 'todo' && hoveredColumn?.column === 'subtasks' ? 'rgba(59, 130, 246, 0.05)' : 'transparent'
+                        }}
+                      >
+                        Subtasks
+                        <div
+                          className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize transition-all z-10"
+                          onMouseDown={(e) => startResize('todo', 'subtasks', e.clientX, todoColumnWidths.subtasks)}
+                          onMouseEnter={() => setHoveredColumn({ table: 'todo', column: 'subtasks' })}
+                          onMouseLeave={() => setHoveredColumn(null)}
+                          style={{ 
+                            backgroundColor: (resizing?.table === 'todo' && resizing?.column === 'subtasks') || (hoveredColumn?.table === 'todo' && hoveredColumn?.column === 'subtasks')
+                              ? brandTheme.primary.lightBlue 
+                              : 'transparent' 
+                          }}
+                        />
+                      </th>
+                      <th 
+                        className="px-3 py-2 text-left text-xs font-bold whitespace-nowrap relative group" 
+                        style={{ 
+                          color: brandTheme.text.secondary, 
                           width: `${todoColumnWidths.priority}px`,
                           backgroundColor: hoveredColumn?.table === 'todo' && hoveredColumn?.column === 'priority' ? 'rgba(59, 130, 246, 0.05)' : 'transparent'
                         }}
@@ -686,7 +810,7 @@ const SprintsTaskListPage: React.FC = () => {
                               borderLeftStyle: 'solid',
                               borderLeftColor: priorityColors.text,
                             }}
-                            onClick={() => handleTaskClick(task.id)}
+                            onClick={() => handleTaskClick(task)}
                           >
                             {/* Task Name */}
                             <td 
@@ -695,12 +819,20 @@ const SprintsTaskListPage: React.FC = () => {
                                 backgroundColor: hoveredColumn?.table === 'todo' && hoveredColumn?.column === 'taskName' ? 'rgba(59, 130, 246, 0.03)' : 'transparent'
                               }}
                             >
-                              <span
-                                className="font-medium hover:underline text-sm line-clamp-1"
-                                style={{ color: brandTheme.primary.navy }}
-                              >
-                                {task.name}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                {task.isSubtask && (
+                                  <span className="text-xs" style={{ color: brandTheme.text.muted }}>
+                                    ↳
+                                  </span>
+                                )}
+                                <span
+                                  className="font-medium hover:underline text-sm line-clamp-1"
+                                  style={{ color: task.isSubtask ? brandTheme.text.secondary : brandTheme.primary.navy }}
+                                  title={task.isSubtask ? `Subtask of: ${task.parentTaskName}` : task.name}
+                                >
+                                  {task.name}
+                                </span>
+                              </div>
                               <div
                                 className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize transition-all z-10"
                                 onMouseDown={(e) => {
@@ -743,6 +875,44 @@ const SprintsTaskListPage: React.FC = () => {
                                 onMouseLeave={() => setHoveredColumn(null)}
                                 style={{ 
                                   backgroundColor: (resizing?.table === 'todo' && resizing?.column === 'assignee') || (hoveredColumn?.table === 'todo' && hoveredColumn?.column === 'assignee')
+                                    ? brandTheme.primary.lightBlue 
+                                    : 'transparent' 
+                                }}
+                              />
+                            </td>
+
+                            {/* Subtasks */}
+                            <td 
+                              className="px-3 py-2 whitespace-nowrap relative"
+                              style={{
+                                backgroundColor: hoveredColumn?.table === 'todo' && hoveredColumn?.column === 'subtasks' ? 'rgba(59, 130, 246, 0.03)' : 'transparent'
+                              }}
+                            >
+                              {!task.isSubtask && task.totalSubtasks ? (
+                                <span
+                                  className="text-xs font-semibold"
+                                  style={{ color: brandTheme.text.primary }}
+                                >
+                                  {task.completedSubtasks}/{task.totalSubtasks}
+                                </span>
+                              ) : (
+                                <span
+                                  className="text-xs"
+                                  style={{ color: brandTheme.text.muted }}
+                                >
+                                  -
+                                </span>
+                              )}
+                              <div
+                                className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize transition-all z-10"
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  startResize('todo', 'subtasks', e.clientX, todoColumnWidths.subtasks);
+                                }}
+                                onMouseEnter={() => setHoveredColumn({ table: 'todo', column: 'subtasks' })}
+                                onMouseLeave={() => setHoveredColumn(null)}
+                                style={{ 
+                                  backgroundColor: (resizing?.table === 'todo' && resizing?.column === 'subtasks') || (hoveredColumn?.table === 'todo' && hoveredColumn?.column === 'subtasks')
                                     ? brandTheme.primary.lightBlue 
                                     : 'transparent' 
                                 }}
@@ -903,6 +1073,69 @@ const SprintsTaskListPage: React.FC = () => {
                         className="px-3 py-2 text-left text-xs font-bold whitespace-nowrap relative group" 
                         style={{ 
                           color: brandTheme.text.secondary, 
+                          width: `${inProgressColumnWidths.hoursSpent}px`,
+                          backgroundColor: hoveredColumn?.table === 'inprogress' && hoveredColumn?.column === 'hoursSpent' ? 'rgba(59, 130, 246, 0.05)' : 'transparent'
+                        }}
+                      >
+                        Hours Spent
+                        <div
+                          className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize transition-all z-10"
+                          onMouseDown={(e) => startResize('inprogress', 'hoursSpent', e.clientX, inProgressColumnWidths.hoursSpent)}
+                          onMouseEnter={() => setHoveredColumn({ table: 'inprogress', column: 'hoursSpent' })}
+                          onMouseLeave={() => setHoveredColumn(null)}
+                          style={{ 
+                            backgroundColor: (resizing?.table === 'inprogress' && resizing?.column === 'hoursSpent') || (hoveredColumn?.table === 'inprogress' && hoveredColumn?.column === 'hoursSpent')
+                              ? brandTheme.primary.lightBlue 
+                              : 'transparent' 
+                          }}
+                        />
+                      </th>
+                      <th 
+                        className="px-3 py-2 text-left text-xs font-bold whitespace-nowrap relative group" 
+                        style={{ 
+                          color: brandTheme.text.secondary, 
+                          width: `${inProgressColumnWidths.progress}px`,
+                          backgroundColor: hoveredColumn?.table === 'inprogress' && hoveredColumn?.column === 'progress' ? 'rgba(59, 130, 246, 0.05)' : 'transparent'
+                        }}
+                      >
+                        Progress
+                        <div
+                          className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize transition-all z-10"
+                          onMouseDown={(e) => startResize('inprogress', 'progress', e.clientX, inProgressColumnWidths.progress)}
+                          onMouseEnter={() => setHoveredColumn({ table: 'inprogress', column: 'progress' })}
+                          onMouseLeave={() => setHoveredColumn(null)}
+                          style={{ 
+                            backgroundColor: (resizing?.table === 'inprogress' && resizing?.column === 'progress') || (hoveredColumn?.table === 'inprogress' && hoveredColumn?.column === 'progress')
+                              ? brandTheme.primary.lightBlue 
+                              : 'transparent' 
+                          }}
+                        />
+                      </th>
+                      <th 
+                        className="px-3 py-2 text-left text-xs font-bold whitespace-nowrap relative group" 
+                        style={{ 
+                          color: brandTheme.text.secondary, 
+                          width: `${inProgressColumnWidths.subtasks}px`,
+                          backgroundColor: hoveredColumn?.table === 'inprogress' && hoveredColumn?.column === 'subtasks' ? 'rgba(59, 130, 246, 0.05)' : 'transparent'
+                        }}
+                      >
+                        Subtasks
+                        <div
+                          className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize transition-all z-10"
+                          onMouseDown={(e) => startResize('inprogress', 'subtasks', e.clientX, inProgressColumnWidths.subtasks)}
+                          onMouseEnter={() => setHoveredColumn({ table: 'inprogress', column: 'subtasks' })}
+                          onMouseLeave={() => setHoveredColumn(null)}
+                          style={{ 
+                            backgroundColor: (resizing?.table === 'inprogress' && resizing?.column === 'subtasks') || (hoveredColumn?.table === 'inprogress' && hoveredColumn?.column === 'subtasks')
+                              ? brandTheme.primary.lightBlue 
+                              : 'transparent' 
+                          }}
+                        />
+                      </th>
+                      <th 
+                        className="px-3 py-2 text-left text-xs font-bold whitespace-nowrap relative group" 
+                        style={{ 
+                          color: brandTheme.text.secondary, 
                           width: `${inProgressColumnWidths.priority}px`,
                           backgroundColor: hoveredColumn?.table === 'inprogress' && hoveredColumn?.column === 'priority' ? 'rgba(59, 130, 246, 0.05)' : 'transparent'
                         }}
@@ -958,7 +1191,7 @@ const SprintsTaskListPage: React.FC = () => {
                               borderLeftStyle: 'solid',
                               borderLeftColor: priorityColors.text,
                             }}
-                            onClick={() => handleTaskClick(task.id)}
+                            onClick={() => handleTaskClick(task)}
                           >
                             {/* Task Name */}
                             <td 
@@ -967,12 +1200,20 @@ const SprintsTaskListPage: React.FC = () => {
                                 backgroundColor: hoveredColumn?.table === 'inprogress' && hoveredColumn?.column === 'taskName' ? 'rgba(59, 130, 246, 0.03)' : 'transparent'
                               }}
                             >
-                              <span
-                                className="font-medium hover:underline text-sm line-clamp-1"
-                                style={{ color: brandTheme.primary.navy }}
-                              >
-                                {task.name}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                {task.isSubtask && (
+                                  <span className="text-xs" style={{ color: brandTheme.text.muted }}>
+                                    ↳
+                                  </span>
+                                )}
+                                <span
+                                  className="font-medium hover:underline text-sm line-clamp-1"
+                                  style={{ color: task.isSubtask ? brandTheme.text.secondary : brandTheme.primary.navy }}
+                                  title={task.isSubtask ? `Subtask of: ${task.parentTaskName}` : task.name}
+                                >
+                                  {task.name}
+                                </span>
+                              </div>
                               <div
                                 className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize transition-all z-10"
                                 onMouseDown={(e) => {
@@ -1015,6 +1256,102 @@ const SprintsTaskListPage: React.FC = () => {
                                 onMouseLeave={() => setHoveredColumn(null)}
                                 style={{ 
                                   backgroundColor: (resizing?.table === 'inprogress' && resizing?.column === 'assignee') || (hoveredColumn?.table === 'inprogress' && hoveredColumn?.column === 'assignee')
+                                    ? brandTheme.primary.lightBlue 
+                                    : 'transparent' 
+                                }}
+                              />
+                            </td>
+
+                            {/* Hours Spent */}
+                            <td 
+                              className="px-3 py-2 whitespace-nowrap relative"
+                              style={{
+                                backgroundColor: hoveredColumn?.table === 'inprogress' && hoveredColumn?.column === 'hoursSpent' ? 'rgba(59, 130, 246, 0.03)' : 'transparent'
+                              }}
+                            >
+                              <span
+                                className="text-xs font-semibold"
+                                style={{ color: brandTheme.text.primary }}
+                              >
+                                {task.hoursSpent ? `${task.hoursSpent.toFixed(1)}h` : '0h'}
+                              </span>
+                              <div
+                                className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize transition-all z-10"
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  startResize('inprogress', 'hoursSpent', e.clientX, inProgressColumnWidths.hoursSpent);
+                                }}
+                                onMouseEnter={() => setHoveredColumn({ table: 'inprogress', column: 'hoursSpent' })}
+                                onMouseLeave={() => setHoveredColumn(null)}
+                                style={{ 
+                                  backgroundColor: (resizing?.table === 'inprogress' && resizing?.column === 'hoursSpent') || (hoveredColumn?.table === 'inprogress' && hoveredColumn?.column === 'hoursSpent')
+                                    ? brandTheme.primary.lightBlue 
+                                    : 'transparent' 
+                                }}
+                              />
+                            </td>
+
+                            {/* Progress */}
+                            <td 
+                              className="px-3 py-2 whitespace-nowrap relative"
+                              style={{
+                                backgroundColor: hoveredColumn?.table === 'inprogress' && hoveredColumn?.column === 'progress' ? 'rgba(59, 130, 246, 0.03)' : 'transparent'
+                              }}
+                            >
+                              <span
+                                className="text-xs font-semibold"
+                                style={{ color: brandTheme.text.primary }}
+                              >
+                                {task.progress !== undefined && task.progress !== null ? `${task.progress}%` : '0%'}
+                              </span>
+                              <div
+                                className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize transition-all z-10"
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  startResize('inprogress', 'progress', e.clientX, inProgressColumnWidths.progress);
+                                }}
+                                onMouseEnter={() => setHoveredColumn({ table: 'inprogress', column: 'progress' })}
+                                onMouseLeave={() => setHoveredColumn(null)}
+                                style={{ 
+                                  backgroundColor: (resizing?.table === 'inprogress' && resizing?.column === 'progress') || (hoveredColumn?.table === 'inprogress' && hoveredColumn?.column === 'progress')
+                                    ? brandTheme.primary.lightBlue 
+                                    : 'transparent' 
+                                }}
+                              />
+                            </td>
+
+                            {/* Subtasks */}
+                            <td 
+                              className="px-3 py-2 whitespace-nowrap relative"
+                              style={{
+                                backgroundColor: hoveredColumn?.table === 'inprogress' && hoveredColumn?.column === 'subtasks' ? 'rgba(59, 130, 246, 0.03)' : 'transparent'
+                              }}
+                            >
+                              {task.totalSubtasks ? (
+                                <span
+                                  className="text-xs font-semibold"
+                                  style={{ color: brandTheme.text.primary }}
+                                >
+                                  {task.completedSubtasks}/{task.totalSubtasks}
+                                </span>
+                              ) : (
+                                <span
+                                  className="text-xs"
+                                  style={{ color: brandTheme.text.muted }}
+                                >
+                                  -
+                                </span>
+                              )}
+                              <div
+                                className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize transition-all z-10"
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  startResize('inprogress', 'subtasks', e.clientX, inProgressColumnWidths.subtasks);
+                                }}
+                                onMouseEnter={() => setHoveredColumn({ table: 'inprogress', column: 'subtasks' })}
+                                onMouseLeave={() => setHoveredColumn(null)}
+                                style={{ 
+                                  backgroundColor: (resizing?.table === 'inprogress' && resizing?.column === 'subtasks') || (hoveredColumn?.table === 'inprogress' && hoveredColumn?.column === 'subtasks')
                                     ? brandTheme.primary.lightBlue 
                                     : 'transparent' 
                                 }}
@@ -1093,6 +1430,9 @@ const SprintsTaskListPage: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Sprint Updates Section */}
+        <SprintUpdatesSection tasks={tasks} />
       </div>
 
       {/* Task Details Modal */}

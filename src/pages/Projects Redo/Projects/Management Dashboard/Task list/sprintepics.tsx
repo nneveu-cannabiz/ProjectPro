@@ -1,7 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { brandTheme } from '../../../../../styles/brandTheme';
 import { ListTodo, Calendar } from 'lucide-react';
 import { Task, User } from '../../../../../types';
+import { supabase } from '../../../../../lib/supabase';
+import InSprintReviewModal from '../../Project Kanban Sprints/Sprint Review/InSprintReviewModal';
 
 interface TaskWithSprintInfo extends Task {
   assignee?: User;
@@ -37,7 +39,28 @@ interface SprintGroup {
   sprintId: string | null;
 }
 
+interface ModalSprintGroup {
+  id: string;
+  project_id: string;
+  selected_task_ids: string[];
+  sprint_type: 'Sprint 1' | 'Sprint 2';
+  status: string;
+  name: string;
+  description?: string;
+  project: {
+    id: string;
+    name: string;
+    description?: string;
+    priority?: string;
+    assignee_id?: string;
+    status?: string;
+  };
+}
+
 const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) => {
+  const [selectedSprintGroup, setSelectedSprintGroup] = useState<ModalSprintGroup | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   const sprintGroups = useMemo(() => {
     const groupsMap = new Map<string, SprintGroup>();
 
@@ -157,6 +180,69 @@ const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) =>
 
   const sprintProgress = calculateSprintProgress();
 
+  const handleSprintClick = async (sprintGroupId: string) => {
+    try {
+      // Fetch the sprint group with project details
+      const { data: sprintGroupData, error } = await (supabase as any)
+        .from('PMA_Sprints')
+        .select(`
+          id,
+          project_id,
+          selected_task_ids,
+          sprint_type,
+          status,
+          name,
+          description,
+          PMA_Projects!inner (
+            id,
+            name,
+            description,
+            priority,
+            assignee_id,
+            status
+          )
+        `)
+        .eq('id', sprintGroupId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching sprint group:', error);
+        return;
+      }
+
+      if (sprintGroupData) {
+        // Transform the data to match the modal's expected format
+        const modalData: ModalSprintGroup = {
+          id: sprintGroupData.id,
+          project_id: sprintGroupData.project_id,
+          selected_task_ids: sprintGroupData.selected_task_ids || [],
+          sprint_type: sprintGroupData.sprint_type,
+          status: sprintGroupData.status,
+          name: sprintGroupData.name,
+          description: sprintGroupData.description,
+          project: {
+            id: sprintGroupData.PMA_Projects.id,
+            name: sprintGroupData.PMA_Projects.name,
+            description: sprintGroupData.PMA_Projects.description,
+            priority: sprintGroupData.PMA_Projects.priority,
+            assignee_id: sprintGroupData.PMA_Projects.assignee_id,
+            status: sprintGroupData.PMA_Projects.status,
+          },
+        };
+
+        setSelectedSprintGroup(modalData);
+        setIsModalOpen(true);
+      }
+    } catch (error) {
+      console.error('Error opening sprint modal:', error);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedSprintGroup(null);
+  };
+
   return (
     <div className="mb-6 space-y-4">
       {/* Sprint Dates Section */}
@@ -232,8 +318,10 @@ const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) =>
                   </div>
                 )}
                 <h3
-                  className="font-semibold text-sm flex-1 truncate"
+                  className="font-semibold text-sm flex-1 truncate cursor-pointer hover:underline transition-all"
                   style={{ color: colors.text }}
+                  onClick={() => handleSprintClick(group.id)}
+                  title="Click to view sprint details"
                 >
                   {group.name}
                 </h3>
@@ -301,6 +389,13 @@ const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) =>
         })}
       </div>
       </div>
+
+      {/* Sprint Review Modal */}
+      <InSprintReviewModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        sprintGroup={selectedSprintGroup}
+      />
     </div>
   );
 };

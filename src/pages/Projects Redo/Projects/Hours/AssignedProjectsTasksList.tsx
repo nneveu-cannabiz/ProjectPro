@@ -1,44 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Task, Project } from '../../../../types';
-import { fetchProjects } from '../../../../data/supabase-store';
 import { Clock, ChevronRight, FolderOpen } from 'lucide-react';
 
 interface AssignedProjectsTasksListProps {
-  tasks: Task[];
+  tasks: (Task & { project: Project })[];
   onTaskClick: (task: Task) => void;
 }
 
-interface TaskWithProject extends Task {
-  project?: Project;
-}
-
 const AssignedProjectsTasksList: React.FC<AssignedProjectsTasksListProps> = ({ tasks, onTaskClick }) => {
-  const [tasksWithProjects, setTasksWithProjects] = useState<TaskWithProject[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const loadProjectData = async () => {
-      setLoading(true);
-      try {
-        const projects = await fetchProjects();
-        const projectMap = new Map(projects.map(p => [p.id, p]));
-        
-        const tasksWithProjectData = tasks.map(task => ({
-          ...task,
-          project: projectMap.get(task.projectId)
-        }));
-        
-        setTasksWithProjects(tasksWithProjectData);
-      } catch (error) {
-        console.error('Failed to load project data:', error);
-        setTasksWithProjects(tasks);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadProjectData();
-  }, [tasks]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -70,26 +39,18 @@ const AssignedProjectsTasksList: React.FC<AssignedProjectsTasksListProps> = ({ t
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
-  if (tasksWithProjects.length === 0) {
+  if (tasks.length === 0) {
     return (
       <div className="text-center py-8">
         <Clock className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-        <p className="text-gray-500 text-sm">No tasks assigned to you currently.</p>
-        <p className="text-gray-400 text-xs mt-1">Tasks will appear here when they are assigned to you.</p>
+        <p className="text-gray-500 text-sm">No active tasks available.</p>
+        <p className="text-gray-400 text-xs mt-1">Tasks with status "To Do" or "In Progress" will appear here.</p>
       </div>
     );
   }
 
   // Group tasks by project
-  const tasksByProject = tasksWithProjects.reduce((acc, task) => {
+  const tasksByProject = tasks.reduce((acc, task) => {
     const projectId = task.projectId;
     if (!acc[projectId]) {
       acc[projectId] = {
@@ -99,12 +60,12 @@ const AssignedProjectsTasksList: React.FC<AssignedProjectsTasksListProps> = ({ t
     }
     acc[projectId].tasks.push(task);
     return acc;
-  }, {} as Record<string, { project?: Project; tasks: TaskWithProject[] }>);
+  }, {} as Record<string, { project: Project; tasks: (Task & { project: Project })[] }>);
 
   return (
     <div className="space-y-4">
       <div className="text-sm text-gray-600 mb-4">
-        Click on any task to log hours for it. Only active tasks (Todo or In Progress) are shown.
+        Click on any task to log hours. All active tasks (Todo or In Progress) from all projects are shown below.
       </div>
 
       {Object.entries(tasksByProject).map(([projectId, { project, tasks }]) => (
@@ -114,13 +75,13 @@ const AssignedProjectsTasksList: React.FC<AssignedProjectsTasksListProps> = ({ t
             <div className="flex items-center gap-2">
               <FolderOpen className="w-4 h-4 text-gray-600" />
               <span className="font-medium text-gray-900">
-                {project?.name || 'Unknown Project'}
+                {project.name}
               </span>
               <span className="text-xs text-gray-500">
                 ({tasks.length} task{tasks.length !== 1 ? 's' : ''})
               </span>
             </div>
-            {project?.description && (
+            {project.description && (
               <p className="text-xs text-gray-600 mt-1">{project.description}</p>
             )}
           </div>

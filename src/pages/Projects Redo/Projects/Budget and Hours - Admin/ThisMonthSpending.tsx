@@ -16,11 +16,16 @@ import {
 interface MonthSummary {
   totalSpending: number;
   totalHours: number;
+  laborCosts: number;
+  totalCombinedSpending: number;
   averageWeeklySpending: number;
   averageWeeklyHours: number;
   spendingTrend: 'up' | 'down' | 'stable';
   hoursTrend: 'up' | 'down' | 'stable';
 }
+
+// Hidden hourly rate for labor cost calculations (admin only, not displayed)
+const HOURLY_RATE = 16;
 
 const ThisMonthSpending: React.FC = () => {
   const [spendingData, setSpendingData] = useState<PMASpending[]>([]);
@@ -83,8 +88,14 @@ const ThisMonthSpending: React.FC = () => {
     const totalSpending = monthData.totalSpending;
     const totalHours = monthData.totalHours;
     
+    // Calculate labor costs based on total hours
+    const laborCosts = totalHours * HOURLY_RATE;
+    
+    // Calculate total combined spending (expenses + labor)
+    const totalCombinedSpending = totalSpending + laborCosts;
+    
     // Calculate weekly averages (assuming 4 weeks in a month)
-    const averageWeeklySpending = totalSpending / 4;
+    const averageWeeklySpending = totalCombinedSpending / 4;
     const averageWeeklyHours = totalHours / 4;
     
     // Simple trend calculation based on current vs previous month
@@ -94,6 +105,8 @@ const ThisMonthSpending: React.FC = () => {
     return {
       totalSpending,
       totalHours,
+      laborCosts,
+      totalCombinedSpending,
       averageWeeklySpending,
       averageWeeklyHours,
       spendingTrend,
@@ -192,31 +205,43 @@ const ThisMonthSpending: React.FC = () => {
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+        <div className="text-center p-4 bg-purple-50 rounded-lg border-2 border-purple-200">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <DollarSign className="w-5 h-5 text-purple-600" />
+            <h3 className="font-semibold text-gray-900">Total Cost</h3>
+          </div>
+          <p className="text-2xl font-bold text-purple-600">
+            {formatCurrency(monthSummary.totalCombinedSpending)}
+          </p>
+          <p className="text-xs text-gray-600 mt-1">Expenses + Labor</p>
+        </div>
+
         <div className="text-center p-4 bg-green-50 rounded-lg">
           <div className="flex items-center justify-center gap-2 mb-2">
             <DollarSign className="w-5 h-5 text-green-600" />
-            <h3 className="font-semibold text-gray-900">Total Spending</h3>
+            <h3 className="font-semibold text-gray-900">Expenses</h3>
           </div>
           <p className="text-2xl font-bold text-green-600">
             {formatCurrency(monthSummary.totalSpending)}
           </p>
         </div>
 
-        <div className="text-center p-4 bg-blue-50 rounded-lg">
+        <div className="text-center p-4 bg-orange-50 rounded-lg">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <Clock className="w-5 h-5 text-blue-600" />
-            <h3 className="font-semibold text-gray-900">Total Hours</h3>
+            <Clock className="w-5 h-5 text-orange-600" />
+            <h3 className="font-semibold text-gray-900">Labor Costs</h3>
           </div>
-          <p className="text-2xl font-bold text-blue-600">
-            {monthSummary.totalHours.toFixed(1)}h
+          <p className="text-2xl font-bold text-orange-600">
+            {formatCurrency(monthSummary.laborCosts)}
           </p>
+          <p className="text-xs text-gray-600 mt-1">{monthSummary.totalHours.toFixed(1)}h logged</p>
         </div>
 
         <div className="text-center p-4 bg-gray-50 rounded-lg">
           <div className="flex items-center justify-center gap-2 mb-2">
             {getTrendIcon(monthSummary.spendingTrend)}
-            <h3 className="font-semibold text-gray-900">Avg Weekly Spending</h3>
+            <h3 className="font-semibold text-gray-900">Avg Weekly Cost</h3>
           </div>
           <p className={`text-2xl font-bold ${getTrendColor(monthSummary.spendingTrend)}`}>
             {formatCurrency(monthSummary.averageWeeklySpending)}
@@ -238,7 +263,7 @@ const ThisMonthSpending: React.FC = () => {
       <div className="space-y-6">
         {/* Spending Table */}
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">This Month's Spending</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">This Month's Expenses</h3>
           {monthData.spending.length === 0 ? (
             <div className="text-center py-8 bg-gray-50 rounded-lg">
               <DollarSign className="w-12 h-12 text-gray-400 mx-auto mb-3" />
@@ -294,7 +319,7 @@ const ThisMonthSpending: React.FC = () => {
 
         {/* Hours by User */}
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">This Month's Hours by User</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">This Month's Hours by User (Labor Costs)</h3>
           {monthData.hours.length === 0 ? (
             <div className="text-center py-8 bg-gray-50 rounded-lg">
               <Clock className="w-12 h-12 text-gray-400 mx-auto mb-3" />

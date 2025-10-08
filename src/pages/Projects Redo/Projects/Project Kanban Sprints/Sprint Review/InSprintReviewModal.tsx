@@ -8,8 +8,10 @@ import EmptyState from './EmptyState';
 import HoursPlannedModal from './HoursPlannedModal';
 import LoadingSpinner from './LoadingSpinner';
 import UserAvatar from '../../../../../components/UserAvatar';
+import TaskDetailsModal from '../../Flow Chart/utils/Profiles/TaskDetailsModal';
 import { useTaskEditing } from './useTaskEditing';
 import { Task } from './types';
+import SprintProjectSummary from './sprintprojectsummary';
 
 interface SprintGroup {
   id: string;
@@ -61,6 +63,10 @@ const InSprintReviewModal: React.FC<InSprintReviewModalProps> = ({
   // Hours Planned Modal state
   const [selectedTaskForHours, setSelectedTaskForHours] = useState<{ id: string; name: string } | null>(null);
   const [isHoursModalOpen, setIsHoursModalOpen] = useState(false);
+
+  // Task Details Modal state
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [isTaskDetailsModalOpen, setIsTaskDetailsModalOpen] = useState(false);
 
   const loadSprintTasks = async () => {
     if (!sprintGroup) return;
@@ -192,6 +198,17 @@ const InSprintReviewModal: React.FC<InSprintReviewModalProps> = ({
 
   const handleHoursUpdated = () => {
     loadSprintTasks(); // Refresh the task data to show updated hours
+  };
+
+  const handleTaskNameClick = (taskId: string) => {
+    setSelectedTaskId(taskId);
+    setIsTaskDetailsModalOpen(true);
+  };
+
+  const handleCloseTaskDetailsModal = () => {
+    setIsTaskDetailsModalOpen(false);
+    setSelectedTaskId(null);
+    loadSprintTasks(); // Refresh data when task modal closes
   };
 
   const getPriorityColor = (priority?: string) => {
@@ -355,7 +372,7 @@ const InSprintReviewModal: React.FC<InSprintReviewModalProps> = ({
                       >
                         <div className="col-span-3">Task Name</div>
                         <div className="col-span-2">Hours Spent</div>
-                        <div className="col-span-2">Hours Planned</div>
+                        <div className="col-span-2">Story Points</div>
                         <div className="col-span-1 -ml-2">Priority</div>
                         <div className="col-span-2">Status</div>
                         <div className="col-span-2">Assignee</div>
@@ -372,9 +389,10 @@ const InSprintReviewModal: React.FC<InSprintReviewModalProps> = ({
                             {/* Task Name */}
                             <div className="col-span-3">
                               <div 
-                                className="font-medium text-sm"
-                                style={{ color: brandTheme.text.primary }}
+                                className="font-medium text-sm cursor-pointer hover:underline"
+                                style={{ color: brandTheme.primary.navy }}
                                 title={task.description || task.name}
+                                onClick={() => handleTaskNameClick(task.id)}
                               >
                                 {task.name}
                               </div>
@@ -387,13 +405,13 @@ const InSprintReviewModal: React.FC<InSprintReviewModalProps> = ({
                               </span>
                             </div>
 
-                            {/* Hours Planned */}
+                            {/* Story Points */}
                             <div className="col-span-2">
                               <div 
                                 className="text-sm font-medium cursor-pointer hover:underline transition-colors"
                                 style={{ color: brandTheme.primary.navy }}
                                 onClick={() => handleHoursPlannedClick(task.id, task.name)}
-                                title="Click to view/edit planned hours"
+                                title="Click to view/edit story points"
                               >
                                 {task.hoursPlanned.toFixed(1)}h
                               </div>
@@ -531,7 +549,7 @@ const InSprintReviewModal: React.FC<InSprintReviewModalProps> = ({
                       >
                         <div className="col-span-3">Task Name</div>
                         <div className="col-span-2">Hours Spent</div>
-                        <div className="col-span-2">Hours Planned</div>
+                        <div className="col-span-2">Story Points</div>
                         <div className="col-span-1 -ml-2">Priority</div>
                         <div className="col-span-2">Status</div>
                         <div className="col-span-2">Assignee</div>
@@ -548,9 +566,10 @@ const InSprintReviewModal: React.FC<InSprintReviewModalProps> = ({
                             {/* Task Name */}
                             <div className="col-span-3">
                               <div 
-                                className="font-medium text-sm"
-                                style={{ color: brandTheme.text.primary }}
+                                className="font-medium text-sm cursor-pointer hover:underline"
+                                style={{ color: brandTheme.primary.navy }}
                                 title={task.description || task.name}
+                                onClick={() => handleTaskNameClick(task.id)}
                               >
                                 {task.name}
                               </div>
@@ -563,13 +582,13 @@ const InSprintReviewModal: React.FC<InSprintReviewModalProps> = ({
                               </span>
                             </div>
 
-                            {/* Hours Planned */}
+                            {/* Story Points */}
                             <div className="col-span-2">
                               <div 
                                 className="text-sm font-medium cursor-pointer hover:underline transition-colors"
                                 style={{ color: brandTheme.primary.navy }}
                                 onClick={() => handleHoursPlannedClick(task.id, task.name)}
-                                title="Click to view/edit planned hours"
+                                title="Click to view/edit story points"
                               >
                                 {task.hoursPlanned.toFixed(1)}h
                               </div>
@@ -650,13 +669,19 @@ const InSprintReviewModal: React.FC<InSprintReviewModalProps> = ({
           
           {activeTab === 'summary' && (
             <div className="p-6">
-              <div 
-                className="text-center py-12"
-                style={{ color: brandTheme.text.muted }}
-              >
-                <h3 className="text-lg font-semibold mb-2">Epic Summary</h3>
-                <p>Summary view coming soon...</p>
-              </div>
+              {isLoading ? (
+                <LoadingSpinner />
+              ) : sprintTasks.length > 0 && sprintTasks[0].project_id ? (
+                <SprintProjectSummary projectId={sprintTasks[0].project_id} />
+              ) : (
+                <div 
+                  className="text-center py-12"
+                  style={{ color: brandTheme.text.muted }}
+                >
+                  <h3 className="text-lg font-semibold mb-2">No Project Found</h3>
+                  <p>This sprint has no tasks or associated project.</p>
+                </div>
+              )}
             </div>
           )}
           
@@ -700,6 +725,15 @@ const InSprintReviewModal: React.FC<InSprintReviewModalProps> = ({
           taskId={selectedTaskForHours.id}
           taskName={selectedTaskForHours.name}
           onHoursUpdated={handleHoursUpdated}
+        />
+      )}
+
+      {/* Task Details Modal */}
+      {selectedTaskId && (
+        <TaskDetailsModal
+          isOpen={isTaskDetailsModalOpen}
+          onClose={handleCloseTaskDetailsModal}
+          taskId={selectedTaskId}
         />
       )}
     </div>

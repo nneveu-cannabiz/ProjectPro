@@ -13,6 +13,7 @@ import {
 import UserAvatar from '../../../../../../components/UserAvatar';
 import HoursPlannedModal from '../HoursPlannedModal';
 import TaskDetailsModal from '../../../Flow Chart/utils/Profiles/TaskDetailsModal';
+import InSprintReviewModal from '../InSprintReviewModal';
 
 interface SprintGroup {
   id: string;
@@ -56,6 +57,24 @@ interface TaskSummary {
   end_date?: string;
 }
 
+interface ModalSprintGroup {
+  id: string;
+  project_id: string;
+  selected_task_ids: string[];
+  sprint_type: 'Sprint 1' | 'Sprint 2';
+  status: string;
+  name: string;
+  description?: string;
+  project: {
+    id: string;
+    name: string;
+    description?: string;
+    priority?: string;
+    assignee_id?: string;
+    status?: string;
+  };
+}
+
 interface SprintGroupRowProps {
   sprintGroup: SprintGroup;
   onProjectClick?: (project: any) => void;
@@ -64,8 +83,7 @@ interface SprintGroupRowProps {
 
 const SprintGroupRow: React.FC<SprintGroupRowProps> = ({
   sprintGroup,
-  onProjectClick,
-  onSprintReviewClick
+  onProjectClick
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [tasks, setTasks] = useState<TaskSummary[]>([]);
@@ -77,6 +95,8 @@ const SprintGroupRow: React.FC<SprintGroupRowProps> = ({
   const [editingDateTaskId, setEditingDateTaskId] = useState<string | null>(null);
   const [editingDateField, setEditingDateField] = useState<'start_date' | 'end_date' | null>(null);
   const [editDateValue, setEditDateValue] = useState<string>('');
+  const [isSprintModalOpen, setIsSprintModalOpen] = useState(false);
+  const [modalSprintGroup, setModalSprintGroup] = useState<ModalSprintGroup | null>(null);
 
   useEffect(() => {
     if (isExpanded && tasks.length === 0) {
@@ -270,6 +290,28 @@ const SprintGroupRow: React.FC<SprintGroupRowProps> = ({
     });
   };
 
+  const handleSprintNameClick = () => {
+    // Transform the sprint group data to match the modal's expected format
+    const modalData: ModalSprintGroup = {
+      id: sprintGroup.id,
+      project_id: sprintGroup.project_id,
+      selected_task_ids: sprintGroup.selected_task_ids,
+      sprint_type: sprintGroup.sprint_type,
+      status: sprintGroup.status,
+      name: sprintGroup.name,
+      description: sprintGroup.description,
+      project: sprintGroup.project,
+    };
+
+    setModalSprintGroup(modalData);
+    setIsSprintModalOpen(true);
+  };
+
+  const handleCloseSprintModal = () => {
+    setIsSprintModalOpen(false);
+    setModalSprintGroup(null);
+  };
+
   // Get the rank for this sprint type
   const rankingKey = `Sprint: ${sprintGroup.sprint_type}`;
   const currentRank = sprintGroup.ranking?.[rankingKey];
@@ -322,7 +364,7 @@ const SprintGroupRow: React.FC<SprintGroupRowProps> = ({
                 <h4 
                   className="font-semibold text-base truncate cursor-pointer hover:underline"
                   style={{ color: brandTheme.primary.navy }}
-                  onClick={() => onSprintReviewClick?.(sprintGroup.project)}
+                  onClick={handleSprintNameClick}
                   title="Click to review sprint group"
                 >
                   {sprintGroup.name}
@@ -734,6 +776,13 @@ const SprintGroupRow: React.FC<SprintGroupRowProps> = ({
           taskId={selectedTaskId}
         />
       )}
+
+      {/* Sprint Review Modal */}
+      <InSprintReviewModal
+        isOpen={isSprintModalOpen}
+        onClose={handleCloseSprintModal}
+        sprintGroup={modalSprintGroup}
+      />
     </div>
   );
 };
