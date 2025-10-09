@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { brandTheme } from '../../../../../../styles/brandTheme';
-import { History, Calendar, Plus, Save, X } from 'lucide-react';
+import { Calendar, Plus, Save, X, Edit2 } from 'lucide-react';
 import { supabase } from '../../../../../../lib/supabase';
 import Button from '../../../../../../components/ui/Button';
 import Input from '../../../../../../components/ui/Input';
+import GanttChart from './Gantchart';
 
 interface SprintGroup {
   id: string;
@@ -33,6 +34,9 @@ const SprintHistory: React.FC = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [saving, setSaving] = useState(false);
+  const [editingSprintId, setEditingSprintId] = useState<string | null>(null);
+  const [editStartDate, setEditStartDate] = useState('');
+  const [editEndDate, setEditEndDate] = useState('');
 
   useEffect(() => {
     loadSprintData();
@@ -167,6 +171,59 @@ const SprintHistory: React.FC = () => {
     setEndDate('');
   };
 
+  const handleEditSprint = (sprint: HistoricalSprint) => {
+    setEditingSprintId(sprint.sprint_id);
+    setEditStartDate(formatDateForInput(sprint.start_date));
+    setEditEndDate(formatDateForInput(sprint.end_date));
+  };
+
+  const handleCancelEdit = () => {
+    setEditingSprintId(null);
+    setEditStartDate('');
+    setEditEndDate('');
+  };
+
+  const handleSaveSprintDates = async (sprintId: string) => {
+    if (!editStartDate || !editEndDate) {
+      alert('Please select both start and end dates');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      // Update all sprint groups with this sprint_id with the new dates
+      const { error } = await (supabase as any)
+        .from('PMA_Sprints')
+        .update({
+          start_date: editStartDate,
+          end_date: editEndDate,
+        })
+        .eq('sprint_id', sprintId);
+
+      if (error) {
+        console.error('Error updating sprint dates:', error);
+        alert('Failed to update sprint dates');
+        return;
+      }
+
+      // Reset form and reload data
+      setEditingSprintId(null);
+      setEditStartDate('');
+      setEditEndDate('');
+      await loadSprintData();
+    } catch (error) {
+      console.error('Error saving sprint dates:', error);
+      alert('Failed to update sprint dates');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const formatDateForInput = (dateString: string | null) => {
+    if (!dateString) return '';
+    return dateString.split('T')[0];
+  };
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
     
@@ -181,13 +238,34 @@ const SprintHistory: React.FC = () => {
     });
   };
 
+  const getSprintStatus = (startDate: string | null, endDate: string | null) => {
+    if (!startDate || !endDate) return { label: 'Not Scheduled', color: brandTheme.text.muted };
+    
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    
+    const start = new Date(startDate);
+    start.setHours(0, 0, 0, 0);
+    
+    const end = new Date(endDate);
+    end.setHours(0, 0, 0, 0);
+    
+    if (now < start) {
+      return { label: 'Upcoming', color: brandTheme.primary.lightBlue };
+    } else if (now > end) {
+      return { label: 'Completed', color: brandTheme.status.success };
+    } else {
+      return { label: 'Active', color: '#f59e0b' }; // Orange for active
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[70vh]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
           <p className="mt-4" style={{ color: brandTheme.text.muted }}>
-            Loading Sprint History...
+            Loading Sprint Tracking...
           </p>
         </div>
       </div>
@@ -204,13 +282,13 @@ const SprintHistory: React.FC = () => {
         >
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-white mb-2">Sprint History</h1>
+              <h1 className="text-3xl font-bold text-white mb-2">Sprint Tracking</h1>
               <p className="text-white opacity-90">
-                View historical sprints and group sprint groups over time
+                Schedule and manage sprints across all time periods
               </p>
             </div>
             <div className="flex items-center space-x-2">
-              <History className="w-8 h-8 text-white" />
+              <Calendar className="w-8 h-8 text-white" />
             </div>
           </div>
         </div>
@@ -234,7 +312,7 @@ const SprintHistory: React.FC = () => {
                 }}
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Create Historical Sprint ({selectedGroupIds.length})
+                Schedule Sprint ({selectedGroupIds.length})
               </Button>
             </div>
 
@@ -248,7 +326,7 @@ const SprintHistory: React.FC = () => {
                 }}
               >
                 <h3 className="text-lg font-bold mb-4" style={{ color: brandTheme.primary.navy }}>
-                  Create Historical Sprint
+                  Schedule Sprint
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                   <div>
@@ -347,58 +425,129 @@ const SprintHistory: React.FC = () => {
           </div>
         )}
 
-        {/* Historical Sprints Section */}
+        {/* Scheduled Sprints Section */}
         <div
           className="rounded-lg shadow-sm p-6"
           style={{ backgroundColor: brandTheme.background.secondary }}
         >
           <h2 className="text-xl font-bold mb-4" style={{ color: brandTheme.text.primary }}>
-            Historical Sprints ({historicalSprints.length})
+            Scheduled Sprints ({historicalSprints.length})
           </h2>
 
           {historicalSprints.length === 0 ? (
             <div className="text-center py-12">
-              <History
+              <Calendar
                 className="w-12 h-12 mx-auto mb-3"
                 style={{ color: brandTheme.text.muted }}
               />
-              <p style={{ color: brandTheme.text.muted }}>No historical sprints found</p>
+              <p style={{ color: brandTheme.text.muted }}>No sprints scheduled yet</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {historicalSprints.map((sprint) => (
-                <div
-                  key={sprint.sprint_id}
-                  className="rounded-lg border p-4"
-                  style={{
-                    backgroundColor: 'white',
-                    borderColor: brandTheme.border.light,
-                  }}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <h3 className="text-lg font-bold" style={{ color: brandTheme.primary.navy }}>
-                        {sprint.sprint_id}
-                      </h3>
-                      <div className="flex items-center gap-4 mt-1">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4" style={{ color: brandTheme.text.muted }} />
-                          <span className="text-sm" style={{ color: brandTheme.text.secondary }}>
-                            {formatDate(sprint.start_date)} - {formatDate(sprint.end_date)}
+              {historicalSprints.map((sprint) => {
+                const status = getSprintStatus(sprint.start_date, sprint.end_date);
+                const isEditing = editingSprintId === sprint.sprint_id;
+                
+                return (
+                  <div
+                    key={sprint.sprint_id}
+                    className="rounded-lg border p-4"
+                    style={{
+                      backgroundColor: 'white',
+                      borderColor: isEditing ? brandTheme.primary.lightBlue : brandTheme.border.light,
+                      borderWidth: isEditing ? '2px' : '1px',
+                    }}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="text-lg font-bold" style={{ color: brandTheme.primary.navy }}>
+                            {sprint.sprint_id}
+                          </h3>
+                          <span
+                            className="px-2 py-0.5 rounded-full text-xs font-bold"
+                            style={{
+                              backgroundColor: status.color + '20',
+                              color: status.color,
+                            }}
+                          >
+                            {status.label}
                           </span>
                         </div>
-                        <span
-                          className="px-2 py-0.5 rounded-full text-xs font-semibold"
-                          style={{
-                            backgroundColor: brandTheme.primary.paleBlue,
-                            color: brandTheme.primary.navy,
-                          }}
-                        >
-                          {sprint.groups.length} groups
-                        </span>
+                        
+                        {isEditing ? (
+                          <div className="flex items-center gap-3 mt-2">
+                            <div className="flex items-center gap-2">
+                              <Calendar className="w-4 h-4" style={{ color: brandTheme.text.muted }} />
+                              <Input
+                                type="date"
+                                value={editStartDate}
+                                onChange={(e) => setEditStartDate(e.target.value)}
+                                className="text-sm"
+                                style={{ width: '140px' }}
+                              />
+                              <span className="text-sm" style={{ color: brandTheme.text.secondary }}>-</span>
+                              <Input
+                                type="date"
+                                value={editEndDate}
+                                onChange={(e) => setEditEndDate(e.target.value)}
+                                className="text-sm"
+                                style={{ width: '140px' }}
+                              />
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleSaveSprintDates(sprint.sprint_id)}
+                                disabled={saving}
+                                className="p-1 rounded hover:bg-green-100 transition-colors"
+                                style={{ color: brandTheme.status.success }}
+                                title="Save dates"
+                              >
+                                <Save className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={handleCancelEdit}
+                                disabled={saving}
+                                className="p-1 rounded hover:bg-gray-100 transition-colors"
+                                style={{ color: brandTheme.text.muted }}
+                                title="Cancel"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-4 mt-1">
+                            <div className="flex items-center gap-1">
+                              <Calendar className="w-4 h-4" style={{ color: brandTheme.text.muted }} />
+                              <span className="text-sm" style={{ color: brandTheme.text.secondary }}>
+                                {formatDate(sprint.start_date)} - {formatDate(sprint.end_date)}
+                              </span>
+                            </div>
+                            <span
+                              className="px-2 py-0.5 rounded-full text-xs font-semibold"
+                              style={{
+                                backgroundColor: brandTheme.primary.paleBlue,
+                                color: brandTheme.primary.navy,
+                              }}
+                            >
+                              {sprint.groups.length} groups
+                            </span>
+                          </div>
+                        )}
                       </div>
+                      
+                      {!isEditing && (
+                        <button
+                          onClick={() => handleEditSprint(sprint)}
+                          className="p-2 rounded hover:bg-blue-50 transition-colors"
+                          style={{ color: brandTheme.primary.navy }}
+                          title="Edit dates"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
-                  </div>
 
                   {/* Sprint Groups in this historical sprint */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
@@ -428,10 +577,18 @@ const SprintHistory: React.FC = () => {
                     ))}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
+
+        {/* Gantt Chart */}
+        {historicalSprints.length > 0 && (
+          <div className="mt-6">
+            <GanttChart sprints={historicalSprints} />
+          </div>
+        )}
       </div>
     </div>
   );

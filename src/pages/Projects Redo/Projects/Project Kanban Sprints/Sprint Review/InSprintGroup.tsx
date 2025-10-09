@@ -302,7 +302,7 @@ const InSprintGroup: React.FC<InSprintGroupProps> = ({ projectId, refreshTrigger
           >
             <div className="col-span-3">Task Name</div>
             <div className="col-span-2">Hours Spent</div>
-            <div className="col-span-2">Hours Planned</div>
+            <div className="col-span-2">Story Points</div>
             <div className="col-span-1">Priority</div>
             <div className="col-span-2">Status</div>
             <div className="col-span-2">Assignee</div>
@@ -332,19 +332,19 @@ const InSprintGroup: React.FC<InSprintGroupProps> = ({ projectId, refreshTrigger
                   {/* Hours Spent */}
                   <div className="col-span-2">
                     <span className="text-sm font-medium" style={{ color: brandTheme.text.primary }}>
-                      {task.hoursSpent.toFixed(1)}h
+                      {task.hoursSpent.toFixed(1)}
                     </span>
                   </div>
 
-                  {/* Hours Planned */}
+                  {/* Story Points */}
                   <div className="col-span-2">
                     <div 
                       className="text-sm font-medium cursor-pointer hover:underline transition-colors"
                       style={{ color: brandTheme.primary.navy }}
                       onClick={() => handleHoursPlannedClick(task.id, task.name)}
-                      title="Click to view/edit planned hours"
+                      title="Click to view/edit story points"
                     >
-                      {task.hoursPlanned.toFixed(1)}h
+                      {task.hoursPlanned.toFixed(1)}
                     </div>
                   </div>
 

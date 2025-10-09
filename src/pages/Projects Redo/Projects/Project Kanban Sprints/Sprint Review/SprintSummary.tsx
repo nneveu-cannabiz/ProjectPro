@@ -115,18 +115,18 @@ const SprintSummary: React.FC<SprintSummaryProps> = ({
           </div>
           <div>
             <p className="text-white text-sm font-medium opacity-90">Hours Spent</p>
-            <p className="text-white text-2xl font-bold">{totalHoursSpent.toFixed(1)}h</p>
+            <p className="text-white text-2xl font-bold">{totalHoursSpent.toFixed(1)}</p>
           </div>
         </div>
 
-        {/* Hours Planned */}
+        {/* Story Points */}
         <div className="flex items-center space-x-3">
           <div className="flex items-center justify-center w-10 h-10 bg-white bg-opacity-20 rounded-full">
             <Target className="w-5 h-5 text-white" />
           </div>
           <div>
-            <p className="text-white text-sm font-medium opacity-90">Hours Planned</p>
-            <p className="text-white text-2xl font-bold">{totalHoursPlanned.toFixed(1)}h</p>
+            <p className="text-white text-sm font-medium opacity-90">Story Points</p>
+            <p className="text-white text-2xl font-bold">{totalHoursPlanned.toFixed(1)}</p>
           </div>
         </div>
       </div>
@@ -155,11 +155,11 @@ const SprintSummary: React.FC<SprintSummaryProps> = ({
                 <div className="flex items-center space-x-4 text-right">
                   <div>
                     <p className="text-white text-xs opacity-75">Spent</p>
-                    <p className="text-white font-bold text-sm">{assignee.totalHoursSpent.toFixed(1)}h</p>
+                    <p className="text-white font-bold text-sm">{assignee.totalHoursSpent.toFixed(1)}</p>
                   </div>
                   <div>
-                    <p className="text-white text-xs opacity-75">Planned</p>
-                    <p className="text-white font-bold text-sm">{assignee.totalHoursPlanned.toFixed(1)}h</p>
+                    <p className="text-white text-xs opacity-75">Points</p>
+                    <p className="text-white font-bold text-sm">{assignee.totalHoursPlanned.toFixed(1)}</p>
                   </div>
                 </div>
               </div>

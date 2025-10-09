@@ -47,8 +47,12 @@ const HoursPlannedModal: React.FC<HoursPlannedModalProps> = ({
     if (isOpen) {
       loadPlannedHours();
       loadUsers();
+      // Default to current user
+      if (currentUser?.id) {
+        setSelectedUserId(currentUser.id);
+      }
     }
-  }, [isOpen, taskId]);
+  }, [isOpen, taskId, currentUser]);
 
   const loadPlannedHours = async () => {
     console.log('Loading planned hours for task:', taskId);
@@ -140,10 +144,19 @@ const HoursPlannedModal: React.FC<HoursPlannedModalProps> = ({
         throw new Error('User not authenticated');
       }
 
+      // Ensure we're using the exact value entered
+      const hoursValue = parseFloat(newHours);
+      
+      console.log('Adding story points:', {
+        input: newHours,
+        parsed: hoursValue,
+        type: typeof hoursValue
+      });
+
       const insertData = {
         user_id: selectedUserId, // This is the ASSIGNEE who the hours are planned FOR
         task_id: taskId,
-        hours: parseFloat(newHours),
+        hours: hoursValue,
         date: new Date().toISOString().split('T')[0],
         is_planning_hours: true
         // Note: The current authenticated user (who is LOGGING these hours) is tracked via RLS/session context
@@ -224,10 +237,18 @@ const HoursPlannedModal: React.FC<HoursPlannedModalProps> = ({
         throw new Error('User not authenticated');
       }
 
+      const hoursValue = parseFloat(editHours);
+      
+      console.log('Updating story points:', {
+        input: editHours,
+        parsed: hoursValue,
+        type: typeof hoursValue
+      });
+
       const { error } = await (supabase as any)
         .from('PMA_Hours')
         .update({
-          hours: parseFloat(editHours),
+          hours: hoursValue,
           user_id: editUserId // This is the ASSIGNEE who the hours are planned FOR
         })
         .eq('id', hoursId);
@@ -269,7 +290,7 @@ const HoursPlannedModal: React.FC<HoursPlannedModalProps> = ({
         >
           <div>
             <h2 className="text-xl font-bold text-white">
-              Planned Hours
+              Story Points
             </h2>
             <p className="text-sm text-white opacity-90 mt-1">
               {taskName}
@@ -295,10 +316,10 @@ const HoursPlannedModal: React.FC<HoursPlannedModalProps> = ({
               <Clock className="w-5 h-5" style={{ color: brandTheme.primary.navy }} />
               <div>
                 <p className="text-sm font-medium" style={{ color: brandTheme.text.secondary }}>
-                  Total Planned Hours
+                  Total Story Points
                 </p>
                 <p className="text-2xl font-bold" style={{ color: brandTheme.primary.navy }}>
-                  {getTotalPlannedHours().toFixed(1)}h
+                  {getTotalPlannedHours().toFixed(1)}
                 </p>
               </div>
             </div>
@@ -310,7 +331,7 @@ const HoursPlannedModal: React.FC<HoursPlannedModalProps> = ({
               className="text-lg font-semibold mb-4"
               style={{ color: brandTheme.text.primary }}
             >
-              Hours by Assignee
+              Story Points by Assignee
             </h3>
             
             {isLoading ? (
@@ -319,7 +340,7 @@ const HoursPlannedModal: React.FC<HoursPlannedModalProps> = ({
                   className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-4"
                   style={{ borderColor: brandTheme.primary.navy }}
                 />
-                <p style={{ color: brandTheme.text.secondary }}>Loading planned hours...</p>
+                <p style={{ color: brandTheme.text.secondary }}>Loading story points...</p>
               </div>
             ) : plannedHours.length > 0 ? (
               <div className="space-y-3">
@@ -341,14 +362,14 @@ const HoursPlannedModal: React.FC<HoursPlannedModalProps> = ({
                               className="block text-xs font-medium mb-1"
                               style={{ color: brandTheme.text.secondary }}
                             >
-                              Hours
+                              Story Points
                             </label>
                             <input
                               type="number"
                               value={editHours}
                               onChange={(e) => setEditHours(e.target.value)}
                               min="0"
-                              step="0.5"
+                              step="0.1"
                               className="w-full px-2 py-1 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                               style={{ 
                                 borderColor: brandTheme.border.medium,
@@ -362,7 +383,7 @@ const HoursPlannedModal: React.FC<HoursPlannedModalProps> = ({
                               className="block text-xs font-medium mb-1"
                               style={{ color: brandTheme.text.secondary }}
                             >
-                              Plan Hours For
+                              Assign Points To
                             </label>
                             <select
                               value={editUserId}
@@ -425,7 +446,7 @@ const HoursPlannedModal: React.FC<HoursPlannedModalProps> = ({
                               className="text-xs"
                               style={{ color: brandTheme.text.secondary }}
                             >
-                              {hour.hours}h planned
+                              {hour.hours} points
                             </p>
                           </div>
                         </div>
@@ -434,7 +455,7 @@ const HoursPlannedModal: React.FC<HoursPlannedModalProps> = ({
                           <button
                             onClick={() => handleEditStart(hour)}
                             className="p-1 hover:bg-blue-100 rounded text-blue-600 transition-colors"
-                            title="Edit planned hours"
+                            title="Edit story points"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
@@ -442,7 +463,7 @@ const HoursPlannedModal: React.FC<HoursPlannedModalProps> = ({
                           <button
                             onClick={() => handleDeletePlannedHours(hour.id)}
                             className="p-1 hover:bg-red-100 rounded text-red-600 transition-colors"
-                            title="Remove planned hours"
+                            title="Remove story points"
                           >
                             <X className="w-4 h-4" />
                           </button>
@@ -458,7 +479,7 @@ const HoursPlannedModal: React.FC<HoursPlannedModalProps> = ({
                 style={{ color: brandTheme.text.muted }}
               >
                 <Clock className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>No planned hours logged for this task yet.</p>
+                <p>No story points assigned for this task yet.</p>
               </div>
             )}
           </div>
@@ -472,10 +493,10 @@ const HoursPlannedModal: React.FC<HoursPlannedModalProps> = ({
               className="text-md font-semibold mb-2"
               style={{ color: brandTheme.text.primary }}
             >
-              Log Additional Planned Hours
+              Add Story Points
             </h4>
             <p className="text-sm mb-4" style={{ color: brandTheme.text.muted }}>
-              You can plan hours for any team member. The system tracks who logged the hours (you) separately from who the hours are assigned to.
+              You can assign story points to any team member. The system tracks who logged the points (you) separately from who the points are assigned to.
             </p>
             
             <div className="space-y-4">
@@ -485,7 +506,7 @@ const HoursPlannedModal: React.FC<HoursPlannedModalProps> = ({
                     className="block text-sm font-medium mb-2"
                     style={{ color: brandTheme.text.secondary }}
                   >
-                    Hours
+                    Story Points
                   </label>
                   <input
                     type="number"
@@ -493,7 +514,7 @@ const HoursPlannedModal: React.FC<HoursPlannedModalProps> = ({
                     onChange={(e) => setNewHours(e.target.value)}
                     placeholder="0.0"
                     min="0"
-                    step="0.5"
+                    step="0.1"
                     className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     style={{ 
                       borderColor: brandTheme.border.medium,
@@ -507,10 +528,10 @@ const HoursPlannedModal: React.FC<HoursPlannedModalProps> = ({
                     className="block text-sm font-medium mb-1"
                     style={{ color: brandTheme.text.secondary }}
                   >
-                    Plan Hours For (Assignee)
+                    Assign Points To (Assignee)
                   </label>
                   <p className="text-xs mb-2" style={{ color: brandTheme.text.muted }}>
-                    Who should these hours be assigned to?
+                    Who should these points be assigned to?
                   </p>
                   <select
                     value={selectedUserId}
@@ -541,7 +562,7 @@ const HoursPlannedModal: React.FC<HoursPlannedModalProps> = ({
                 }}
               >
                 <Plus className="w-4 h-4" />
-                <span>{isSubmitting ? 'Adding...' : 'Add Planned Hours'}</span>
+                <span>{isSubmitting ? 'Adding...' : 'Add Story Points'}</span>
               </button>
             </div>
           </div>

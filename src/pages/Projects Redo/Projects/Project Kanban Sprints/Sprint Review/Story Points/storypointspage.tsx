@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { brandTheme } from '../../../../../../styles/brandTheme';
-import { GripVertical, Award, Search, Hash } from 'lucide-react';
+import { GripVertical, Award, Search, Hash, ArrowUp, ArrowDown } from 'lucide-react';
 import { supabase } from '../../../../../../lib/supabase';
 import { Task, Project, User } from '../../../../../../types';
 import UserAvatar from '../../../../../../components/UserAvatar';
 import Badge from '../../../../../../components/ui/Badge';
 import Input from '../../../../../../components/ui/Input';
 import TaskDetailsModal from '../../../Flow Chart/utils/Profiles/TaskDetailsModal';
+import StoryPointsByGroup from './storypointsbygroup';
 import {
   DndContext,
   closestCenter,
@@ -31,6 +32,7 @@ interface TaskWithSprintInfo extends Task {
   sprintGroupName: string;
   sprintGroupId: string;
   taskRank?: number;
+  storyPoints?: number;
 }
 
 interface SortableTaskRowProps {
@@ -174,6 +176,16 @@ const SortableTaskRow: React.FC<SortableTaskRowProps> = ({
         </span>
       </td>
 
+      {/* Story Points */}
+      <td className="px-4 py-3">
+        <div className="flex items-center space-x-1">
+          <Award size={14} style={{ color: brandTheme.primary.navy }} />
+          <span className="text-sm font-semibold" style={{ color: brandTheme.primary.navy }}>
+            {task.storyPoints?.toFixed(1) || '0.0'}
+          </span>
+        </div>
+      </td>
+
       {/* Sprint Group Name */}
       <td className="px-4 py-3">
         <Badge variant="default">{task.sprintGroupName}</Badge>
@@ -187,6 +199,7 @@ const StoryPointsPage: React.FC = () => {
   const [tasks, setTasks] = useState<TaskWithSprintInfo[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [storyPointsSortOrder, setStoryPointsSortOrder] = useState<'desc' | 'asc' | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -309,6 +322,24 @@ const StoryPointsPage: React.FC = () => {
         });
       }
 
+      // Fetch story points (planned hours) for all tasks
+      const { data: storyPointsData } = await (supabase as any)
+        .from('PMA_Hours')
+        .select('task_id, hours')
+        .in('task_id', allTaskIds)
+        .eq('is_planning_hours', true);
+
+      // Calculate total story points per task
+      const storyPointsMap: Record<string, number> = {};
+      if (storyPointsData) {
+        storyPointsData.forEach((sp: any) => {
+          if (!storyPointsMap[sp.task_id]) {
+            storyPointsMap[sp.task_id] = 0;
+          }
+          storyPointsMap[sp.task_id] += sp.hours || 0;
+        });
+      }
+
       // Map tasks with sprint info and ranking
       const enrichedTasks: TaskWithSprintInfo[] = (tasksData || []).map((task: any) => {
         const sprintInfo = taskToSprintMap[task.id];
@@ -348,6 +379,7 @@ const StoryPointsPage: React.FC = () => {
           sprintGroupName: sprintInfo?.groupName || 'Unknown',
           sprintGroupId: sprintInfo?.groupId || '',
           taskRank: taskRank,
+          storyPoints: storyPointsMap[task.id] || 0,
         };
       });
 
@@ -446,18 +478,37 @@ const StoryPointsPage: React.FC = () => {
   };
 
   const filteredTasks = useMemo(() => {
-    if (!searchQuery.trim()) return tasks;
-
-    const query = searchQuery.toLowerCase();
-    return tasks.filter(
-      (task) =>
-        task.name.toLowerCase().includes(query) ||
-        task.project.name.toLowerCase().includes(query) ||
-        task.sprintGroupName.toLowerCase().includes(query) ||
-        task.assignee?.firstName.toLowerCase().includes(query) ||
-        task.assignee?.lastName.toLowerCase().includes(query)
-    );
-  }, [tasks, searchQuery]);
+    let filtered = tasks;
+    
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = tasks.filter(
+        (task) =>
+          task.name.toLowerCase().includes(query) ||
+          task.project.name.toLowerCase().includes(query) ||
+          task.sprintGroupName.toLowerCase().includes(query) ||
+          task.assignee?.firstName.toLowerCase().includes(query) ||
+          task.assignee?.lastName.toLowerCase().includes(query)
+      );
+    }
+    
+    // Apply story points sorting if active
+    if (storyPointsSortOrder) {
+      filtered = [...filtered].sort((a, b) => {
+        const aPoints = a.storyPoints || 0;
+        const bPoints = b.storyPoints || 0;
+        
+        if (storyPointsSortOrder === 'desc') {
+          return bPoints - aPoints; // Highest first
+        } else {
+          return aPoints - bPoints; // Lowest first
+        }
+      });
+    }
+    
+    return filtered;
+  }, [tasks, searchQuery, storyPointsSortOrder]);
 
   const getStatusColor = (status: string): { bg: string; text: string } => {
     switch (status) {
@@ -515,6 +566,16 @@ const StoryPointsPage: React.FC = () => {
     loadData(); // Refresh data after modal closes
   };
 
+  const handleStoryPointsSort = () => {
+    if (storyPointsSortOrder === null) {
+      setStoryPointsSortOrder('desc'); // First click: highest first
+    } else if (storyPointsSortOrder === 'desc') {
+      setStoryPointsSortOrder('asc'); // Second click: lowest first
+    } else {
+      setStoryPointsSortOrder(null); // Third click: back to default (rank order)
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[70vh]">
@@ -550,7 +611,7 @@ const StoryPointsPage: React.FC = () => {
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
           <div
             className="rounded-lg shadow-sm p-6"
             style={{
@@ -622,7 +683,35 @@ const StoryPointsPage: React.FC = () => {
               </div>
             </div>
           </div>
+
+          <div
+            className="rounded-lg shadow-sm p-6"
+            style={{
+              backgroundColor: brandTheme.background.secondary,
+              borderLeft: `4px solid #f59e0b`,
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium" style={{ color: brandTheme.text.muted }}>
+                  Total Story Points
+                </p>
+                <p className="text-3xl font-bold mt-1" style={{ color: brandTheme.text.primary }}>
+                  {tasks.reduce((sum, t) => sum + (t.storyPoints || 0), 0).toFixed(1)}
+                </p>
+              </div>
+              <div
+                className="p-3 rounded-full"
+                style={{ backgroundColor: '#fef3c7' }}
+              >
+                <Award className="w-6 h-6" style={{ color: '#f59e0b' }} />
+              </div>
+            </div>
+          </div>
         </div>
+
+        {/* Story Points by Group Breakdown */}
+        <StoryPointsByGroup tasks={tasks} />
 
         {/* Search Bar */}
         <div className="mb-4">
@@ -681,6 +770,27 @@ const StoryPointsPage: React.FC = () => {
                     <th className="px-4 py-3 text-left text-sm font-bold text-white">Priority</th>
                     <th className="px-4 py-3 text-left text-sm font-bold text-white">
                       Project Name
+                    </th>
+                    <th 
+                      className="px-4 py-3 text-left text-sm font-bold text-white cursor-pointer hover:bg-blue-800 transition-colors"
+                      onClick={handleStoryPointsSort}
+                      title="Click to sort by story points"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <span>Story Points</span>
+                        {storyPointsSortOrder === 'desc' && (
+                          <ArrowDown size={16} className="text-white" />
+                        )}
+                        {storyPointsSortOrder === 'asc' && (
+                          <ArrowUp size={16} className="text-white" />
+                        )}
+                        {storyPointsSortOrder === null && (
+                          <div className="flex flex-col opacity-50">
+                            <ArrowUp size={12} className="text-white -mb-1" />
+                            <ArrowDown size={12} className="text-white" />
+                          </div>
+                        )}
+                      </div>
                     </th>
                     <th className="px-4 py-3 text-left text-sm font-bold text-white">
                       Sprint Group (Epic)

@@ -413,7 +413,7 @@ const InSprintReviewModal: React.FC<InSprintReviewModalProps> = ({
                                 onClick={() => handleHoursPlannedClick(task.id, task.name)}
                                 title="Click to view/edit story points"
                               >
-                                {task.hoursPlanned.toFixed(1)}h
+                                {task.hoursPlanned.toFixed(1)}
                               </div>
                             </div>
 
@@ -590,7 +590,7 @@ const InSprintReviewModal: React.FC<InSprintReviewModalProps> = ({
                                 onClick={() => handleHoursPlannedClick(task.id, task.name)}
                                 title="Click to view/edit story points"
                               >
-                                {task.hoursPlanned.toFixed(1)}h
+                                {task.hoursPlanned.toFixed(1)}
                               </div>
                             </div>
 

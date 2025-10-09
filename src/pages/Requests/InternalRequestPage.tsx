@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ExternalLink } from 'lucide-react';
 import RequestsList from './RequestsList';
+import ProjectsToDiscuss from './ProjectsToDiscuss';
 
 const InternalRequestPage: React.FC = () => {
   return (
@@ -21,6 +22,11 @@ const InternalRequestPage: React.FC = () => {
         </p>
       </div>
       <RequestsList />
+      
+      {/* Projects to Discuss Section */}
+      <div className="mt-8">
+        <ProjectsToDiscuss />
+      </div>
     </div>
   );
 };
