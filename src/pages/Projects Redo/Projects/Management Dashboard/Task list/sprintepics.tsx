@@ -37,6 +37,7 @@ interface SprintGroup {
   startDate: string | null;
   endDate: string | null;
   sprintId: string | null;
+  ranking?: { [key: string]: number };
 }
 
 interface ModalSprintGroup {
@@ -62,6 +63,36 @@ const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) =>
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [subtasksMap, setSubtasksMap] = useState<Map<string, any[]>>(new Map());
+  const [sprintGroupRankings, setSprintGroupRankings] = useState<Map<string, { [key: string]: number }>>(new Map());
+
+  // Fetch rankings for sprint groups
+  useEffect(() => {
+    const fetchRankings = async () => {
+      const groupIds = Array.from(new Set(tasks.map(t => t.sprintGroupId)));
+      if (groupIds.length === 0) return;
+
+      const { data: sprintData, error } = await (supabase as any)
+        .from('PMA_Sprints')
+        .select('id, ranking')
+        .in('id', groupIds);
+
+      if (error) {
+        console.error('Error fetching sprint rankings:', error);
+        return;
+      }
+
+      const rankingsMap = new Map<string, { [key: string]: number }>();
+      sprintData?.forEach((sprint: any) => {
+        if (sprint.ranking) {
+          rankingsMap.set(sprint.id, sprint.ranking);
+        }
+      });
+
+      setSprintGroupRankings(rankingsMap);
+    };
+
+    fetchRankings();
+  }, [tasks]);
 
   // Fetch subtasks for all tasks
   useEffect(() => {
@@ -113,8 +144,12 @@ const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) =>
 
     tasks.forEach((task) => {
       const groupId = task.sprintGroupId;
-      const taskRank = typeof task.sprintRank === 'number' ? task.sprintRank : Infinity;
       const groupInfo = sprintInfoMap.get(groupId);
+      const ranking = sprintGroupRankings.get(groupId);
+      
+      // Get the sprint-specific ranking
+      const sprintKey = groupInfo?.sprint_id ? `Sprint ${groupInfo.sprint_id}` : null;
+      const sprintRank = sprintKey && ranking?.[sprintKey] ? ranking[sprintKey] : Infinity;
       
       if (!groupsMap.has(groupId)) {
         groupsMap.set(groupId, {
@@ -124,11 +159,12 @@ const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) =>
           todoCount: 0,
           inProgressCount: 0,
           doneCount: 0,
-          lowestRank: taskRank,
+          lowestRank: sprintRank,
           sprintType: task.sprintType,
           startDate: groupInfo?.start_date || null,
           endDate: groupInfo?.end_date || null,
           sprintId: groupInfo?.sprint_id || null,
+          ranking: ranking || undefined,
         });
       }
 
@@ -143,14 +179,9 @@ const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) =>
       } else if (task.status === 'done') {
         group.doneCount++;
       }
-      
-      // Keep track of the lowest rank number (which appears first)
-      if (typeof task.sprintRank === 'number' && task.sprintRank < group.lowestRank) {
-        group.lowestRank = task.sprintRank;
-      }
     });
 
-    // Convert to array and sort by rank (lowest rank number first)
+    // Convert to array and sort by sprint-specific rank
     return Array.from(groupsMap.values()).sort((a, b) => {
       if (a.lowestRank === Infinity && b.lowestRank === Infinity) {
         return a.name.localeCompare(b.name);
@@ -159,7 +190,7 @@ const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) =>
       if (b.lowestRank === Infinity) return -1;
       return a.lowestRank - b.lowestRank;
     });
-  }, [tasks, sprintGroupsInfo]);
+  }, [tasks, sprintGroupsInfo, sprintGroupRankings]);
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
@@ -301,6 +332,51 @@ const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) =>
     return tasks.filter(task => task.sprintGroupId === groupId);
   };
 
+  // Helper function to get all tasks and subtasks for a specific status
+  const getItemsForStatus = (groupId: string, status: string) => {
+    const groupTasks = getGroupTasks(groupId);
+    const items: Array<{ type: 'task' | 'subtask'; data: any; parentTaskName?: string }> = [];
+    
+    groupTasks.forEach(task => {
+      // Add task if it matches the status
+      if (task.status === status) {
+        items.push({ type: 'task', data: task });
+      }
+      
+      // Add subtasks that match the status (regardless of parent task status)
+      const subtasks = subtasksMap.get(task.id);
+      if (subtasks) {
+        subtasks
+          .filter((st: any) => st.status === status)
+          .forEach((subtask: any) => {
+            items.push({ 
+              type: 'subtask', 
+              data: subtask,
+              parentTaskName: task.name
+            });
+          });
+      }
+    });
+    
+    return items;
+  };
+
+  // Count tasks and subtasks for each status
+  const getStatusCount = (groupId: string, status: string) => {
+    const groupTasks = getGroupTasks(groupId);
+    let count = 0;
+    
+    groupTasks.forEach(task => {
+      if (task.status === status) count++;
+      const subtasks = subtasksMap.get(task.id);
+      if (subtasks) {
+        count += subtasks.filter((st: any) => st.status === status).length;
+      }
+    });
+    
+    return count;
+  };
+
   return (
     <div className="mb-6 space-y-4">
       {/* Sprint Dates Section */}
@@ -355,7 +431,6 @@ const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) =>
         {sprintGroups.map((group) => {
           const colors = getSprintTypeColor(group.sprintType);
           const isExpanded = expandedGroups.has(group.id);
-          const groupTasks = getGroupTasks(group.id);
           
           return (
             <div
@@ -380,7 +455,7 @@ const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) =>
                     {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                   </button>
                   
-                  {group.lowestRank !== Infinity && (
+                  {group.sprintId && group.ranking?.[`Sprint ${group.sprintId}`] && (
                     <div
                       className="px-2 py-1 rounded-full text-xs font-bold flex-shrink-0"
                       style={{
@@ -388,7 +463,7 @@ const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) =>
                         color: colors.text,
                       }}
                     >
-                      {group.lowestRank}
+                      {group.ranking[`Sprint ${group.sprintId}`]}
                     </div>
                   )}
                   <h3
@@ -473,13 +548,12 @@ const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) =>
                         className="text-xs font-bold mb-2 uppercase"
                         style={{ color: colors.text }}
                       >
-                        To Do ({groupTasks.filter(t => t.status === 'todo').length})
+                        To Do ({getStatusCount(group.id, 'todo')})
                       </h4>
                       <div className="space-y-2">
-                        {groupTasks
-                          .filter(task => task.status === 'todo')
-                          .map(task => (
-                            <div key={task.id}>
+                        {getItemsForStatus(group.id, 'todo').map((item, index) => (
+                          <div key={`${item.type}-${item.data.id}-${index}`}>
+                            {item.type === 'task' ? (
                               <div
                                 className="p-2 rounded text-xs"
                                 style={{
@@ -488,36 +562,39 @@ const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) =>
                                 }}
                               >
                                 <div className="font-medium" style={{ color: brandTheme.text.primary }}>
-                                  {task.name}
+                                  {item.data.name}
                                 </div>
-                                {task.assignee && (
+                                {item.data.assignee && (
                                   <div className="text-xs mt-1" style={{ color: brandTheme.text.secondary }}>
-                                    {task.assignee.firstName} {task.assignee.lastName}
+                                    {item.data.assignee.firstName} {item.data.assignee.lastName}
                                   </div>
                                 )}
                               </div>
-                              {/* Subtasks */}
-                              {subtasksMap.get(task.id)?.filter(st => st.status === 'todo').map(subtask => (
-                                <div
-                                  key={subtask.id}
-                                  className="ml-4 mt-1 p-2 rounded text-xs"
-                                  style={{
-                                    backgroundColor: brandTheme.primary.paleBlue + '40',
-                                    border: `1px solid ${brandTheme.border.light}`,
-                                  }}
-                                >
-                                  <div className="font-medium" style={{ color: brandTheme.text.primary }}>
-                                    ↳ {subtask.name}
-                                  </div>
-                                  {subtask.assignee && (
-                                    <div className="text-xs mt-1" style={{ color: brandTheme.text.secondary }}>
-                                      {subtask.assignee.first_name} {subtask.assignee.last_name}
-                                    </div>
-                                  )}
+                            ) : (
+                              <div
+                                className="ml-4 p-2 rounded text-xs"
+                                style={{
+                                  backgroundColor: brandTheme.primary.paleBlue + '40',
+                                  border: `1px solid ${brandTheme.border.light}`,
+                                }}
+                              >
+                                <div className="font-medium" style={{ color: brandTheme.text.primary }}>
+                                  ↳ {item.data.name}
                                 </div>
-                              ))}
-                            </div>
-                          ))}
+                                {item.parentTaskName && (
+                                  <div className="text-xs mt-1" style={{ color: brandTheme.text.secondary, opacity: 0.7 }}>
+                                    Parent: {item.parentTaskName}
+                                  </div>
+                                )}
+                                {item.data.assignee && (
+                                  <div className="text-xs mt-1" style={{ color: brandTheme.text.secondary }}>
+                                    {item.data.assignee.first_name} {item.data.assignee.last_name}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     </div>
 
@@ -530,13 +607,12 @@ const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) =>
                         className="text-xs font-bold mb-2 uppercase"
                         style={{ color: colors.text }}
                       >
-                        In Progress ({groupTasks.filter(t => t.status === 'in-progress').length})
+                        In Progress ({getStatusCount(group.id, 'in-progress')})
                       </h4>
                       <div className="space-y-2">
-                        {groupTasks
-                          .filter(task => task.status === 'in-progress')
-                          .map(task => (
-                            <div key={task.id}>
+                        {getItemsForStatus(group.id, 'in-progress').map((item, index) => (
+                          <div key={`${item.type}-${item.data.id}-${index}`}>
+                            {item.type === 'task' ? (
                               <div
                                 className="p-2 rounded text-xs"
                                 style={{
@@ -545,36 +621,39 @@ const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) =>
                                 }}
                               >
                                 <div className="font-medium" style={{ color: brandTheme.text.primary }}>
-                                  {task.name}
+                                  {item.data.name}
                                 </div>
-                                {task.assignee && (
+                                {item.data.assignee && (
                                   <div className="text-xs mt-1" style={{ color: brandTheme.text.secondary }}>
-                                    {task.assignee.firstName} {task.assignee.lastName}
+                                    {item.data.assignee.firstName} {item.data.assignee.lastName}
                                   </div>
                                 )}
                               </div>
-                              {/* Subtasks */}
-                              {subtasksMap.get(task.id)?.filter(st => st.status === 'in-progress').map(subtask => (
-                                <div
-                                  key={subtask.id}
-                                  className="ml-4 mt-1 p-2 rounded text-xs"
-                                  style={{
-                                    backgroundColor: brandTheme.primary.paleBlue + '40',
-                                    border: `1px solid ${brandTheme.border.light}`,
-                                  }}
-                                >
-                                  <div className="font-medium" style={{ color: brandTheme.text.primary }}>
-                                    ↳ {subtask.name}
-                                  </div>
-                                  {subtask.assignee && (
-                                    <div className="text-xs mt-1" style={{ color: brandTheme.text.secondary }}>
-                                      {subtask.assignee.first_name} {subtask.assignee.last_name}
-                                    </div>
-                                  )}
+                            ) : (
+                              <div
+                                className="ml-4 p-2 rounded text-xs"
+                                style={{
+                                  backgroundColor: brandTheme.primary.paleBlue + '40',
+                                  border: `1px solid ${brandTheme.border.light}`,
+                                }}
+                              >
+                                <div className="font-medium" style={{ color: brandTheme.text.primary }}>
+                                  ↳ {item.data.name}
                                 </div>
-                              ))}
-                            </div>
-                          ))}
+                                {item.parentTaskName && (
+                                  <div className="text-xs mt-1" style={{ color: brandTheme.text.secondary, opacity: 0.7 }}>
+                                    Parent: {item.parentTaskName}
+                                  </div>
+                                )}
+                                {item.data.assignee && (
+                                  <div className="text-xs mt-1" style={{ color: brandTheme.text.secondary }}>
+                                    {item.data.assignee.first_name} {item.data.assignee.last_name}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     </div>
 
@@ -587,13 +666,12 @@ const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) =>
                         className="text-xs font-bold mb-2 uppercase"
                         style={{ color: colors.text }}
                       >
-                        Done ({groupTasks.filter(t => t.status === 'done').length})
+                        Done ({getStatusCount(group.id, 'done')})
                       </h4>
                       <div className="space-y-2">
-                        {groupTasks
-                          .filter(task => task.status === 'done')
-                          .map(task => (
-                            <div key={task.id}>
+                        {getItemsForStatus(group.id, 'done').map((item, index) => (
+                          <div key={`${item.type}-${item.data.id}-${index}`}>
+                            {item.type === 'task' ? (
                               <div
                                 className="p-2 rounded text-xs"
                                 style={{
@@ -602,36 +680,39 @@ const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) =>
                                 }}
                               >
                                 <div className="font-medium" style={{ color: brandTheme.text.primary }}>
-                                  {task.name}
+                                  {item.data.name}
                                 </div>
-                                {task.assignee && (
+                                {item.data.assignee && (
                                   <div className="text-xs mt-1" style={{ color: brandTheme.text.secondary }}>
-                                    {task.assignee.firstName} {task.assignee.lastName}
+                                    {item.data.assignee.firstName} {item.data.assignee.lastName}
                                   </div>
                                 )}
                               </div>
-                              {/* Subtasks */}
-                              {subtasksMap.get(task.id)?.filter(st => st.status === 'done').map(subtask => (
-                                <div
-                                  key={subtask.id}
-                                  className="ml-4 mt-1 p-2 rounded text-xs"
-                                  style={{
-                                    backgroundColor: brandTheme.primary.paleBlue + '40',
-                                    border: `1px solid ${brandTheme.border.light}`,
-                                  }}
-                                >
-                                  <div className="font-medium" style={{ color: brandTheme.text.primary }}>
-                                    ↳ {subtask.name}
-                                  </div>
-                                  {subtask.assignee && (
-                                    <div className="text-xs mt-1" style={{ color: brandTheme.text.secondary }}>
-                                      {subtask.assignee.first_name} {subtask.assignee.last_name}
-                                    </div>
-                                  )}
+                            ) : (
+                              <div
+                                className="ml-4 p-2 rounded text-xs"
+                                style={{
+                                  backgroundColor: brandTheme.primary.paleBlue + '40',
+                                  border: `1px solid ${brandTheme.border.light}`,
+                                }}
+                              >
+                                <div className="font-medium" style={{ color: brandTheme.text.primary }}>
+                                  ↳ {item.data.name}
                                 </div>
-                              ))}
-                            </div>
-                          ))}
+                                {item.parentTaskName && (
+                                  <div className="text-xs mt-1" style={{ color: brandTheme.text.secondary, opacity: 0.7 }}>
+                                    Parent: {item.parentTaskName}
+                                  </div>
+                                )}
+                                {item.data.assignee && (
+                                  <div className="text-xs mt-1" style={{ color: brandTheme.text.secondary }}>
+                                    {item.data.assignee.first_name} {item.data.assignee.last_name}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
