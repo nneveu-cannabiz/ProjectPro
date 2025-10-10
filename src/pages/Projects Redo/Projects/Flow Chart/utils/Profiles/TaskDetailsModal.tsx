@@ -43,6 +43,14 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
   const [editedDescription, setEditedDescription] = useState('');
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   
+  // Completion date confirmation state
+  const [isCompletionDateModalOpen, setIsCompletionDateModalOpen] = useState(false);
+  const [completionDate, setCompletionDate] = useState('');
+  
+  // Start date confirmation state
+  const [isStartDateModalOpen, setIsStartDateModalOpen] = useState(false);
+  const [startDate, setStartDate] = useState('');
+  
   const task = tasks.find((t) => t.id === taskId);
   
   // Debug: Log task data in the modal
@@ -126,20 +134,29 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
     setEditedDescription('');
   };
 
-  // Mark task as done handler
-  const handleMarkAsDone = async () => {
+  // Open completion date modal
+  const handleMarkAsDone = () => {
+    // Set default completion date to today
+    const today = new Date().toISOString().split('T')[0];
+    setCompletionDate(today);
+    setIsCompletionDateModalOpen(true);
+  };
+
+  // Actually mark task as done with the selected completion date
+  const handleConfirmCompletion = async () => {
     if (isUpdatingStatus) return; // Prevent double-clicks
     
     try {
       setIsUpdatingStatus(true);
       console.log('Marking task as done:', task.id, 'Current status:', task.status);
       console.log('Full task object:', task);
+      console.log('Completion date:', completionDate);
       
       const updatedTask = {
         ...task,
         status: 'done' as const,
         progress: 100,
-        endDate: new Date().toISOString().split('T')[0], // Current date in YYYY-MM-DD format
+        endDate: completionDate, // Use the user-selected completion date
         updatedAt: new Date().toISOString(),
         // Ensure required fields are present
         description: task.description || '',
@@ -154,6 +171,9 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
       await refreshData();
       
       console.log('Task marked as done successfully');
+      
+      // Close the completion date modal
+      setIsCompletionDateModalOpen(false);
     } catch (error) {
       console.error('Error marking task as done:', error);
       console.error('Error details:', error);
@@ -163,19 +183,28 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
     }
   };
 
-  // Mark task as in progress handler
-  const handleMarkAsInProgress = async () => {
+  // Open start date modal
+  const handleMarkAsInProgress = () => {
+    // Set default start date to today or existing start date
+    const today = new Date().toISOString().split('T')[0];
+    setStartDate(task.startDate || today);
+    setIsStartDateModalOpen(true);
+  };
+
+  // Actually mark task as in progress with the selected start date
+  const handleConfirmStartProgress = async () => {
     if (isUpdatingStatus) return; // Prevent double-clicks
     
     try {
       setIsUpdatingStatus(true);
       console.log('Marking task as in progress:', task.id, 'Current status:', task.status);
       console.log('Full task object:', task);
+      console.log('Start date:', startDate);
       
       const updatedTask = {
         ...task,
         status: 'in-progress' as const,
-        startDate: task.startDate || new Date().toISOString().split('T')[0], // Set start date if not already set
+        startDate: startDate, // Use the user-selected start date
         updatedAt: new Date().toISOString(),
         // Ensure required fields are present
         description: task.description || '',
@@ -190,6 +219,9 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
       await refreshData();
       
       console.log('Task marked as in progress successfully');
+      
+      // Close the start date modal
+      setIsStartDateModalOpen(false);
     } catch (error) {
       console.error('Error marking task as in progress:', error);
       console.error('Error details:', error);
@@ -283,6 +315,184 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
         onUpdatesModalClose={() => setIsUpdatesModalOpen(false)}
         onDeleteTask={handleDeleteTask}
       />
+
+      {/* Start Date Confirmation Modal */}
+      {isStartDateModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <div
+            className="bg-white rounded-lg shadow-xl w-full max-w-md"
+            style={{ backgroundColor: brandTheme.background.primary }}
+          >
+            {/* Modal Header */}
+            <div
+              className="p-6 border-b"
+              style={{
+                backgroundColor: brandTheme.status.warning,
+                borderColor: brandTheme.border.light,
+              }}
+            >
+              <h2 className="text-xl font-bold text-white">Confirm Start Date</h2>
+              <p className="text-sm text-white opacity-90 mt-1">
+                Set the start date for this task
+              </p>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              <div className="mb-4">
+                <label
+                  className="block text-sm font-medium mb-2"
+                  style={{ color: brandTheme.text.primary }}
+                >
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors"
+                  style={{
+                    borderColor: brandTheme.border.medium,
+                    backgroundColor: brandTheme.background.secondary,
+                    color: brandTheme.text.primary,
+                  }}
+                />
+                <p className="text-xs mt-1" style={{ color: brandTheme.text.muted }}>
+                  This date will be set as the task's start date
+                </p>
+              </div>
+
+              <div className="mb-4 p-4 rounded-lg" style={{ backgroundColor: brandTheme.background.secondary }}>
+                <p className="text-sm font-medium mb-1" style={{ color: brandTheme.text.primary }}>
+                  Task: {task.name}
+                </p>
+                <p className="text-xs" style={{ color: brandTheme.text.secondary }}>
+                  This task will be marked as in progress
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              className="p-4 border-t flex justify-end space-x-3"
+              style={{ borderColor: brandTheme.border.light }}
+            >
+              <button
+                onClick={() => setIsStartDateModalOpen(false)}
+                disabled={isUpdatingStatus}
+                className="px-4 py-2 rounded-lg font-medium transition-colors"
+                style={{
+                  backgroundColor: brandTheme.background.secondary,
+                  color: brandTheme.text.primary,
+                  border: `1px solid ${brandTheme.border.medium}`,
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmStartProgress}
+                disabled={isUpdatingStatus || !startDate}
+                className="px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+                style={{
+                  backgroundColor: brandTheme.status.warning,
+                  color: 'white',
+                }}
+              >
+                {isUpdatingStatus ? 'Marking as In Progress...' : 'Mark as In Progress'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Completion Date Confirmation Modal */}
+      {isCompletionDateModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <div
+            className="bg-white rounded-lg shadow-xl w-full max-w-md"
+            style={{ backgroundColor: brandTheme.background.primary }}
+          >
+            {/* Modal Header */}
+            <div
+              className="p-6 border-b"
+              style={{
+                backgroundColor: brandTheme.status.success,
+                borderColor: brandTheme.border.light,
+              }}
+            >
+              <h2 className="text-xl font-bold text-white">Confirm Task Completion</h2>
+              <p className="text-sm text-white opacity-90 mt-1">
+                Set the completion date for this task
+              </p>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              <div className="mb-4">
+                <label
+                  className="block text-sm font-medium mb-2"
+                  style={{ color: brandTheme.text.primary }}
+                >
+                  Completion Date
+                </label>
+                <input
+                  type="date"
+                  value={completionDate}
+                  onChange={(e) => setCompletionDate(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors"
+                  style={{
+                    borderColor: brandTheme.border.medium,
+                    backgroundColor: brandTheme.background.secondary,
+                    color: brandTheme.text.primary,
+                  }}
+                />
+                <p className="text-xs mt-1" style={{ color: brandTheme.text.muted }}>
+                  This date will be set as the task's end date
+                </p>
+              </div>
+
+              <div className="mb-4 p-4 rounded-lg" style={{ backgroundColor: brandTheme.background.secondary }}>
+                <p className="text-sm font-medium mb-1" style={{ color: brandTheme.text.primary }}>
+                  Task: {task.name}
+                </p>
+                <p className="text-xs" style={{ color: brandTheme.text.secondary }}>
+                  This task will be marked as complete
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              className="p-4 border-t flex justify-end space-x-3"
+              style={{ borderColor: brandTheme.border.light }}
+            >
+              <button
+                onClick={() => setIsCompletionDateModalOpen(false)}
+                disabled={isUpdatingStatus}
+                className="px-4 py-2 rounded-lg font-medium transition-colors"
+                style={{
+                  backgroundColor: brandTheme.background.secondary,
+                  color: brandTheme.text.primary,
+                  border: `1px solid ${brandTheme.border.medium}`,
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmCompletion}
+                disabled={isUpdatingStatus || !completionDate}
+                className="px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+                style={{
+                  backgroundColor: brandTheme.status.success,
+                  color: 'white',
+                }}
+              >
+                {isUpdatingStatus ? 'Marking as Done...' : 'Mark as Done'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

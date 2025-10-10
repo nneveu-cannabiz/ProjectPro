@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { brandTheme } from '../../../../../styles/brandTheme';
-import { ListTodo, Hash, CheckCircle, Clock, X } from 'lucide-react';
+import { ListTodo, Hash, CheckCircle, Clock } from 'lucide-react';
 import { Task, User } from '../../../../../types';
-import UserAvatar from '../../../../../components/UserAvatar';
 import { supabase } from '../../../../../lib/supabase';
+import SprintCompletedSummary from './sprintcompletedsummary';
 
 interface TaskWithSprintInfo extends Task {
   assignee?: User;
@@ -31,8 +31,6 @@ const SprintSummary: React.FC<SprintSummaryProps> = ({ tasks, userBreakdowns }) 
   const [isDoneModalOpen, setIsDoneModalOpen] = useState(false);
   const [subtasks, setSubtasks] = useState<any[]>([]);
   const [tasksWithHours, setTasksWithHours] = useState<TaskWithSprintInfo[]>(tasks);
-  
-  const doneTasks = tasksWithHours.filter((t) => t.status === 'done');
 
   // Fetch subtasks and hours for all tasks
   useEffect(() => {
@@ -316,173 +314,12 @@ const SprintSummary: React.FC<SprintSummaryProps> = ({ tasks, userBreakdowns }) 
       </div>
     </div>
 
-    {/* Done Tasks Modal */}
+    {/* Completed Tasks Summary Modal */}
     {isDoneModalOpen && (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div 
-          className="bg-white rounded-lg shadow-xl max-h-[90vh] overflow-hidden w-full max-w-4xl"
-          style={{ backgroundColor: brandTheme.background.primary }}
-        >
-          {/* Modal Header */}
-          <div 
-            className="p-6 border-b flex items-center justify-between"
-            style={{ 
-              backgroundColor: brandTheme.status.success,
-              borderColor: brandTheme.border.light 
-            }}
-          >
-            <div className="flex items-center gap-3">
-              <CheckCircle className="w-6 h-6 text-white" />
-              <h2 className="text-xl font-bold text-white">
-                Completed Tasks
-              </h2>
-              <span 
-                className="px-3 py-1 rounded-full text-sm font-bold"
-                style={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.3)',
-                  color: '#FFFFFF',
-                }}
-              >
-                {doneTasks.length}
-              </span>
-            </div>
-            
-            <button
-              onClick={handleCloseDoneModal}
-              className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"
-            >
-              <X className="w-6 h-6 text-white" />
-            </button>
-          </div>
-
-          {/* Modal Content */}
-          <div className="overflow-y-auto" style={{ maxHeight: 'calc(90vh - 100px)' }}>
-            {doneTasks.length === 0 ? (
-              <div className="text-center py-12">
-                <CheckCircle
-                  className="w-16 h-16 mx-auto mb-4 opacity-30"
-                  style={{ color: brandTheme.status.success }}
-                />
-                <p className="text-lg font-medium" style={{ color: brandTheme.text.muted }}>
-                  No completed tasks yet
-                </p>
-              </div>
-            ) : (
-              <div className="p-6">
-                {/* Task List */}
-                <div className="space-y-3">
-                  {doneTasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="p-4 rounded-lg border transition-all hover:shadow-md"
-                      style={{
-                        backgroundColor: brandTheme.background.secondary,
-                        borderColor: brandTheme.border.light,
-                        borderLeftWidth: '4px',
-                        borderLeftColor: brandTheme.status.success,
-                      }}
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          {/* Task Name */}
-                          <h3 
-                            className="font-semibold text-base mb-2"
-                            style={{ color: brandTheme.text.primary }}
-                          >
-                            {task.name}
-                          </h3>
-                          
-                          {/* Task Details */}
-                          <div className="flex flex-wrap items-center gap-4 text-sm">
-                            {/* Sprint Group */}
-                            <div className="flex items-center gap-2">
-                              <ListTodo className="w-4 h-4" style={{ color: brandTheme.primary.navy }} />
-                              <span style={{ color: brandTheme.text.secondary }}>
-                                {task.sprintGroupName}
-                              </span>
-                            </div>
-
-                            {/* Priority */}
-                            {task.priority && (
-                              <span
-                                className="px-2 py-1 rounded text-xs font-medium"
-                                style={{
-                                  backgroundColor: 
-                                    task.priority === 'Critical' ? '#fee2e2' :
-                                    task.priority === 'High' ? '#fef3c7' :
-                                    task.priority === 'Medium' ? brandTheme.primary.paleBlue :
-                                    brandTheme.gray[200],
-                                  color:
-                                    task.priority === 'Critical' ? '#dc2626' :
-                                    task.priority === 'High' ? '#f59e0b' :
-                                    task.priority === 'Medium' ? brandTheme.primary.navy :
-                                    brandTheme.text.muted,
-                                }}
-                              >
-                                {task.priority}
-                              </span>
-                            )}
-
-                            {/* Hours Spent */}
-                            <div className="flex items-center gap-2">
-                              <Clock className="w-4 h-4" style={{ color: brandTheme.primary.lightBlue }} />
-                              <span 
-                                className="font-semibold"
-                                style={{ color: brandTheme.text.secondary }}
-                              >
-                                {task.hoursSpent ? `${task.hoursSpent.toFixed(1)}h` : '0h'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Assignee */}
-                        <div className="flex-shrink-0">
-                          {task.assignee ? (
-                            <div className="flex items-center gap-2">
-                              <UserAvatar user={task.assignee} size="sm" />
-                              <span 
-                                className="text-sm font-medium"
-                                style={{ color: brandTheme.text.primary }}
-                              >
-                                {task.assignee.firstName} {task.assignee.lastName}
-                              </span>
-                            </div>
-                          ) : (
-                            <span 
-                              className="text-sm"
-                              style={{ color: brandTheme.text.muted }}
-                            >
-                              Unassigned
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Modal Footer */}
-          <div 
-            className="p-4 border-t flex justify-end"
-            style={{ borderColor: brandTheme.border.light }}
-          >
-            <button
-              onClick={handleCloseDoneModal}
-              className="px-4 py-2 rounded-lg font-medium transition-colors"
-              style={{
-                backgroundColor: brandTheme.primary.navy,
-                color: '#FFFFFF',
-              }}
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      </div>
+      <SprintCompletedSummary
+        tasks={tasksWithHours}
+        onClose={handleCloseDoneModal}
+      />
     )}
     </>
   );
