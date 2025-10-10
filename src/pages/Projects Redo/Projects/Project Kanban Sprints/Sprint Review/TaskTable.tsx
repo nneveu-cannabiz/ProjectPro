@@ -44,44 +44,44 @@ const TaskTable: React.FC<TaskTableProps> = ({
           >
             {isSelectionMode && (
               <th 
-                className="text-left py-3 px-4 font-semibold text-sm w-12"
+                className="text-left py-2 px-4 font-semibold text-xs w-12"
                 style={{ color: brandTheme.text.primary }}
               >
                 
               </th>
             )}
             <th 
-              className="text-left py-3 px-4 font-semibold text-sm"
+              className="text-left py-2 px-4 font-semibold text-xs"
               style={{ color: brandTheme.text.primary }}
             >
               Task Name
             </th>
             <th 
-              className="text-left py-3 px-4 font-semibold text-sm"
+              className="text-left py-2 px-4 font-semibold text-xs"
               style={{ color: brandTheme.text.primary }}
             >
               Hours Spent
             </th>
             <th 
-              className="text-left py-3 px-4 font-semibold text-sm"
+              className="text-left py-2 px-4 font-semibold text-xs"
               style={{ color: brandTheme.text.primary }}
             >
-              Hours Planned
+              Story Points
             </th>
             <th 
-              className="text-left py-3 px-4 font-semibold text-sm"
+              className="text-left py-2 px-4 font-semibold text-xs"
               style={{ color: brandTheme.text.primary }}
             >
               Priority
             </th>
             <th 
-              className="text-left py-3 px-4 font-semibold text-sm"
+              className="text-left py-2 px-4 font-semibold text-xs"
               style={{ color: brandTheme.text.primary }}
             >
               Status
             </th>
             <th 
-              className="text-left py-3 px-4 font-semibold text-sm"
+              className="text-left py-2 px-4 font-semibold text-xs"
               style={{ color: brandTheme.text.primary }}
             >
               Assignee
@@ -96,7 +96,7 @@ const TaskTable: React.FC<TaskTableProps> = ({
               style={{ borderColor: brandTheme.border.light }}
             >
               {isSelectionMode && (
-                <td className="py-3 px-4">
+                <td className="py-2 px-4">
                   <input
                     type="checkbox"
                     checked={task.isSelected || false}
@@ -105,15 +105,15 @@ const TaskTable: React.FC<TaskTableProps> = ({
                   />
                 </td>
               )}
-              <td className="py-3 px-4">
+              <td className="py-2 px-4">
                 <span 
-                  className="font-medium text-sm"
+                  className="font-medium text-xs"
                   style={{ color: isCompleted ? brandTheme.text.secondary : brandTheme.text.primary }}
                 >
                   {task.name}
                 </span>
               </td>
-              <td className="py-3 px-4">
+              <td className="py-2 px-4">
                 <span 
                   className="text-xs" 
                   style={{ color: isCompleted ? brandTheme.text.muted : brandTheme.text.secondary }}
@@ -121,21 +121,21 @@ const TaskTable: React.FC<TaskTableProps> = ({
                   {task.hoursSpent}h
                 </span>
               </td>
-              <td className="py-3 px-4">
+              <td className="py-2 px-4">
                 <div 
                   className="flex items-center space-x-2 cursor-pointer hover:bg-blue-50 px-2 py-1 rounded group"
                   onClick={() => onHoursPlannedClick?.(task.id, task.name)}
-                  title="Click to view/edit planned hours"
+                  title="Click to view/edit story points"
                 >
                   <span className="text-xs font-medium text-blue-600">
-                    {task.hoursPlanned}h
+                    {task.hoursPlanned}
                   </span>
                   <span className="text-xs text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">
                     (click to edit)
                   </span>
                 </div>
               </td>
-              <td className="py-3 px-4">
+              <td className="py-2 px-4">
                 {task.priority ? (
                   <div className="flex items-center">
                     <EditableCell
@@ -179,7 +179,7 @@ const TaskTable: React.FC<TaskTableProps> = ({
                   />
                 )}
               </td>
-              <td className="py-3 px-4">
+              <td className="py-2 px-4">
                 {task.status ? (
                   <div className="flex items-center">
                     <EditableCell
@@ -220,7 +220,7 @@ const TaskTable: React.FC<TaskTableProps> = ({
                   />
                 )}
               </td>
-              <td className="py-3 px-4">
+              <td className="py-2 px-4">
                 <EditableCell
                   task={task}
                   field="assignee_id"

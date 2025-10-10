@@ -388,7 +388,7 @@ const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) =>
                         color: colors.text,
                       }}
                     >
-                      #{group.lowestRank}
+                      {group.lowestRank}
                     </div>
                   )}
                   <h3

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { brandTheme } from '../../../../../styles/brandTheme';
-import { X } from 'lucide-react';
+import { X, Edit2, Check } from 'lucide-react';
 import SprintTaskReview from './SprintTaskReview';
 import { supabase } from '../../../../../lib/supabase';
 import { useAuth } from '../../../../../context/AuthContext';
+import SprintProjectSummary from './sprintprojectsummary';
 
 interface Project {
   id: string;
@@ -35,14 +36,54 @@ const SprintReviewModal: React.FC<SprintReviewModalProps> = ({
   const [showSprintModal, setShowSprintModal] = useState(false);
   const [isCreatingSprint, setIsCreatingSprint] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'add'>('create'); // Track modal mode
-  const [existingSprints, setExistingSprints] = useState<Array<{ id: string; name: string; sprint_type: string }>>([]);
+  const [existingSprints, setExistingSprints] = useState<Array<{ id: string; name: string; sprint_type: string; sprint_id: string }>>([]);
+  const [availableSprintGroups, setAvailableSprintGroups] = useState<Array<{ sprint_id: string; name: string; start_date: string; end_date: string }>>([]);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedProjectName, setEditedProjectName] = useState('');
+  const [isSavingName, setIsSavingName] = useState(false);
 
-  // Load existing sprints for this project
+  // Load existing sprints for this project (for adding to existing)
   useEffect(() => {
     if (project?.id && showSprintModal && modalMode === 'add') {
       loadExistingSprints();
     }
   }, [project?.id, showSprintModal, modalMode]);
+
+  // Load available sprint groups (for creating new epic in a sprint)
+  useEffect(() => {
+    if (showSprintModal && modalMode === 'create') {
+      loadAvailableSprintGroups();
+    }
+  }, [showSprintModal, modalMode]);
+
+  const loadAvailableSprintGroups = async () => {
+    try {
+      // Get all unique sprint_id values with their details
+      const { data, error } = await (supabase as any)
+        .from('PMA_Sprints')
+        .select('sprint_id, name, start_date, end_date')
+        .not('sprint_id', 'is', null)
+        .eq('status', 'active')
+        .order('sprint_id', { ascending: true });
+
+      if (error) {
+        console.error('Error loading available sprint groups:', error);
+        return;
+      }
+
+      // Group by sprint_id to get unique sprints
+      const uniqueSprints = new Map<string, any>();
+      (data || []).forEach((item: any) => {
+        if (!uniqueSprints.has(item.sprint_id)) {
+          uniqueSprints.set(item.sprint_id, item);
+        }
+      });
+
+      setAvailableSprintGroups(Array.from(uniqueSprints.values()));
+    } catch (error) {
+      console.error('Error loading available sprint groups:', error);
+    }
+  };
 
   const loadExistingSprints = async () => {
     if (!project?.id) return;
@@ -50,10 +91,10 @@ const SprintReviewModal: React.FC<SprintReviewModalProps> = ({
     try {
       const { data, error } = await (supabase as any)
         .from('PMA_Sprints')
-        .select('id, name, sprint_type')
+        .select('id, name, sprint_type, sprint_id')
         .eq('project_id', project.id)
         .eq('status', 'active')
-        .order('sprint_type', { ascending: true });
+        .order('sprint_id', { ascending: true });
 
       if (error) {
         console.error('Error loading existing sprints:', error);
@@ -66,7 +107,7 @@ const SprintReviewModal: React.FC<SprintReviewModalProps> = ({
     }
   };
 
-  const handleCreateSprint = async (sprintType: 'Sprint 1' | 'Sprint 2') => {
+  const handleCreateSprintInGroup = async (sprintGroup: { sprint_id: string; start_date: string; end_date: string }) => {
     if (!currentUser?.id || !project?.id || selectedTaskIds.length === 0) {
       alert('Please select tasks and ensure you are logged in');
       return;
@@ -74,52 +115,58 @@ const SprintReviewModal: React.FC<SprintReviewModalProps> = ({
 
     setIsCreatingSprint(true);
     try {
-      // Get the highest ranking for this sprint type to assign next available rank
+      const sprintKey = `Sprint ${sprintGroup.sprint_id}`;
+      
+      // Get the highest ranking for this specific sprint to assign next available rank
       const { data: existingSprintsData, error: rankingError } = await (supabase as any)
         .from('PMA_Sprints')
         .select('ranking')
-        .eq('sprint_type', sprintType)
         .eq('status', 'active')
-        .order('ranking->Project Kanban Sprints', { ascending: false, nullsFirst: false })
-        .limit(1);
+        .eq('sprint_id', sprintGroup.sprint_id);
 
       if (rankingError) {
         console.error('Error fetching existing sprint rankings:', rankingError);
       }
 
-      // Determine the next ranking
+      // Determine the next ranking for this sprint
       let nextRanking = 1;
       if (existingSprintsData && existingSprintsData.length > 0) {
-        const highestRanking = existingSprintsData[0]?.ranking?.['Project Kanban Sprints'];
-        if (typeof highestRanking === 'number') {
-          nextRanking = highestRanking + 1;
+        const rankings = existingSprintsData
+          .map((s: any) => s.ranking?.[sprintKey])
+          .filter((r: any) => typeof r === 'number');
+        
+        if (rankings.length > 0) {
+          nextRanking = Math.max(...rankings) + 1;
         }
       }
 
-      console.log(`Creating ${sprintType} with ranking:`, nextRanking);
+      console.log(`Creating epic in Sprint ${sprintGroup.sprint_id} with ranking:`, nextRanking);
 
       const { error } = await (supabase as any)
         .from('PMA_Sprints')
         .insert({
           project_id: project.id,
           selected_task_ids: selectedTaskIds,
-          sprint_type: sprintType,
+          sprint_type: 'Sprint 1', // Default type
+          sprint_id: sprintGroup.sprint_id,
+          start_date: sprintGroup.start_date,
+          end_date: sprintGroup.end_date,
           status: 'active',
           created_by: currentUser.id,
-          name: `${project.name} - ${sprintType}`,
-          description: `Sprint created from ${selectedTaskIds.length} selected tasks`,
+          name: `${project.name} - Sprint ${sprintGroup.sprint_id}`,
+          description: `Epic created from ${selectedTaskIds.length} selected tasks`,
           ranking: {
-            'Project Kanban Sprints': nextRanking
+            [sprintKey]: nextRanking
           }
         });
 
       if (error) {
         console.error('Error creating sprint:', error);
-        alert('Failed to create sprint. Please try again.');
+        alert('Failed to create epic. Please try again.');
         return;
       }
 
-      alert(`${sprintType} created successfully with ${selectedTaskIds.length} tasks!`);
+      alert(`Epic created successfully in Sprint ${sprintGroup.sprint_id} with ${selectedTaskIds.length} tasks!`);
       setShowSprintModal(false);
       setSelectedTaskIds([]);
       setModalMode('create');
@@ -130,7 +177,7 @@ const SprintReviewModal: React.FC<SprintReviewModalProps> = ({
       }
     } catch (error) {
       console.error('Error creating sprint:', error);
-      alert('Failed to create sprint. Please try again.');
+      alert('Failed to create epic. Please try again.');
     } finally {
       setIsCreatingSprint(false);
     }
@@ -209,6 +256,54 @@ const SprintReviewModal: React.FC<SprintReviewModalProps> = ({
     setSelectedTaskIds(taskIds);
   };
 
+  const handleEditName = () => {
+    setEditedProjectName(project?.name || '');
+    setIsEditingName(true);
+  };
+
+  const handleSaveName = async () => {
+    if (!project?.id || !editedProjectName.trim()) {
+      alert('Please enter a valid project name');
+      return;
+    }
+
+    setIsSavingName(true);
+    try {
+      const { error } = await (supabase as any)
+        .from('PMA_Projects')
+        .update({ name: editedProjectName.trim() })
+        .eq('id', project.id);
+
+      if (error) {
+        console.error('Error updating project name:', error);
+        alert('Failed to update project name. Please try again.');
+        return;
+      }
+
+      // Update local project object
+      if (project) {
+        project.name = editedProjectName.trim();
+      }
+      
+      setIsEditingName(false);
+      
+      // Trigger refresh if callback is provided
+      if (onSprintGroupCreated) {
+        onSprintGroupCreated();
+      }
+    } catch (error) {
+      console.error('Error updating project name:', error);
+      alert('Failed to update project name. Please try again.');
+    } finally {
+      setIsSavingName(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingName(false);
+    setEditedProjectName('');
+  };
+
   if (!isOpen || !project) return null;
 
   console.log('SprintReviewModal project data:', project);
@@ -225,27 +320,93 @@ const SprintReviewModal: React.FC<SprintReviewModalProps> = ({
       >
         {/* Modal Header */}
         <div 
-          className="p-6 border-b flex items-center justify-between"
+          className="px-6 py-4 border-b relative"
           style={{ 
             backgroundColor: brandTheme.primary.navy,
             borderColor: brandTheme.border.brand 
           }}
         >
-          <div>
-            <h2 className="text-xl font-bold text-white">
-              Sprint Plan Review
-            </h2>
-            <p className="text-sm text-white opacity-90 mt-1">
-              {project.name}
-            </p>
+          <div className="flex items-center justify-between w-full relative">
+            {/* Left: Epic Review */}
+            <div className="flex items-center gap-3 flex-shrink-0 z-10">
+              <span className="text-sm font-semibold text-white opacity-90">
+                Epic Review
+              </span>
+            </div>
+
+            {/* Center: Epic Name (Absolutely centered) */}
+            <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 z-0">
+              {isEditingName ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={editedProjectName}
+                    onChange={(e) => setEditedProjectName(e.target.value)}
+                    className="px-3 py-2 text-xl font-bold rounded-lg text-center"
+                    style={{
+                      backgroundColor: 'white',
+                      color: brandTheme.text.primary,
+                      border: `2px solid ${brandTheme.primary.lightBlue}`,
+                      minWidth: '300px',
+                    }}
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleSaveName();
+                      } else if (e.key === 'Escape') {
+                        handleCancelEdit();
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={handleSaveName}
+                    disabled={isSavingName}
+                    className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors disabled:opacity-50"
+                    title="Save"
+                  >
+                    <Check className="w-5 h-5 text-white" />
+                  </button>
+                  <button
+                    onClick={handleCancelEdit}
+                    disabled={isSavingName}
+                    className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors disabled:opacity-50"
+                    title="Cancel"
+                  >
+                    <X className="w-5 h-5 text-white" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 group">
+                  <h3 className="text-xl font-bold text-white text-center whitespace-nowrap">
+                    {project.name}
+                  </h3>
+                  <button
+                    onClick={handleEditName}
+                    className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-white hover:bg-opacity-20 rounded transition-all"
+                    title="Edit project name"
+                  >
+                    <Edit2 className="w-4 h-4 text-white" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Right: Dates + Sprint Number + Close Button */}
+            <div className="flex items-center gap-4 flex-shrink-0 z-10">
+              <span className="text-sm font-medium text-white opacity-90">
+                Oct 5, 2025 - Oct 16, 2025
+              </span>
+              <span className="text-lg font-bold text-white">
+                Sprint 000
+              </span>
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"
+              >
+                <X className="w-6 h-6 text-white" />
+              </button>
+            </div>
           </div>
-          
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"
-          >
-            <X className="w-6 h-6 text-white" />
-          </button>
         </div>
 
         {/* Tab Navigation */}
@@ -324,13 +485,17 @@ const SprintReviewModal: React.FC<SprintReviewModalProps> = ({
           
           {activeTab === 'summary' && (
             <div className="p-6">
-              <div 
-                className="text-center py-12"
-                style={{ color: brandTheme.text.muted }}
-              >
-                <h3 className="text-lg font-semibold mb-2">Sprint Summary</h3>
-                <p>Summary view coming soon...</p>
-              </div>
+              {project && project.id ? (
+                <SprintProjectSummary projectId={project.id} />
+              ) : (
+                <div 
+                  className="text-center py-12"
+                  style={{ color: brandTheme.text.muted }}
+                >
+                  <h3 className="text-lg font-semibold mb-2">No Project Found</h3>
+                  <p>This sprint has no associated project.</p>
+                </div>
+              )}
             </div>
           )}
           
@@ -396,39 +561,45 @@ const SprintReviewModal: React.FC<SprintReviewModalProps> = ({
             <div className="p-6">
               {modalMode === 'create' ? (
                 <div className="space-y-4">
-                  <button
-                    onClick={() => handleCreateSprint('Sprint 1')}
-                    disabled={isCreatingSprint}
-                    className="w-full p-4 border-2 rounded-lg text-left hover:border-blue-500 transition-colors disabled:opacity-50"
-                    style={{
-                      borderColor: brandTheme.border.medium,
-                      backgroundColor: brandTheme.background.secondary,
-                    }}
-                  >
-                    <div className="font-semibold" style={{ color: brandTheme.text.primary }}>
-                      Sprint 1
+                  {availableSprintGroups.length > 0 ? (
+                    <>
+                      <p className="text-sm mb-3" style={{ color: brandTheme.text.secondary }}>
+                        Select a Sprint to add this epic to:
+                      </p>
+                      {availableSprintGroups.map((sprintGroup) => (
+                        <button
+                          key={sprintGroup.sprint_id}
+                          onClick={() => handleCreateSprintInGroup(sprintGroup)}
+                          disabled={isCreatingSprint}
+                          className="w-full p-4 border-2 rounded-lg text-left hover:border-blue-500 transition-colors disabled:opacity-50"
+                          style={{
+                            borderColor: brandTheme.border.medium,
+                            backgroundColor: brandTheme.background.secondary,
+                          }}
+                        >
+                          <div className="font-semibold" style={{ color: brandTheme.text.primary }}>
+                            Sprint {sprintGroup.sprint_id}
+                          </div>
+                          <div className="text-sm mt-1" style={{ color: brandTheme.text.secondary }}>
+                            {sprintGroup.start_date && sprintGroup.end_date ? (
+                              <>
+                                {new Date(sprintGroup.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                {' - '}
+                                {new Date(sprintGroup.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </>
+                            ) : (
+                              'No dates set'
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </>
+                  ) : (
+                    <div className="text-center py-8" style={{ color: brandTheme.text.muted }}>
+                      <p>No Sprint groups available.</p>
+                      <p className="text-sm mt-2">Create a Sprint group first in Sprint Planning.</p>
                     </div>
-                    <div className="text-sm mt-1" style={{ color: brandTheme.text.secondary }}>
-                      Create new epic in Sprint 1 column
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => handleCreateSprint('Sprint 2')}
-                    disabled={isCreatingSprint}
-                    className="w-full p-4 border-2 rounded-lg text-left hover:border-blue-500 transition-colors disabled:opacity-50"
-                    style={{
-                      borderColor: brandTheme.border.medium,
-                      backgroundColor: brandTheme.background.secondary,
-                    }}
-                  >
-                    <div className="font-semibold" style={{ color: brandTheme.text.primary }}>
-                      Sprint 2
-                    </div>
-                    <div className="text-sm mt-1" style={{ color: brandTheme.text.secondary }}>
-                      Create new epic in Sprint 2 column
-                    </div>
-                  </button>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -448,7 +619,7 @@ const SprintReviewModal: React.FC<SprintReviewModalProps> = ({
                           {sprint.name}
                         </div>
                         <div className="text-sm mt-1" style={{ color: brandTheme.text.secondary }}>
-                          {sprint.sprint_type}
+                          {sprint.sprint_id ? `Sprint ${sprint.sprint_id}` : sprint.sprint_type}
                         </div>
                       </button>
                     ))
@@ -468,7 +639,13 @@ const SprintReviewModal: React.FC<SprintReviewModalProps> = ({
               style={{ borderColor: brandTheme.border.light }}
             >
               <button
-                onClick={() => setModalMode(modalMode === 'create' ? 'add' : 'create')}
+                onClick={() => {
+                  if (modalMode === 'create') {
+                    setModalMode('add');
+                  } else {
+                    setModalMode('create');
+                  }
+                }}
                 disabled={isCreatingSprint}
                 className="px-4 py-2 border rounded-lg transition-colors disabled:opacity-50"
                 style={{

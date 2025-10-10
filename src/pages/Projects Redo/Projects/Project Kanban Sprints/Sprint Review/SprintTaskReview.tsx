@@ -135,7 +135,7 @@ const SprintTaskReview: React.FC<SprintTaskReviewProps> = ({ projectId, onTaskSe
   };
 
   const handleHoursUpdated = () => {
-    loadTasks(); // Refresh task data to update planned hours
+    loadTasks(); // Refresh task data to update story points
     setRefreshTrigger(prev => prev + 1); // Trigger refresh of InSprintGroup
   };
 
@@ -215,7 +215,7 @@ const SprintTaskReview: React.FC<SprintTaskReviewProps> = ({ projectId, onTaskSe
         <EmptyState projectId={projectId} />
       )}
 
-      {/* Hours Planned Modal */}
+      {/* Story Points Modal */}
       <HoursPlannedModal
         isOpen={hoursModalOpen}
         onClose={() => setHoursModalOpen(false)}

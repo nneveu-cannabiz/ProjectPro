@@ -104,7 +104,7 @@ const SortableProjectItem: React.FC<SortableProjectItemProps> = ({ project, inde
         </div>
       </div>
 
-      {/* Sprint Assignment Status Badge */}
+      {/* Sprint Assignment Status Badge - Only show for projects with unassigned tasks */}
       {project.totalTasks > 0 && project.unassignedTasks > 0 && (
         <div
           className="absolute -top-2 -right-2 px-2 py-1 rounded-full text-xs font-medium shadow-sm"
@@ -114,7 +114,7 @@ const SortableProjectItem: React.FC<SortableProjectItemProps> = ({ project, inde
             border: `1px solid ${brandTheme.status.warning}`
           }}
         >
-          {project.unassignedTasks}/{project.totalTasks} tasks unassigned to sprint
+          {project.unassignedTasks}/{project.totalTasks} unassigned
         </div>
       )}
     </div>
@@ -148,39 +148,53 @@ const ParkingLotColumn: React.FC<ParkingLotColumnProps> = ({ projects = [], onPr
     })
   );
 
-  // Sort projects by ranking for this parking lot column
-  const sortedProjects = useMemo(() => {
-    const sorted = [...projectsWithSprintStatus].sort((a, b) => {
+  // Separate and sort projects by whether they have tasks in sprints
+  const { projectsWithUnassigned, projectsFullyAssigned } = useMemo(() => {
+    const notInSprints: any[] = [];
+    const inSprints: any[] = [];
+
+    projectsWithSprintStatus.forEach(project => {
+      // If project has tasks AND at least one task is assigned to a sprint
+      if (project.totalTasks > 0 && project.assignedTasks > 0) {
+        inSprints.push(project);
+      } else {
+        // No tasks or no tasks assigned to sprints yet
+        notInSprints.push(project);
+      }
+    });
+
+    // Sort each group by ranking
+    const sortByRanking = (a: any, b: any) => {
       const aRank = a.ranking?.[PAGE_NAME];
       const bRank = b.ranking?.[PAGE_NAME];
 
-      // Both have rankings for this page - lower rank number comes first
       if (aRank !== undefined && bRank !== undefined) {
-        return aRank - bRank; // 1 comes before 2, 2 comes before 3, etc.
+        return aRank - bRank;
       }
-
-      // Only a has ranking - a comes first (ranked items before unranked)
       if (aRank !== undefined && bRank === undefined) {
         return -1;
       }
-
-      // Only b has ranking - b comes first (ranked items before unranked)
       if (aRank === undefined && bRank !== undefined) {
         return 1;
       }
-
-      // Neither has ranking - keep original order
       return 0;
+    };
+
+    notInSprints.sort(sortByRanking);
+    inSprints.sort(sortByRanking);
+
+    console.log('🔢 Parking Lot sorted projects:', {
+      notInSprints: notInSprints.map(p => ({ name: p.name, rank: p.ranking?.[PAGE_NAME] || 'unranked', assigned: p.assignedTasks, total: p.totalTasks })),
+      inSprints: inSprints.map(p => ({ name: p.name, rank: p.ranking?.[PAGE_NAME] || 'unranked', assigned: p.assignedTasks, total: p.totalTasks }))
     });
 
-    // Debug: Log the sorted order
-    console.log('🔢 Parking Lot sorted projects:', sorted.map(p => ({
-      name: p.name,
-      rank: p.ranking?.[PAGE_NAME] || 'unranked'
-    })));
-
-    return sorted;
+    return { projectsWithUnassigned: notInSprints, projectsFullyAssigned: inSprints };
   }, [projectsWithSprintStatus]);
+
+  // Combine for drag and drop (all items in one list for DnD to work)
+  const sortedProjects = useMemo(() => {
+    return [...projectsWithUnassigned, ...projectsFullyAssigned];
+  }, [projectsWithUnassigned, projectsFullyAssigned]);
 
   // Notify parent when expansion state changes
   useEffect(() => {
@@ -221,21 +235,23 @@ const ParkingLotColumn: React.FC<ParkingLotColumnProps> = ({ projects = [], onPr
         });
       });
 
-      // First, fetch full project data with ranking column for all projects
+      // First, fetch full project data with ranking and status columns for all projects
       const projectIds = projects.map(p => p.id);
       const { data: fullProjects, error: projectError } = await (supabase as any)
         .from('PMA_Projects')
-        .select('id, name, ranking')
+        .select('id, name, ranking, status')
         .in('id', projectIds);
 
       if (projectError) {
         console.error('Error fetching full project data:', projectError);
       }
 
-      // Create a map of project rankings
+      // Create maps for project rankings and status
       const projectRankingMap = new Map();
+      const projectStatusMap = new Map();
       (fullProjects || []).forEach((proj: any) => {
         projectRankingMap.set(proj.id, proj.ranking || {});
+        projectStatusMap.set(proj.id, proj.status);
       });
 
       // Analyze each project
@@ -251,12 +267,14 @@ const ParkingLotColumn: React.FC<ParkingLotColumnProps> = ({ projects = [], onPr
 
             if (tasksError) {
               console.error(`Error fetching tasks for project ${project.id}:`, tasksError);
+              const projectStatus = projectStatusMap.get(project.id);
               return { 
                 ...project, 
                 ranking: projectRankingMap.get(project.id) || {},
+                status: projectStatus,
                 totalTasks: 0, 
                 assignedTasks: 0, 
-                shouldShow: true 
+                shouldShow: projectStatus === 'todo' || projectStatus === 'in-progress' || true
               };
             }
 
@@ -265,12 +283,23 @@ const ParkingLotColumn: React.FC<ParkingLotColumnProps> = ({ projects = [], onPr
               sprintTaskIds.has(task.id)
             ).length;
 
-            // Only show project if not all active tasks are assigned to sprints
-            const shouldShow = totalActiveTasks === 0 || assignedTasks < totalActiveTasks;
+            // Get project status
+            const projectStatus = projectStatusMap.get(project.id);
+            
+            // Show project if:
+            // 1. Project status is "todo" or "in-progress" (regardless of task assignment)
+            // 2. OR project has no tasks yet
+            // 3. OR project has unassigned tasks
+            const shouldShow = 
+              projectStatus === 'todo' || 
+              projectStatus === 'in-progress' || 
+              totalActiveTasks === 0 || 
+              assignedTasks < totalActiveTasks;
 
             return {
               ...project,
               ranking: projectRankingMap.get(project.id) || {}, // Include ranking
+              status: projectStatus, // Include status
               totalTasks: totalActiveTasks,
               assignedTasks: assignedTasks,
               shouldShow: shouldShow,
@@ -278,12 +307,14 @@ const ParkingLotColumn: React.FC<ParkingLotColumnProps> = ({ projects = [], onPr
             };
           } catch (error) {
             console.error(`Error analyzing project ${project.id}:`, error);
+            const projectStatus = projectStatusMap.get(project.id);
             return { 
               ...project, 
               ranking: projectRankingMap.get(project.id) || {},
+              status: projectStatus,
               totalTasks: 0, 
               assignedTasks: 0, 
-              shouldShow: true 
+              shouldShow: projectStatus === 'todo' || projectStatus === 'in-progress' || true
             };
           }
         })
@@ -291,9 +322,12 @@ const ParkingLotColumn: React.FC<ParkingLotColumnProps> = ({ projects = [], onPr
 
       // Filter to only show projects that should be displayed
       const filteredProjects = projectsWithStatus.filter(project => project.shouldShow);
-      console.log('📦 Loaded projects with rankings:', filteredProjects.map(p => ({
+      console.log('📦 Loaded projects with rankings and status:', filteredProjects.map(p => ({
         name: p.name,
-        ranking: p.ranking
+        status: p.status,
+        ranking: p.ranking,
+        totalTasks: p.totalTasks,
+        assignedTasks: p.assignedTasks
       })));
       setProjectsWithSprintStatus(filteredProjects);
     } catch (error) {
@@ -401,7 +435,16 @@ const ParkingLotColumn: React.FC<ParkingLotColumnProps> = ({ projects = [], onPr
               }}
             >
               <span className="text-sm">
-                {isLoadingSprintStatus ? 'Loading...' : `${projectsWithSprintStatus.length} projects`}
+                {isLoadingSprintStatus ? 'Loading...' : (
+                  <>
+                    {projectsWithSprintStatus.length} project{projectsWithSprintStatus.length !== 1 ? 's' : ''}
+                    {projectsFullyAssigned.length > 0 && (
+                      <span className="ml-1" style={{ color: brandTheme.text.muted }}>
+                        ({projectsFullyAssigned.length} in sprints)
+                      </span>
+                    )}
+                  </>
+                )}
               </span>
             </div>
           </div>
@@ -434,7 +477,8 @@ const ParkingLotColumn: React.FC<ParkingLotColumnProps> = ({ projects = [], onPr
                   items={sortedProjects.map(p => p.id)}
                   strategy={verticalListSortingStrategy}
                 >
-                  {sortedProjects.map((project, index) => (
+                  {/* Projects with unassigned tasks */}
+                  {projectsWithUnassigned.map((project, index) => (
                     <SortableProjectItem
                       key={project.id}
                       project={project}
@@ -443,6 +487,31 @@ const ParkingLotColumn: React.FC<ParkingLotColumnProps> = ({ projects = [], onPr
                       onSprintReviewClick={onSprintReviewClick}
                     />
                   ))}
+
+                  {/* Already in Sprints Section */}
+                  {projectsFullyAssigned.length > 0 && (
+                    <>
+                      <div
+                        className="mt-4 mb-2 px-2 py-1 text-xs font-semibold"
+                        style={{
+                          color: brandTheme.text.secondary,
+                          backgroundColor: brandTheme.gray[200],
+                          borderRadius: '4px',
+                        }}
+                      >
+                        Already in Sprints ({projectsFullyAssigned.length})
+                      </div>
+                      {projectsFullyAssigned.map((project, index) => (
+                        <SortableProjectItem
+                          key={project.id}
+                          project={project}
+                          index={projectsWithUnassigned.length + index}
+                          onProjectClick={onProjectClick}
+                          onSprintReviewClick={onSprintReviewClick}
+                        />
+                      ))}
+                    </>
+                  )}
                 </SortableContext>
               </DndContext>
             ) : (
@@ -450,7 +519,7 @@ const ParkingLotColumn: React.FC<ParkingLotColumnProps> = ({ projects = [], onPr
                 className="text-center py-8 text-sm"
                 style={{ color: brandTheme.text.muted }}
               >
-                {projects.length === 0 ? 'No parked projects' : 'All active tasks are assigned to sprint groups'}
+                No parked projects
               </div>
             )}
           </div>
@@ -500,46 +569,99 @@ const ParkingLotColumn: React.FC<ParkingLotColumnProps> = ({ projects = [], onPr
                 Loading...
               </div>
             ) : sortedProjects.length > 0 ? (
-              sortedProjects.map((project, index) => (
-                <div
-                  key={project.id || index}
-                  className="relative p-2 rounded cursor-pointer hover:bg-white hover:bg-opacity-50 transition-colors"
-                  style={{ 
-                    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-                    borderLeft: `3px solid ${brandTheme.secondary.slate}`
-                  }}
-                  onClick={() => onSprintReviewClick?.(project)}
-                  title={`${project.name} - Click to review sprint plan`}
-                >
-                  <div 
-                    className="text-xs font-medium truncate"
-                    style={{ color: brandTheme.text.primary }}
+              <>
+                {/* Projects with unassigned tasks */}
+                {projectsWithUnassigned.map((project, index) => (
+                  <div
+                    key={project.id || index}
+                    className="relative p-2 rounded cursor-pointer hover:bg-white hover:bg-opacity-50 transition-colors"
+                    style={{ 
+                      backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                      borderLeft: `3px solid ${brandTheme.secondary.slate}`
+                    }}
+                    onClick={() => onSprintReviewClick?.(project)}
+                    title={`${project.name} - Click to review sprint plan`}
                   >
-                    {project.name}
-                  </div>
-                  
-                  {/* Small unassigned indicator */}
-                  {project.totalTasks > 0 && project.unassignedTasks > 0 && (
                     <div 
-                      className="absolute -top-1 -right-1 w-3 h-3 rounded-full flex items-center justify-center"
-                      style={{
-                        backgroundColor: brandTheme.status.warning,
-                        fontSize: '8px',
-                        color: 'white'
-                      }}
-title={`${project.unassignedTasks}/${project.totalTasks} tasks unassigned to sprint`}
+                      className="text-xs font-medium truncate"
+                      style={{ color: brandTheme.text.primary }}
                     >
-                      {project.unassignedTasks}
+                      {project.name}
                     </div>
-                  )}
-                </div>
-              ))
+                    
+                    {/* Small unassigned indicator */}
+                    {project.totalTasks > 0 && project.unassignedTasks > 0 && (
+                      <div 
+                        className="absolute -top-1 -right-1 w-3 h-3 rounded-full flex items-center justify-center"
+                        style={{
+                          backgroundColor: brandTheme.status.warning,
+                          fontSize: '8px',
+                          color: 'white'
+                        }}
+                        title={`${project.unassignedTasks}/${project.totalTasks} tasks unassigned to sprint`}
+                      >
+                        {project.unassignedTasks}
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {/* Already in Sprints Section */}
+                {projectsFullyAssigned.length > 0 && (
+                  <>
+                    <div
+                      className="mt-2 mb-1 px-1 py-0.5 text-[9px] font-semibold text-center"
+                      style={{
+                        color: brandTheme.text.secondary,
+                        backgroundColor: brandTheme.gray[200],
+                        borderRadius: '3px',
+                      }}
+                    >
+                      In Sprints ({projectsFullyAssigned.length})
+                    </div>
+                    {projectsFullyAssigned.map((project, index) => (
+                      <div
+                        key={project.id || index}
+                        className="relative p-2 rounded cursor-pointer hover:bg-white hover:bg-opacity-50 transition-colors"
+                        style={{ 
+                          backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                          borderLeft: `3px solid ${brandTheme.secondary.slate}`
+                        }}
+                        onClick={() => onSprintReviewClick?.(project)}
+                        title={`${project.name} - Click to review sprint plan`}
+                      >
+                        <div 
+                          className="text-xs font-medium truncate"
+                          style={{ color: brandTheme.text.primary }}
+                        >
+                          {project.name}
+                        </div>
+                        
+                        {/* Small unassigned indicator */}
+                        {project.totalTasks > 0 && project.unassignedTasks > 0 && (
+                          <div 
+                            className="absolute -top-1 -right-1 w-3 h-3 rounded-full flex items-center justify-center"
+                            style={{
+                              backgroundColor: brandTheme.status.warning,
+                              fontSize: '8px',
+                              color: 'white'
+                            }}
+                            title={`${project.unassignedTasks}/${project.totalTasks} tasks unassigned to sprint`}
+                          >
+                            {project.unassignedTasks}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </>
+                )}
+              </>
             ) : (
               <div 
                 className="text-center py-4 text-xs"
                 style={{ color: brandTheme.text.muted }}
               >
-                {projects.length === 0 ? 'No projects' : 'All tasks assigned'}
+                No projects
               </div>
             )}
           </div>

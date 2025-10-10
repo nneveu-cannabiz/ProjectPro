@@ -128,6 +128,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
   } | null>(null);
   const [isSprintPlanExpanded, setIsSprintPlanExpanded] = useState(false);
   
+  // Auto-expand Sprint Plan submenu if user is on any sprint-related page
+  useEffect(() => {
+    const sprintPaths = ['/sprint-plan', '/story-points', '/sprints-task-list', '/sprint-history'];
+    if (sprintPaths.includes(location.pathname)) {
+      setIsSprintPlanExpanded(true);
+    }
+  }, [location.pathname]);
+  
   // Load profile data when component mounts
   useEffect(() => {
     const loadProfile = async () => {
@@ -211,7 +219,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
             style={{ color: brandTheme.primary.navy }}
             title="Expand sidebar"
           >
-            <Menu className="w-4 h-4" />
+            <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       )}
@@ -229,59 +237,79 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
         {/* 2 Week Sprint Plan with Submenu */}
         <div>
           <div className="relative">
-            <SidebarItem
-              to="/sprint-plan"
-              icon={<CheckSquare size={20} />}
-              label="2 Week Sprint Plan"
-              isActive={location.pathname === '/sprint-plan' || location.pathname === '/story-points' || location.pathname === '/sprints-task-list' || location.pathname === '/sprint-history'}
-              isCollapsed={isCollapsed}
-            />
-            {!isCollapsed && (
-              <button
-                onClick={(e) => {
+            <div
+              onClick={(e) => {
+                if (!isCollapsed) {
                   e.preventDefault();
-                  e.stopPropagation();
                   setIsSprintPlanExpanded(!isSprintPlanExpanded);
-                }}
-                className="absolute right-1 top-1/2 transform -translate-y-1/2 p-1 hover:bg-white hover:bg-opacity-30 rounded transition-colors"
+                }
+              }}
+              className={`w-full flex items-start ${isCollapsed ? 'justify-center' : 'space-x-3'} p-3 rounded-lg text-left transition-all duration-200 group border relative mb-1 cursor-pointer`}
+              style={
+                location.pathname === '/sprint-plan' || location.pathname === '/story-points' || location.pathname === '/sprints-task-list' || location.pathname === '/sprint-history'
+                  ? {
+                      backgroundColor: brandTheme.primary.paleBlue,
+                      borderColor: brandTheme.primary.lightBlue,
+                      color: brandTheme.primary.navy
+                    }
+                  : {
+                      backgroundColor: brandTheme.background.brandLight,
+                      borderColor: 'transparent',
+                      color: brandTheme.primary.navy
+                    }
+              }
+              onMouseEnter={(e) => {
+                if (!(location.pathname === '/sprint-plan' || location.pathname === '/story-points' || location.pathname === '/sprints-task-list' || location.pathname === '/sprint-history')) {
+                  e.currentTarget.style.backgroundColor = 'transparent'
+                  e.currentTarget.style.borderColor = 'transparent'
+                  e.currentTarget.style.color = brandTheme.primary.navy
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!(location.pathname === '/sprint-plan' || location.pathname === '/story-points' || location.pathname === '/sprints-task-list' || location.pathname === '/sprint-history')) {
+                  e.currentTarget.style.backgroundColor = brandTheme.background.brandLight
+                  e.currentTarget.style.borderColor = 'transparent'
+                  e.currentTarget.style.color = brandTheme.primary.navy
+                }
+              }}
+              title={isCollapsed ? "2 Week Sprint Plan" : undefined}
+            >
+              <span 
+                className="w-5 h-5 mt-0.5 flex-shrink-0"
                 style={{ color: brandTheme.primary.navy }}
               >
-                <ChevronDown
-                  className={`w-4 h-4 transition-transform duration-200 ${isSprintPlanExpanded ? 'rotate-180' : ''}`}
-                />
-              </button>
-            )}
+                <CheckSquare size={20} />
+              </span>
+              {!isCollapsed && (
+                <>
+                  <div className="flex-1 min-w-0">
+                    <div 
+                      className="font-medium"
+                      style={{ color: brandTheme.primary.navy }}
+                    >
+                      2 Week Sprint Plan
+                    </div>
+                  </div>
+                  <ChevronDown
+                    className={`w-4 h-4 transition-transform duration-200 ${isSprintPlanExpanded ? 'rotate-180' : ''}`}
+                    style={{ color: brandTheme.primary.navy }}
+                  />
+                </>
+              )}
+            </div>
           </div>
           
           {/* Submenu */}
           {!isCollapsed && isSprintPlanExpanded && (
             <div className="ml-8 mt-1 mb-2 space-y-1">
               <Link
-                to="/story-points"
-                className="flex items-center space-x-2 p-2 rounded text-sm transition-colors"
-                style={{
-                  backgroundColor: location.pathname === '/story-points' ? brandTheme.primary.paleBlue : 'transparent',
-                  color: brandTheme.primary.navy
-                }}
-                onMouseEnter={(e) => {
-                  if (location.pathname !== '/story-points') {
-                    e.currentTarget.style.backgroundColor = brandTheme.background.secondary;
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (location.pathname !== '/story-points') {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }
-                }}
-              >
-                <span>Story Points</span>
-              </Link>
-              <Link
                 to="/sprints-task-list"
-                className="flex items-center space-x-2 p-2 rounded text-sm transition-colors"
+                className={`flex items-center space-x-2 p-2 rounded text-sm transition-colors border ${
+                  location.pathname === '/sprints-task-list' ? 'border-blue-300 font-semibold' : 'border-transparent'
+                }`}
                 style={{
                   backgroundColor: location.pathname === '/sprints-task-list' ? brandTheme.primary.paleBlue : 'transparent',
-                  color: brandTheme.primary.navy
+                  color: location.pathname === '/sprints-task-list' ? brandTheme.primary.navy : brandTheme.text.primary
                 }}
                 onMouseEnter={(e) => {
                   if (location.pathname !== '/sprints-task-list') {
@@ -298,10 +326,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
               </Link>
               <Link
                 to="/sprint-history"
-                className="flex items-center space-x-2 p-2 rounded text-sm transition-colors"
+                className={`flex items-center space-x-2 p-2 rounded text-sm transition-colors border ${
+                  location.pathname === '/sprint-history' ? 'border-blue-300 font-semibold' : 'border-transparent'
+                }`}
                 style={{
                   backgroundColor: location.pathname === '/sprint-history' ? brandTheme.primary.paleBlue : 'transparent',
-                  color: brandTheme.primary.navy
+                  color: location.pathname === '/sprint-history' ? brandTheme.primary.navy : brandTheme.text.primary
                 }}
                 onMouseEnter={(e) => {
                   if (location.pathname !== '/sprint-history') {
@@ -314,7 +344,51 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
                   }
                 }}
               >
-                <span>Sprint History</span>
+                <span>Sprint Planning</span>
+              </Link>
+              <Link
+                to="/story-points"
+                className={`flex items-center space-x-2 p-2 rounded text-sm transition-colors border ${
+                  location.pathname === '/story-points' ? 'border-blue-300 font-semibold' : 'border-transparent'
+                }`}
+                style={{
+                  backgroundColor: location.pathname === '/story-points' ? brandTheme.primary.paleBlue : 'transparent',
+                  color: location.pathname === '/story-points' ? brandTheme.primary.navy : brandTheme.text.primary
+                }}
+                onMouseEnter={(e) => {
+                  if (location.pathname !== '/story-points') {
+                    e.currentTarget.style.backgroundColor = brandTheme.background.secondary;
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (location.pathname !== '/story-points') {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }
+                }}
+              >
+                <span>Story Points</span>
+              </Link>
+              <Link
+                to="/sprint-plan"
+                className={`flex items-center space-x-2 p-2 rounded text-sm transition-colors border ${
+                  location.pathname === '/sprint-plan' ? 'border-blue-300 font-semibold' : 'border-transparent'
+                }`}
+                style={{
+                  backgroundColor: location.pathname === '/sprint-plan' ? brandTheme.primary.paleBlue : 'transparent',
+                  color: location.pathname === '/sprint-plan' ? brandTheme.primary.navy : brandTheme.text.primary
+                }}
+                onMouseEnter={(e) => {
+                  if (location.pathname !== '/sprint-plan') {
+                    e.currentTarget.style.backgroundColor = brandTheme.background.secondary;
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (location.pathname !== '/sprint-plan') {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }
+                }}
+              >
+                <span>Sprint Kanban</span>
               </Link>
             </div>
           )}

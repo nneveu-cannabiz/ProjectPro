@@ -74,13 +74,16 @@ const GanttChart: React.FC<GanttChartProps> = ({ sprints }) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    oneWeekAgo.setHours(0, 0, 0, 0);
     
     // Find the latest end date from sprints
     let latestEnd: Date = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000); // Default to 2 weeks from now
+    latestEnd.setHours(0, 0, 0, 0);
     
     sortedSprints.forEach((sprint) => {
       if (sprint.end_date) {
         const endDate = new Date(sprint.end_date);
+        endDate.setHours(0, 0, 0, 0);
         if (endDate > latestEnd) {
           latestEnd = endDate;
         }
@@ -91,6 +94,7 @@ const GanttChart: React.FC<GanttChartProps> = ({ sprints }) => {
     const start = oneWeekAgo;
     const paddingDays = 14;
     const end = new Date(latestEnd.getTime() + paddingDays * 24 * 60 * 60 * 1000);
+    end.setHours(0, 0, 0, 0);
     
     const diffTime = Math.abs(end.getTime() - start.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -100,10 +104,14 @@ const GanttChart: React.FC<GanttChartProps> = ({ sprints }) => {
       .filter((sprint) => sprint.start_date && sprint.end_date)
       .map((sprint) => {
         const sprintStart = new Date(sprint.start_date!);
+        sprintStart.setHours(0, 0, 0, 0);
         const sprintEnd = new Date(sprint.end_date!);
+        sprintEnd.setHours(0, 0, 0, 0);
         
-        const startOffset = Math.floor((sprintStart.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-        const duration = Math.ceil((sprintEnd.getTime() - sprintStart.getTime()) / (1000 * 60 * 60 * 24));
+        const startOffset = (sprintStart.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+        // Duration includes both start and end dates, so we add 1 full day
+        const endOffset = (sprintEnd.getTime() - start.getTime()) / (1000 * 60 * 60 * 24) + 1;
+        const duration = endOffset - startOffset;
         
         const leftPercent = (startOffset / diffDays) * 100;
         const widthPercent = (duration / diffDays) * 100;
@@ -121,10 +129,12 @@ const GanttChart: React.FC<GanttChartProps> = ({ sprints }) => {
           status = 'active';
         }
 
-        // Calculate positions for sprint groups within this sprint
+        // Calculate positions for sprint groups using SPRINT dates (all groups span the full sprint)
         const groupsWithPositions = sprint.groups.map((group) => {
-          const groupStartOffset = Math.floor((sprintStart.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-          const groupDuration = Math.ceil((sprintEnd.getTime() - sprintStart.getTime()) / (1000 * 60 * 60 * 24));
+          // All groups use the sprint's dates to span the full sprint width
+          const groupStartOffset = (sprintStart.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+          const groupEndOffset = (sprintEnd.getTime() - start.getTime()) / (1000 * 60 * 60 * 24) + 1;
+          const groupDuration = groupEndOffset - groupStartOffset;
           
           const groupLeftPercent = (groupStartOffset / diffDays) * 100;
           const groupWidthPercent = (groupDuration / diffDays) * 100;
@@ -243,6 +253,42 @@ const GanttChart: React.FC<GanttChartProps> = ({ sprints }) => {
 
   const weekMarkers = generateWeekMarkers();
 
+  const generateWeekendZones = () => {
+    const zones: { startPosition: number; widthPercent: number }[] = [];
+    const current = new Date(timelineStart);
+    
+    // Start at the beginning of the week (Sunday)
+    current.setDate(current.getDate() - current.getDay());
+    
+    while (current <= timelineEnd) {
+      // Saturday is day 6
+      const saturday = new Date(current);
+      saturday.setDate(saturday.getDate() + 6);
+      
+      // Sunday is day 0 (next week's sunday)
+      const sunday = new Date(saturday);
+      sunday.setDate(sunday.getDate() + 1);
+      
+      if (saturday <= timelineEnd) {
+        const saturdayPosition = ((saturday.getTime() - timelineStart.getTime()) / (1000 * 60 * 60 * 24) / totalDays) * 100;
+        // Weekend is 2 days (Saturday + Sunday)
+        const weekendWidth = (2 / totalDays) * 100;
+        
+        zones.push({
+          startPosition: saturdayPosition,
+          widthPercent: weekendWidth,
+        });
+      }
+      
+      // Move to next week
+      current.setDate(current.getDate() + 7);
+    }
+    
+    return zones;
+  };
+
+  const weekendZones = generateWeekendZones();
+
   // Calculate today's position
   const today = new Date();
   const todayPosition = ((today.getTime() - timelineStart.getTime()) / (1000 * 60 * 60 * 24) / totalDays) * 100;
@@ -336,26 +382,41 @@ const GanttChart: React.FC<GanttChartProps> = ({ sprints }) => {
 
         {/* Timeline grid */}
         <div
-          className="relative rounded-lg border overflow-hidden"
+          className="relative rounded-lg border"
           style={{
             backgroundColor: brandTheme.background.primary,
             borderColor: brandTheme.border.light,
             minHeight: `${calculateTotalHeight()}px`,
-            paddingTop: '32px', // Add padding at top for sprint labels
+            overflowX: 'hidden',
+            overflowY: 'visible',
           }}
         >
+          {/* Weekend zones (light gray backgrounds) */}
+          {weekendZones.map((zone, index) => (
+            <div
+              key={`weekend-${index}`}
+              className="absolute top-0 bottom-0 z-0"
+              style={{
+                left: `${zone.startPosition}%`,
+                width: `${zone.widthPercent}%`,
+                backgroundColor: brandTheme.gray[200],
+                opacity: 0.4,
+              }}
+            />
+          ))}
+
           {/* Week grid lines */}
           {weekMarkers.map((marker, index) => (
             <div
               key={index}
-              className="absolute top-0 bottom-0"
+              className="absolute top-0 bottom-0 z-5"
               style={{
                 left: `${marker.position}%`,
-                width: marker.isMonthStart ? '2px' : (marker.dayType === 'monday' ? '1px' : '1px'),
+                width: marker.isMonthStart ? '2px' : (marker.dayType === 'monday' ? '1.5px' : '1px'),
                 backgroundColor: marker.isMonthStart 
                   ? brandTheme.border.medium 
-                  : (marker.dayType === 'monday' ? brandTheme.border.medium : brandTheme.border.light),
-                opacity: marker.isMonthStart ? 1 : (marker.dayType === 'monday' ? 0.6 : 0.3),
+                  : (marker.dayType === 'monday' ? brandTheme.border.medium : brandTheme.border.medium),
+                opacity: marker.isMonthStart ? 1 : (marker.dayType === 'monday' ? 0.8 : 0.5),
               }}
             />
           ))}
@@ -382,7 +443,7 @@ const GanttChart: React.FC<GanttChartProps> = ({ sprints }) => {
           )}
 
           {/* Sprint bars with groups */}
-          <div className="relative p-3">
+          <div className="relative" style={{ zIndex: 10 }}>
             {sprintsWithPositions.map((sprint, sprintIndex) => {
               const sprintHeight = Math.max(sprint.groups.length * 32, 40);
               
@@ -392,58 +453,50 @@ const GanttChart: React.FC<GanttChartProps> = ({ sprints }) => {
                   className="relative"
                   style={{ 
                     height: `${sprintHeight}px`,
-                    marginBottom: sprintIndex < sprintsWithPositions.length - 1 ? '16px' : '0',
+                    marginTop: sprintIndex === 0 ? '32px' : '0',
+                    marginBottom: sprintIndex < sprintsWithPositions.length - 1 ? '16px' : '8px',
                   }}
                 >
-                  {/* Sprint background bar */}
+                  {/* Sprint label (top-left corner) */}
                   <div
-                    className="absolute rounded-lg shadow-md border-2 group"
+                    className="absolute -top-7 px-3 py-1 rounded-t font-semibold text-sm whitespace-nowrap shadow-sm"
                     style={{
                       left: `${sprint.leftPercent}%`,
-                      width: `${sprint.widthPercent}%`,
-                      height: `${sprintHeight}px`,
-                      backgroundColor: getStatusColor(sprint.status) + '15',
-                      borderColor: getStatusColor(sprint.status),
-                      minWidth: '100px',
+                      backgroundColor: getStatusColor(sprint.status),
+                      color: 'white',
                     }}
                   >
-                    {/* Sprint label (top-left corner) */}
+                    {sprint.sprint_id}
+                  </div>
+
+                  {/* Sprint groups positioned individually */}
+                  {sprint.groupsWithPositions.map((group, groupIndex) => (
                     <div
-                      className="absolute -top-7 left-0 px-3 py-1 rounded-t font-semibold text-sm whitespace-nowrap shadow-sm"
+                      key={group.id}
+                      className="absolute shadow-sm transition-all hover:shadow-md group/item cursor-pointer"
                       style={{
+                        left: `calc(${group.leftPercent}% + 1px)`,
+                        width: `calc(${group.widthPercent}% - 1px)`,
+                        top: `${(groupIndex * (sprintHeight / sprint.groups.length))}px`,
+                        height: `${Math.max(28, sprintHeight / sprint.groups.length - 2)}px`,
                         backgroundColor: getStatusColor(sprint.status),
-                        color: 'white',
+                        opacity: 0.9,
+                        borderRadius: '2px',
+                        boxSizing: 'border-box',
+                        padding: 0,
+                        margin: 0,
+                        zIndex: groupIndex + 20,
                       }}
                     >
-                      {sprint.sprint_id}
-                    </div>
-
-                    {/* Sprint groups inside */}
-                    <div className="relative h-full p-1 flex flex-col justify-around">
-                      {sprint.groupsWithPositions.map((group) => (
-                        <div
-                          key={group.id}
-                          className="relative group/item cursor-pointer"
-                          style={{ 
-                            height: `${Math.max(28, sprintHeight / sprint.groups.length - 4)}px`,
-                          }}
-                        >
-                          <div
-                            className="absolute inset-0 rounded shadow-sm transition-all hover:shadow-md"
-                            style={{
-                              backgroundColor: getStatusColor(sprint.status),
-                              opacity: 0.9,
-                            }}
-                          >
-                            <div className="flex items-center justify-between h-full px-2">
+                            <div className="flex items-center justify-between h-full">
                               <span
-                                className="text-xs font-medium truncate"
-                                style={{ color: 'white' }}
+                                className="text-xs font-medium break-words pl-0.5 pr-0.5 leading-tight"
+                                style={{ color: 'white', wordBreak: 'break-word' }}
                               >
                                 {group.name}
                               </span>
                               <span
-                                className="text-xs px-1.5 py-0.5 rounded flex-shrink-0 ml-1"
+                                className="text-[10px] px-0.5 py-0.5 rounded flex-shrink-0 mr-0.5"
                                 style={{
                                   backgroundColor: 'rgba(255, 255, 255, 0.3)',
                                   color: 'white',
@@ -455,10 +508,12 @@ const GanttChart: React.FC<GanttChartProps> = ({ sprints }) => {
 
                             {/* Hover tooltip for group */}
                             <div
-                              className="absolute left-0 top-full mt-1 hidden group-hover/item:block z-40 p-2 rounded-lg shadow-lg border min-w-[200px]"
+                              className="absolute left-0 top-full mt-1 hidden group-hover/item:block p-2 rounded-lg shadow-lg border min-w-[200px]"
                               style={{
                                 backgroundColor: brandTheme.background.primary,
                                 borderColor: brandTheme.border.medium,
+                                zIndex: 9999,
+                                position: 'absolute',
                               }}
                             >
                               <p className="font-semibold text-sm mb-1" style={{ color: brandTheme.text.primary }}>
@@ -472,33 +527,9 @@ const GanttChart: React.FC<GanttChartProps> = ({ sprints }) => {
                                 </p>
                               </div>
                             </div>
-                          </div>
-                        </div>
-                      ))}
                     </div>
+                  ))}
 
-                    {/* Sprint-level hover tooltip */}
-                    <div
-                      className="absolute left-0 top-full mt-2 hidden group-hover:block z-30 p-3 rounded-lg shadow-lg border min-w-[220px]"
-                      style={{
-                        backgroundColor: brandTheme.background.primary,
-                        borderColor: brandTheme.border.medium,
-                      }}
-                    >
-                      <p className="font-semibold mb-1" style={{ color: brandTheme.text.primary }}>
-                        {sprint.sprint_id}
-                      </p>
-                      <p className="text-xs mb-2" style={{ color: brandTheme.text.secondary }}>
-                        {formatDate(sprint.startDate)} - {formatDate(sprint.endDate)}
-                      </p>
-                      <div className="text-xs space-y-1" style={{ color: brandTheme.text.muted }}>
-                        <p>{sprint.groups.length} sprint groups</p>
-                        <p>
-                          {sprint.groups.reduce((sum, g) => sum + (g.selected_task_ids?.length || 0), 0)} total tasks
-                        </p>
-                      </div>
-                    </div>
-                  </div>
 
                   {/* Sprint dates label (left side, outside the timeline) */}
                   <div

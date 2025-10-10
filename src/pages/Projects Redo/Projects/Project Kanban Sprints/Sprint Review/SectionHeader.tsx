@@ -18,17 +18,17 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({
 }) => {
   return (
     <div 
-      className={`px-4 py-3 mb-4 rounded-t flex items-center justify-between ${className}`}
+      className={`px-4 py-2 mb-3 rounded-t flex items-center justify-between ${className}`}
       style={{ backgroundColor: brandTheme.primary.navy }}
     >
-      <h3 className="text-lg font-bold text-white">
+      <h3 className="text-base font-bold text-white">
         {title}
       </h3>
       
       {showSelectRows && (
         <button
           onClick={onSelectRowsToggle}
-          className="text-white text-sm italic hover:opacity-80 transition-opacity"
+          className="text-white text-xs italic hover:opacity-80 transition-opacity"
           style={{ background: 'none', border: 'none' }}
         >
           {isSelectionMode ? 'Cancel Selection' : 'Select Rows'}

@@ -26,6 +26,17 @@ const SprintSummary: React.FC<SprintSummaryProps> = ({
   const totalHoursSpent = relevantTasks.reduce((sum, task) => sum + task.hoursSpent, 0);
   const totalHoursPlanned = relevantTasks.reduce((sum, task) => sum + task.hoursPlanned, 0);
 
+  // Calculate task counts by status (using all tasks, not just active)
+  const todoCount = tasks.filter(task => {
+    const status = task.status?.toLowerCase();
+    return status === 'to do' || status === 'todo' || status === 'to-do';
+  }).length;
+  const inProgressCount = tasks.filter(task => {
+    const status = task.status?.toLowerCase();
+    return status === 'in-progress' || status === 'in progress' || status === 'inprogress';
+  }).length;
+  const doneCount = tasks.filter(task => task.status?.toLowerCase() === 'done').length;
+
   // Group tasks by assignee for team breakdown
   const tasksByAssignee = relevantTasks.reduce((acc, task) => {
     const assigneeKey = task.assignee_id || 'unassigned';
@@ -60,24 +71,81 @@ const SprintSummary: React.FC<SprintSummaryProps> = ({
 
   return (
     <div 
-      className="px-6 py-4 mb-6 rounded"
+      className="px-6 py-3 mb-4 rounded"
       style={{ backgroundColor: brandTheme.primary.navy }}
     >
-      {/* Header with Team Breakdown Toggle and Create Sprint Group */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-white text-lg font-semibold">Sprint Summary</h3>
-          <p className="text-white text-xs opacity-75 mt-1">Active tasks only (excludes completed tasks)</p>
+      {/* Single Line Layout */}
+      <div className="flex items-center justify-between">
+        {/* Left Side: Title and Stats */}
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3">
+            <h3 className="text-white text-base font-semibold">Epic Summary</h3>
+            <p className="text-white text-xs opacity-75">Active tasks only</p>
+          </div>
+          
+          {/* Hours Spent */}
+          <div className="flex items-center space-x-2">
+            <div className="flex items-center justify-center w-7 h-7 bg-white bg-opacity-20 rounded-full">
+              <Clock className="w-3.5 h-3.5 text-white" />
+            </div>
+            <div>
+              <p className="text-white text-xs font-medium opacity-90">Hours Spent</p>
+              <p className="text-white text-base font-bold">{totalHoursSpent.toFixed(1)}</p>
+            </div>
+          </div>
+
+          {/* Story Points */}
+          <div className="flex items-center space-x-2">
+            <div className="flex items-center justify-center w-7 h-7 bg-white bg-opacity-20 rounded-full">
+              <Target className="w-3.5 h-3.5 text-white" />
+            </div>
+            <div>
+              <p className="text-white text-xs font-medium opacity-90">Story Points</p>
+              <p className="text-white text-base font-bold">{totalHoursPlanned.toFixed(1)}</p>
+            </div>
+          </div>
+
+          {/* Task Status Counts */}
+          <div className="flex items-center space-x-4 pl-4 border-l border-white border-opacity-20">
+            {/* To Do */}
+            <div className="flex items-center space-x-1.5">
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: brandTheme.gray[400] }} />
+              <div>
+                <p className="text-white text-xs opacity-75">To Do</p>
+                <p className="text-white text-sm font-semibold">{todoCount}</p>
+              </div>
+            </div>
+
+            {/* In Progress */}
+            <div className="flex items-center space-x-1.5">
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: brandTheme.status.inProgress }} />
+              <div>
+                <p className="text-white text-xs opacity-75">In Progress</p>
+                <p className="text-white text-sm font-semibold">{inProgressCount}</p>
+              </div>
+            </div>
+
+            {/* Done */}
+            <div className="flex items-center space-x-1.5">
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: brandTheme.status.success }} />
+              <div>
+                <p className="text-white text-xs opacity-75">Done</p>
+                <p className="text-white text-sm font-semibold">{doneCount}</p>
+              </div>
+            </div>
+          </div>
         </div>
+
+        {/* Right Side: Buttons */}
         <div className="flex items-center space-x-3">
           {/* Create Epic Button */}
           {selectedTaskCount > 0 && onCreateSprintGroup && (
             <button
               onClick={onCreateSprintGroup}
-              className="flex items-center space-x-2 px-4 py-2 bg-white bg-opacity-90 hover:bg-opacity-100 rounded-lg transition-colors text-sm font-semibold shadow-sm"
+              className="flex items-center space-x-2 px-3 py-1.5 bg-white bg-opacity-90 hover:bg-opacity-100 rounded-lg transition-colors text-xs font-semibold shadow-sm"
               style={{ color: brandTheme.primary.navy }}
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
               <span>Create Epic ({selectedTaskCount})</span>
             </button>
           )}
@@ -86,10 +154,10 @@ const SprintSummary: React.FC<SprintSummaryProps> = ({
           {selectedTaskCount > 0 && onAddToSprintGroup && (
             <button
               onClick={onAddToSprintGroup}
-              className="flex items-center space-x-2 px-4 py-2 bg-white bg-opacity-80 hover:bg-opacity-90 rounded-lg transition-colors text-sm font-medium shadow-sm"
+              className="flex items-center space-x-2 px-3 py-1.5 bg-white bg-opacity-80 hover:bg-opacity-90 rounded-lg transition-colors text-xs font-medium shadow-sm"
               style={{ color: brandTheme.primary.navy }}
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
               <span>Add to Epic ({selectedTaskCount})</span>
             </button>
           )}
@@ -97,43 +165,19 @@ const SprintSummary: React.FC<SprintSummaryProps> = ({
           {/* Team Breakdown Toggle */}
           <button
             onClick={() => setShowTeamBreakdown(!showTeamBreakdown)}
-            className="flex items-center space-x-2 px-3 py-1 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg transition-colors text-white text-sm font-medium"
+            className="flex items-center space-x-2 px-3 py-1.5 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg transition-colors text-white text-xs font-medium"
           >
-            <Users className="w-4 h-4" />
+            <Users className="w-3.5 h-3.5" />
             <span>Team Breakdown</span>
-            <ChevronDown className={`w-4 h-4 transition-transform ${showTeamBreakdown ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showTeamBreakdown ? 'rotate-180' : ''}`} />
           </button>
         </div>
       </div>
 
-      {/* Overall Summary */}
-      <div className="grid grid-cols-2 gap-6 mb-4">
-        {/* Hours Spent */}
-        <div className="flex items-center space-x-3">
-          <div className="flex items-center justify-center w-10 h-10 bg-white bg-opacity-20 rounded-full">
-            <Clock className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <p className="text-white text-sm font-medium opacity-90">Hours Spent</p>
-            <p className="text-white text-2xl font-bold">{totalHoursSpent.toFixed(1)}</p>
-          </div>
-        </div>
-
-        {/* Story Points */}
-        <div className="flex items-center space-x-3">
-          <div className="flex items-center justify-center w-10 h-10 bg-white bg-opacity-20 rounded-full">
-            <Target className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <p className="text-white text-sm font-medium opacity-90">Story Points</p>
-            <p className="text-white text-2xl font-bold">{totalHoursPlanned.toFixed(1)}</p>
-          </div>
-        </div>
-      </div>
 
       {/* Team Breakdown */}
       {showTeamBreakdown && assigneeBreakdowns.length > 0 && (
-        <div className="border-t border-white border-opacity-20 pt-4">
+        <div className="border-t border-white border-opacity-20 pt-3 mt-3">
           <div className="space-y-3">
             {assigneeBreakdowns.map((assignee) => (
               <div 
@@ -170,7 +214,7 @@ const SprintSummary: React.FC<SprintSummaryProps> = ({
 
       {/* Empty State for Team Breakdown */}
       {showTeamBreakdown && assigneeBreakdowns.length === 0 && (
-        <div className="border-t border-white border-opacity-20 pt-4">
+        <div className="border-t border-white border-opacity-20 pt-3 mt-3">
           <div className="text-center py-4">
             <Users className="w-8 h-8 text-white opacity-50 mx-auto mb-2" />
             <p className="text-white opacity-75 text-sm">No team members assigned to tasks</p>

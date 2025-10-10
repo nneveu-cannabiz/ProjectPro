@@ -260,7 +260,7 @@ const InSprintGroup: React.FC<InSprintGroupProps> = ({ projectId, refreshTrigger
     <div className="mb-6">
       {/* Section Header */}
       <div 
-        className="flex items-center justify-between p-4 cursor-pointer hover:bg-opacity-80 transition-colors"
+        className="flex items-center justify-between px-4 py-2 cursor-pointer hover:bg-opacity-80 transition-colors"
         style={{ 
           backgroundColor: brandTheme.primary.navy,
           color: brandTheme.background.primary 
@@ -273,11 +273,11 @@ const InSprintGroup: React.FC<InSprintGroupProps> = ({ projectId, refreshTrigger
           ) : (
             <ChevronRight className="w-4 h-4" />
           )}
-          <h3 className="text-lg font-bold">
+          <h3 className="text-base font-bold">
             {sprintGroupId ? 'Epic Tasks' : 'Already in Epics'}
           </h3>
         </div>
-        <div className="text-sm opacity-90">
+        <div className="text-xs opacity-90">
           {sprintTasks.length} task{sprintTasks.length !== 1 ? 's' : ''}
         </div>
       </div>
@@ -293,7 +293,7 @@ const InSprintGroup: React.FC<InSprintGroupProps> = ({ projectId, refreshTrigger
         >
           {/* Table Header */}
           <div 
-            className="grid grid-cols-12 gap-4 p-4 text-sm font-medium border-b"
+            className="grid grid-cols-12 gap-4 px-4 py-2 text-xs font-medium border-b"
             style={{ 
               backgroundColor: brandTheme.background.secondary,
               borderColor: brandTheme.border.medium,
@@ -314,13 +314,13 @@ const InSprintGroup: React.FC<InSprintGroupProps> = ({ projectId, refreshTrigger
               return (
                 <div 
                   key={task.id} 
-                  className="grid grid-cols-12 gap-4 p-4 hover:bg-opacity-50"
+                  className="grid grid-cols-12 gap-4 py-2 px-4 hover:bg-opacity-50"
                   style={{ backgroundColor: 'transparent' }}
                 >
                   {/* Task Name */}
                   <div className="col-span-3">
                     <div 
-                      className="font-medium text-sm cursor-pointer hover:underline transition-colors"
+                      className="font-medium text-xs cursor-pointer hover:underline transition-colors"
                       style={{ color: brandTheme.primary.navy }}
                       onClick={() => handleTaskClick(task.id)}
                       title="Click to view task details"
@@ -331,7 +331,7 @@ const InSprintGroup: React.FC<InSprintGroupProps> = ({ projectId, refreshTrigger
 
                   {/* Hours Spent */}
                   <div className="col-span-2">
-                    <span className="text-sm font-medium" style={{ color: brandTheme.text.primary }}>
+                    <span className="text-xs font-medium" style={{ color: brandTheme.text.primary }}>
                       {task.hoursSpent.toFixed(1)}
                     </span>
                   </div>
@@ -339,7 +339,7 @@ const InSprintGroup: React.FC<InSprintGroupProps> = ({ projectId, refreshTrigger
                   {/* Story Points */}
                   <div className="col-span-2">
                     <div 
-                      className="text-sm font-medium cursor-pointer hover:underline transition-colors"
+                      className="text-xs font-medium cursor-pointer hover:underline transition-colors"
                       style={{ color: brandTheme.primary.navy }}
                       onClick={() => handleHoursPlannedClick(task.id, task.name)}
                       title="Click to view/edit story points"

@@ -313,8 +313,8 @@ execute FUNCTION update_pma_requests_updated_at ();
 
 create table public."PMA_Sprints" (
   id uuid not null default gen_random_uuid (),
-  project_id uuid not null,
-  selected_task_ids jsonb not null default '[]'::jsonb,
+  project_id uuid null,
+  selected_task_ids jsonb null default '[]'::jsonb,
   sprint_type text not null,
   status text not null default 'active'::text,
   created_at timestamp with time zone not null default now(),
