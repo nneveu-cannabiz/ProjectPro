@@ -40,6 +40,7 @@ const SprintCompletedSummary: React.FC<SprintCompletedSummaryProps> = ({ tasks, 
   const [editingItemType, setEditingItemType] = useState<'task' | 'subtask' | null>(null);
   const [editingDate, setEditingDate] = useState<string>('');
   const [hoursData, setHoursData] = useState<any[]>([]);
+  const [hoursDetailsByTask, setHoursDetailsByTask] = useState<Map<string, Array<{ date: string; hours: number }>>>(new Map());
 
   const doneTasks = tasksWithHours.filter((t) => t.status === 'done');
 
@@ -161,12 +162,14 @@ const SprintCompletedSummary: React.FC<SprintCompletedSummaryProps> = ({ tasks, 
         // Fetch hours spent for tasks
         const { data: hoursData } = await (supabase as any)
           .from('PMA_Hours')
-          .select('task_id, hours, is_planning_hours')
+          .select('task_id, hours, is_planning_hours, date')
           .in('task_id', taskIds);
 
-        // Calculate hours spent per task and story points
+        // Calculate hours spent per task and story points, and track hours by date
         const hoursMap: Record<string, number> = {};
         const storyPointsMap: Record<string, number> = {};
+        const hoursDetailsMap = new Map<string, Array<{ date: string; hours: number }>>();
+        
         if (hoursData) {
           hoursData.forEach((hour: any) => {
             if (hour.is_planning_hours) {
@@ -181,9 +184,20 @@ const SprintCompletedSummary: React.FC<SprintCompletedSummaryProps> = ({ tasks, 
                 hoursMap[hour.task_id] = 0;
               }
               hoursMap[hour.task_id] += hour.hours || 0;
+              
+              // Track hours by date for tooltip
+              if (!hoursDetailsMap.has(hour.task_id)) {
+                hoursDetailsMap.set(hour.task_id, []);
+              }
+              hoursDetailsMap.get(hour.task_id)!.push({
+                date: hour.date,
+                hours: hour.hours || 0,
+              });
             }
           });
         }
+        
+        setHoursDetailsByTask(hoursDetailsMap);
 
         // Enrich tasks with hours and end_date
         const enrichedTasks = tasks.map((task) => ({
@@ -223,6 +237,33 @@ const SprintCompletedSummary: React.FC<SprintCompletedSummaryProps> = ({ tasks, 
           description: st.description,
           status: st.status 
         })));
+        
+        // Fetch hours for subtasks as well
+        const subtaskIds = (subtasksData || []).map((st: any) => st.id);
+        if (subtaskIds.length > 0) {
+          const { data: subtaskHoursData } = await (supabase as any)
+            .from('PMA_Hours')
+            .select('task_id, hours, is_planning_hours, date')
+            .in('task_id', subtaskIds);
+            
+          if (subtaskHoursData) {
+            subtaskHoursData.forEach((hour: any) => {
+              if (!hour.is_planning_hours) {
+                // Track hours by date for subtasks
+                if (!hoursDetailsMap.has(hour.task_id)) {
+                  hoursDetailsMap.set(hour.task_id, []);
+                }
+                hoursDetailsMap.get(hour.task_id)!.push({
+                  date: hour.date,
+                  hours: hour.hours || 0,
+                });
+              }
+            });
+          }
+        }
+        
+        // Update the state with both task and subtask hours
+        setHoursDetailsByTask(hoursDetailsMap);
 
         if (completedTasks.length === 0 && completedSubtasks.length === 0) {
           setCompletedItems([]);
@@ -518,12 +559,78 @@ const SprintCompletedSummary: React.FC<SprintCompletedSummaryProps> = ({ tasks, 
 
                               {/* Hours Spent */}
                               <td className="px-4 py-3">
-                                <div className="flex items-center gap-1">
-                                  <Clock className="w-4 h-4" style={{ color: brandTheme.primary.lightBlue }} />
-                                  <span className="text-sm font-semibold" style={{ color: brandTheme.text.secondary }}>
-                                    {item.hoursSpent ? `${item.hoursSpent.toFixed(1)}h` : '0h'}
-                                  </span>
-                                </div>
+                                {(() => {
+                                  const realTaskId = item.type === 'subtask' ? item.id : item.id.toString().replace(/^inprogress-/, '');
+                                  const details = hoursDetailsByTask.get(realTaskId);
+                                  
+                                  if (!details || details.length === 0) {
+                                    return (
+                                      <div className="flex items-center gap-1">
+                                        <Clock className="w-4 h-4" style={{ color: brandTheme.primary.lightBlue }} />
+                                        <span className="text-sm font-semibold" style={{ color: brandTheme.text.secondary }}>
+                                          {item.hoursSpent ? `${item.hoursSpent.toFixed(1)}h` : '0h'}
+                                        </span>
+                                      </div>
+                                    );
+                                  }
+                                  
+                                  // Sort by date descending
+                                  const sortedDetails = [...details].sort((a, b) => 
+                                    new Date(b.date).getTime() - new Date(a.date).getTime()
+                                  );
+                                  
+                                  const tooltipContent = sortedDetails
+                                    .map(d => {
+                                      const date = new Date(d.date + 'T00:00:00');
+                                      return `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}: ${d.hours.toFixed(1)}h`;
+                                    })
+                                    .join('\n');
+                                  
+                                  return (
+                                    <div 
+                                      className="flex items-center gap-1 cursor-help group relative"
+                                      title={tooltipContent}
+                                    >
+                                      <Clock className="w-4 h-4" style={{ color: brandTheme.primary.lightBlue }} />
+                                      <span className="text-sm font-semibold" style={{ color: brandTheme.text.secondary }}>
+                                        {item.hoursSpent ? `${item.hoursSpent.toFixed(1)}h` : '0h'}
+                                      </span>
+                                      
+                                      {/* Custom tooltip */}
+                                      <div 
+                                        className="absolute hidden group-hover:block z-50 p-2 rounded-lg shadow-lg border whitespace-nowrap"
+                                        style={{
+                                          backgroundColor: brandTheme.background.primary,
+                                          borderColor: brandTheme.border.medium,
+                                          left: '100%',
+                                          top: '50%',
+                                          transform: 'translateY(-50%)',
+                                          marginLeft: '8px',
+                                          minWidth: '150px',
+                                        }}
+                                      >
+                                        <div className="text-xs font-bold mb-1" style={{ color: brandTheme.text.primary }}>
+                                          Hours by Date
+                                        </div>
+                                        <div className="space-y-1">
+                                          {sortedDetails.map((d, idx) => {
+                                            const date = new Date(d.date + 'T00:00:00');
+                                            return (
+                                              <div key={idx} className="flex justify-between gap-3 text-xs">
+                                                <span style={{ color: brandTheme.text.secondary }}>
+                                                  {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                </span>
+                                                <span className="font-semibold" style={{ color: brandTheme.primary.lightBlue }}>
+                                                  {d.hours.toFixed(1)}h
+                                                </span>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
                               </td>
 
                               {/* Story Points */}

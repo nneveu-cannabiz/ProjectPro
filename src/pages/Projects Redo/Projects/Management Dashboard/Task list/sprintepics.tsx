@@ -71,7 +71,15 @@ const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) =>
 
       const { data: subtasksData, error } = await supabase
         .from('PMA_SubTasks')
-        .select('*')
+        .select(`
+          *,
+          assignee:assignee_id (
+            id,
+            first_name,
+            last_name,
+            email
+          )
+        `)
         .in('task_id', taskIds);
 
       if (error) {
@@ -501,6 +509,11 @@ const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) =>
                                   <div className="font-medium" style={{ color: brandTheme.text.primary }}>
                                     ↳ {subtask.name}
                                   </div>
+                                  {subtask.assignee && (
+                                    <div className="text-xs mt-1" style={{ color: brandTheme.text.secondary }}>
+                                      {subtask.assignee.first_name} {subtask.assignee.last_name}
+                                    </div>
+                                  )}
                                 </div>
                               ))}
                             </div>
@@ -553,6 +566,11 @@ const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) =>
                                   <div className="font-medium" style={{ color: brandTheme.text.primary }}>
                                     ↳ {subtask.name}
                                   </div>
+                                  {subtask.assignee && (
+                                    <div className="text-xs mt-1" style={{ color: brandTheme.text.secondary }}>
+                                      {subtask.assignee.first_name} {subtask.assignee.last_name}
+                                    </div>
+                                  )}
                                 </div>
                               ))}
                             </div>
@@ -605,6 +623,11 @@ const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) =>
                                   <div className="font-medium" style={{ color: brandTheme.text.primary }}>
                                     ↳ {subtask.name}
                                   </div>
+                                  {subtask.assignee && (
+                                    <div className="text-xs mt-1" style={{ color: brandTheme.text.secondary }}>
+                                      {subtask.assignee.first_name} {subtask.assignee.last_name}
+                                    </div>
+                                  )}
                                 </div>
                               ))}
                             </div>

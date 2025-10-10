@@ -3,6 +3,7 @@ import { brandTheme } from '../../../../../styles/brandTheme';
 import { Calendar, CheckCircle, PlayCircle } from 'lucide-react';
 import HoursByDay from './hoursbyday';
 import CompletedStoryPoints from './completedstorypoints';
+import TaskDetailsModal from '../../Flow Chart/utils/Profiles/TaskDetailsModal';
 
 interface CompletedItem {
   id: string;
@@ -40,6 +41,40 @@ const SprintCompleteGantt: React.FC<SprintCompleteGanttProps> = ({
   allTasks = []
 }) => {
   const [showInProgress, setShowInProgress] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+
+  // Helper function to extract real task ID from composite IDs
+  const extractTaskId = (compositeId: string): string => {
+    // Remove prefixes like "inprogress-" or suffixes like "-YYYY-MM-DD-userId"
+    let taskId = compositeId;
+    
+    // Remove "inprogress-" prefix
+    if (taskId.startsWith('inprogress-')) {
+      taskId = taskId.replace('inprogress-', '');
+    }
+    
+    // Remove date and user ID suffix (format: -YYYY-MM-DD-userId)
+    // Match pattern: -YYYY-MM-DD- followed by any characters
+    taskId = taskId.replace(/-\d{4}-\d{2}-\d{2}-.+$/, '');
+    
+    return taskId;
+  };
+
+  const handleTaskClick = (itemId: string, itemType: 'task' | 'subtask') => {
+    // For subtasks, we can't open TaskDetailsModal (it's for tasks only)
+    // Only handle task clicks
+    if (itemType === 'task') {
+      const taskId = extractTaskId(itemId);
+      setSelectedTaskId(taskId);
+      setIsTaskModalOpen(true);
+    }
+  };
+
+  const handleCloseTaskModal = () => {
+    setIsTaskModalOpen(false);
+    setSelectedTaskId(null);
+  };
   const { totalDays, itemsWithPositions, dayMarkers, timelineStart } = useMemo(() => {
     if (completedItems.length === 0) {
       return {
@@ -447,8 +482,12 @@ const SprintCompleteGantt: React.FC<SprintCompleteGanttProps> = ({
                       minWidth: '120px',
                     }}
                   >
-                    <div
-                      className="px-2 py-0.5 rounded font-medium transition-all group-hover:shadow-lg flex items-center justify-between w-full"
+                    <button
+                      onClick={() => handleTaskClick(item.id, item.type)}
+                      disabled={item.type === 'subtask'}
+                      className={`px-2 py-0.5 rounded font-medium transition-all group-hover:shadow-lg flex items-center justify-between w-full ${
+                        item.type === 'task' ? 'cursor-pointer hover:brightness-95' : 'cursor-default'
+                      }`}
                       style={{
                         backgroundColor: '#FEF3C7', // Light yellow background
                         color: '#92400E', // Dark yellow/brown text
@@ -463,7 +502,7 @@ const SprintCompleteGantt: React.FC<SprintCompleteGanttProps> = ({
                         {item.assigneeName && ` - ${item.assigneeName}`}
                       </span>
                       <span className="opacity-70 ml-2 flex-shrink-0" style={{ fontSize: '9px' }}>→</span>
-                    </div>
+                    </button>
                   </div>
                 ) : (
                   // Completed: Show to the LEFT of marker
@@ -474,8 +513,12 @@ const SprintCompleteGantt: React.FC<SprintCompleteGanttProps> = ({
                       maxWidth: `${item.position - 2}%`,
                     }}
                   >
-                    <div
-                      className="px-2 py-1 rounded text-xs font-medium truncate transition-all group-hover:shadow-md"
+                    <button
+                      onClick={() => handleTaskClick(item.id, item.type)}
+                      disabled={item.type === 'subtask'}
+                      className={`px-2 py-1 rounded text-xs font-medium truncate transition-all group-hover:shadow-md ${
+                        item.type === 'task' ? 'cursor-pointer hover:brightness-95' : 'cursor-default'
+                      }`}
                       style={{
                         backgroundColor: item.isCompleted
                           ? brandTheme.status.success + '20' // All completed items have green background
@@ -488,7 +531,7 @@ const SprintCompleteGantt: React.FC<SprintCompleteGanttProps> = ({
                       {item.type === 'subtask' && '↳ '}
                       {item.name}
                       {item.assigneeName && ` - ${item.assigneeName}`}
-                    </div>
+                    </button>
                   </div>
                 )}
 
@@ -602,6 +645,15 @@ const SprintCompleteGantt: React.FC<SprintCompleteGanttProps> = ({
           </div>
         )}
       </div>
+
+      {/* Task Details Modal */}
+      {selectedTaskId && (
+        <TaskDetailsModal
+          isOpen={isTaskModalOpen}
+          onClose={handleCloseTaskModal}
+          taskId={selectedTaskId}
+        />
+      )}
     </div>
   );
 };
