@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { brandTheme } from '../../../../../styles/brandTheme';
-import { Clock, ChevronDown, ChevronRight } from 'lucide-react';
+import { Clock, ChevronDown, ChevronRight, Calendar } from 'lucide-react';
 import { fetchAllUsersHours } from '../../../../../data/supabase-store';
 import { Hour, User, Task, Project } from '../../../../../types';
+import HoursThisMonth from './hoursthismonth';
 
 interface HoursByDayProps {
   startDate: Date;
@@ -20,6 +21,8 @@ const HoursByDay: React.FC<HoursByDayProps> = ({ startDate, endDate, scrollRef, 
   const [loading, setLoading] = useState(true);
   const [expandedWeek, setExpandedWeek] = useState<string | null>(null);
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isMonthModalOpen, setIsMonthModalOpen] = useState(false);
 
   // Parse ISO date string as local date to avoid timezone offset issues
   const parseISODate = (dateString: string): Date => {
@@ -66,7 +69,8 @@ const HoursByDay: React.FC<HoursByDayProps> = ({ startDate, endDate, scrollRef, 
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     while (current <= end) {
-      const position = ((current.getTime() - start.getTime()) / (1000 * 60 * 60 * 24) / diffDays) * 100;
+      const dayIndex = Math.floor((current.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+      const position = (dayIndex / (diffDays + 1)) * 100;
       
       markers.push({
         date: new Date(current),
@@ -258,10 +262,39 @@ const HoursByDay: React.FC<HoursByDayProps> = ({ startDate, endDate, scrollRef, 
       hoursByDate: hoursMap,
       maxUsersPerDay: maxUsers,
       maxTasksPerUser,
-      totalDays: diffDays,
+      totalDays: markers.length,
       weeklyTotals,
     };
   }, [allHoursData, startDate, endDate]);
+
+  // Calculate this month's total hours
+  const monthTotalHours = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    return allHoursData
+      .filter((entry) => {
+        if (!entry.date) return false;
+        const entryDate = parseISODate(entry.date);
+        return entryDate.getMonth() === currentMonth && entryDate.getFullYear() === currentYear;
+      })
+      .reduce((sum, entry) => sum + (entry.hours || 0), 0);
+  }, [allHoursData]);
+
+  // Calculate sprint total hours (sum of all weekly totals)
+  const sprintTotalHours = useMemo(() => {
+    return weeklyTotals.reduce((sum, week) => sum + week.totalHours, 0);
+  }, [weeklyTotals]);
+
+  // Format date range for display (avoiding timezone issues)
+  const sprintDateRange = useMemo(() => {
+    const formatDate = (date: Date) => {
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${monthNames[date.getMonth()]} ${date.getDate()}`;
+    };
+    return `${formatDate(startDate)} - ${formatDate(endDate)}`;
+  }, [startDate, endDate]);
 
   if (loading) {
     if (isIntegrated) {
@@ -465,7 +498,9 @@ const HoursByDay: React.FC<HoursByDayProps> = ({ startDate, endDate, scrollRef, 
                           maxWidth: '200px',
                         }}
                       >
-                        {Object.entries(usersHours).map(([userName, data], userIndex) => (
+                        {Object.entries(usersHours)
+                          .sort(([userNameA], [userNameB]) => userNameA.localeCompare(userNameB))
+                          .map(([userName, data], userIndex) => (
                           <div 
                             key={userIndex}
                             className="space-y-0.5"
@@ -530,29 +565,98 @@ const HoursByDay: React.FC<HoursByDayProps> = ({ startDate, endDate, scrollRef, 
   // Standalone version with full container
   return (
     <div
-      className="rounded-lg shadow-sm p-4 mb-4"
+      className="rounded-lg shadow-sm mb-4"
       style={{ backgroundColor: brandTheme.background.secondary }}
     >
-      <div className="flex items-center justify-between mb-3">
+      {/* Collapsible Header */}
+      <div
+        className="p-4 cursor-pointer hover:bg-opacity-95 transition-all"
+        style={{ backgroundColor: brandTheme.background.secondary }}
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Clock className="w-5 h-5" style={{ color: brandTheme.primary.navy }} />
           <h4 className="font-bold" style={{ color: brandTheme.text.primary }}>
             Hours Logged by Day
           </h4>
+          {/* Expand/Collapse Icon */}
+          {isExpanded ? (
+            <ChevronDown className="w-5 h-5" style={{ color: brandTheme.primary.navy }} />
+          ) : (
+            <ChevronRight className="w-5 h-5" style={{ color: brandTheme.text.secondary }} />
+          )}
         </div>
         
-        {/* Weekly Totals */}
+          <div className="flex items-center gap-3">
+            {/* This Month's Hours Stat Card - Inline */}
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsMonthModalOpen(true);
+              }}
+              className="px-3 py-2 rounded-lg border cursor-pointer hover:shadow-md transition-all flex items-center gap-2"
+              style={{
+                backgroundColor: brandTheme.background.primary,
+                borderColor: brandTheme.primary.navy,
+              }}
+            >
+              <Calendar className="w-4 h-4" style={{ color: brandTheme.primary.navy }} />
+              <span className="text-sm font-medium whitespace-nowrap" style={{ color: brandTheme.text.secondary }}>
+                This Month's Hours
+              </span>
+              <span className="text-lg font-bold" style={{ color: brandTheme.primary.navy }}>
+                {monthTotalHours.toFixed(1)}h
+              </span>
+            </div>
+
+            {/* This Sprint Hours Total Stat Card - Inline */}
+            <div
+              className="px-3 py-2 rounded-lg border flex items-center gap-2"
+              style={{
+                backgroundColor: brandTheme.background.primary,
+                borderColor: brandTheme.border.medium,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Clock className="w-4 h-4" style={{ color: brandTheme.primary.navy }} />
+              <div className="flex flex-col">
+                <span className="text-sm font-medium whitespace-nowrap" style={{ color: brandTheme.text.secondary }}>
+                  This Sprint Hours Total
+                </span>
+                <span className="text-[10px]" style={{ color: brandTheme.text.muted }}>
+                  {sprintDateRange}
+                </span>
+              </div>
+              <span className="text-lg font-bold" style={{ color: brandTheme.primary.navy }}>
+                {sprintTotalHours.toFixed(1)}h
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Expanded Content */}
+      {isExpanded && (
+        <div className="px-4 pb-4">
+          {/* Weekly Totals with expandable details */}
         {weeklyTotals.length > 0 && (
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold" style={{ color: brandTheme.text.primary }}>
+                  Weekly Breakdown
+                </span>
+              </div>
           <div className="flex items-center gap-3">
             {weeklyTotals.map((week, index) => {
-              const isExpanded = expandedWeek === week.weekKey;
+                  const isWeekExpanded = expandedWeek === week.weekKey;
               const userBreakdownArray = Object.values(week.userBreakdown).sort((a, b) => b.totalHours - a.totalHours);
               
               return (
                 <div key={index} className="relative">
                   <button
                     onClick={() => {
-                      if (isExpanded) {
+                          if (isWeekExpanded) {
                         setExpandedWeek(null);
                         setExpandedUsers(new Set()); // Clear user dropdowns when closing week
                       } else {
@@ -562,7 +666,7 @@ const HoursByDay: React.FC<HoursByDayProps> = ({ startDate, endDate, scrollRef, 
                     className="px-3 py-1.5 rounded-lg border cursor-pointer hover:shadow-md transition-all flex items-center gap-2"
                     style={{
                       backgroundColor: brandTheme.background.primary,
-                      borderColor: isExpanded ? brandTheme.primary.navy : brandTheme.border.medium,
+                          borderColor: isWeekExpanded ? brandTheme.primary.navy : brandTheme.border.medium,
                     }}
                   >
                     <div>
@@ -573,7 +677,7 @@ const HoursByDay: React.FC<HoursByDayProps> = ({ startDate, endDate, scrollRef, 
                         {week.totalHours.toFixed(1)}h
                       </div>
                     </div>
-                    {isExpanded ? (
+                        {isWeekExpanded ? (
                       <ChevronDown className="w-4 h-4" style={{ color: brandTheme.primary.navy }} />
                     ) : (
                       <ChevronRight className="w-4 h-4" style={{ color: brandTheme.text.secondary }} />
@@ -581,7 +685,7 @@ const HoursByDay: React.FC<HoursByDayProps> = ({ startDate, endDate, scrollRef, 
                   </button>
 
                   {/* User Breakdown Dropdown */}
-                  {isExpanded && (
+                      {isWeekExpanded && (
                     <div
                       className="absolute top-full right-0 mt-2 p-3 rounded-lg border shadow-lg z-50 min-w-[250px] max-w-[500px]"
                       style={{
@@ -676,8 +780,8 @@ const HoursByDay: React.FC<HoursByDayProps> = ({ startDate, endDate, scrollRef, 
               );
             })}
           </div>
-        )}
       </div>
+        )}
 
       {/* Hours Timeline */}
       <div 
@@ -719,18 +823,21 @@ const HoursByDay: React.FC<HoursByDayProps> = ({ startDate, endDate, scrollRef, 
                             maxWidth: '200px',
                           }}
                         >
-                          {Object.entries(usersHours).map(([userName, data], userIndex) => (
+                              {Object.entries(usersHours)
+                                .sort(([userNameA], [userNameB]) => userNameA.localeCompare(userNameB))
+                                .map(([userName, data], userIndex) => (
                             <div 
                               key={userIndex}
                               className="space-y-1"
                               style={{ color: brandTheme.primary.navy }}
                             >
                               {/* User name and total hours */}
-                              <div className="flex items-center justify-between gap-2 pb-1 border-b" style={{ borderColor: brandTheme.primary.navy + '30' }}>
-                                <span className="font-bold truncate" style={{ maxWidth: '120px' }}>
+                              <div className="flex items-center gap-2 pb-1 border-b" style={{ borderColor: brandTheme.primary.navy + '30' }}>
+                                <span className="font-bold flex-shrink-0">
                                   {userName.split(' ')[0]}
                                 </span>
-                                <span className="font-bold text-sm">
+                                <span className="flex-shrink-0" style={{ color: brandTheme.text.secondary }}>-</span>
+                                <span className="font-bold text-sm flex-shrink-0">
                                   {data.totalHours.toFixed(1)}h
                                 </span>
                               </div>
@@ -779,6 +886,14 @@ const HoursByDay: React.FC<HoursByDayProps> = ({ startDate, endDate, scrollRef, 
           </div>
         </div>
       </div>
+        </div>
+      )}
+
+      {/* Monthly Hours Modal */}
+      <HoursThisMonth
+        isOpen={isMonthModalOpen}
+        onClose={() => setIsMonthModalOpen(false)}
+      />
     </div>
   );
 };

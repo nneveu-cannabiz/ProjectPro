@@ -9,6 +9,7 @@ import TaskDetailsModal from '../../Flow Chart/utils/Profiles/TaskDetailsModal';
 import SprintEpics from './sprintepics';
 import SprintSummary from './sprintsummary';
 import SprintUpdatesSection from './sprintupdatessection';
+import HoursByDay from './hoursbyday';
 
 interface TaskWithSprintInfo extends Task {
   project: Project;
@@ -565,6 +566,36 @@ const SprintsTaskListPage: React.FC = () => {
 
         {/* Sprint Groups Overview */}
         <SprintEpics tasks={tasks} sprintGroupsInfo={activeSprintGroups} />
+
+        {/* Hours by Day - Show hours timeline for active sprint date range */}
+        {activeSprintGroups.length > 0 && (() => {
+          // Parse ISO date string as local date to avoid timezone offset issues
+          const parseISODate = (dateString: string): Date => {
+            const [year, month, day] = dateString.split('T')[0].split('-').map(Number);
+            return new Date(year, month - 1, day);
+          };
+          
+          // Calculate the overall date range from all active sprint groups
+          const startDates = activeSprintGroups
+            .filter(g => g.start_date)
+            .map(g => parseISODate(g.start_date!));
+          const endDates = activeSprintGroups
+            .filter(g => g.end_date)
+            .map(g => parseISODate(g.end_date!));
+          
+          if (startDates.length > 0 && endDates.length > 0) {
+            const earliestStart = new Date(Math.min(...startDates.map(d => d.getTime())));
+            const latestEnd = new Date(Math.max(...endDates.map(d => d.getTime())));
+            
+            return (
+              <HoursByDay
+                startDate={earliestStart}
+                endDate={latestEnd}
+              />
+            );
+          }
+          return null;
+        })()}
 
         {/* Stats Overview */}
         <SprintSummary tasks={tasks} userBreakdowns={userBreakdowns} />

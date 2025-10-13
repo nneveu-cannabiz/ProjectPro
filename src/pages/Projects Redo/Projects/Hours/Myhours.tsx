@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { fetchHoursWithTaskDetails, updateHourEntry, deleteHourEntry } from '../../../../data/supabase-store';
 import { Hour, Task, Project } from '../../../../types';
-import { Clock, Calendar, FolderOpen, Filter, ChevronDown, Edit2, Save, X, Trash2 } from 'lucide-react';
+import { Clock, Calendar, FolderOpen, Filter, ChevronDown, Edit2, Save, X, Trash2, CheckCircle } from 'lucide-react';
 import Button from '../../../../components/ui/Button';
 import Input from '../../../../components/ui/Input';
+import { brandTheme } from '../../../../styles/brandTheme';
 
 type SortOption = 'date-desc' | 'date-asc' | 'hours-desc' | 'hours-asc' | 'project' | 'task';
 type FilterOption = 'all' | 'this-week' | 'this-month' | 'last-30-days';
@@ -185,9 +186,10 @@ const MyHours: React.FC = () => {
   if (loading) {
     return (
       <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">My Hours</h2>
-        <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <h2 className="text-xl font-bold mb-4" style={{ color: brandTheme.text.primary }}>My Hours</h2>
+        <div className="flex items-center justify-center py-12">
+          <Clock className="w-8 h-8 animate-spin" style={{ color: brandTheme.primary.navy }} />
+          <span className="ml-3" style={{ color: brandTheme.text.secondary }}>Loading...</span>
         </div>
       </div>
     );
@@ -196,14 +198,21 @@ const MyHours: React.FC = () => {
   return (
     <div>
       {successMessage && (
-        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md flex items-center gap-2">
-          <Clock className="w-4 h-4 text-green-600" />
-          <p className="text-sm text-green-800">{successMessage}</p>
+        <div 
+          className="mb-4 p-3 rounded-lg flex items-center gap-2 border"
+          style={{
+            backgroundColor: '#D1FAE5',
+            borderColor: brandTheme.status.success,
+            color: brandTheme.status.success,
+          }}
+        >
+          <CheckCircle className="w-5 h-5" />
+          <p className="text-sm font-medium">{successMessage}</p>
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-gray-900">My Hours</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-bold" style={{ color: brandTheme.text.primary }}>My Hours</h2>
         <div className="flex items-center gap-4">
           <Button
             variant="outline"
@@ -215,11 +224,17 @@ const MyHours: React.FC = () => {
             Filters
             <ChevronDown className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
           </Button>
-          <div className="text-sm text-gray-600">
-            <span className="font-medium">{filteredAndSortedHours.length}</span> entries • 
-            <span className="font-medium ml-1">{totalHours.toFixed(2)}</span> hours
+          <div className="text-sm font-medium flex items-center gap-2" style={{ color: brandTheme.primary.navy }}>
+            <span>{filteredAndSortedHours.length} entries</span>
+            <span>•</span>
+            <span>{totalHours.toFixed(1)}h</span>
             {filterBy !== 'all' && (
-              <span className="text-gray-500 ml-1">({getFilterLabel(filterBy)})</span>
+              <span className="text-xs px-2 py-1 rounded" style={{ 
+                backgroundColor: brandTheme.primary.paleBlue, 
+                color: brandTheme.text.secondary 
+              }}>
+                {getFilterLabel(filterBy)}
+              </span>
             )}
           </div>
         </div>
@@ -227,7 +242,13 @@ const MyHours: React.FC = () => {
 
       {/* Filters Panel */}
       {showFilters && (
-        <div className="bg-gray-50 p-4 rounded-lg border mb-6 space-y-3">
+        <div 
+          className="p-4 rounded-lg border mb-4"
+          style={{
+            backgroundColor: brandTheme.background.secondary,
+            borderColor: brandTheme.border.light
+          }}
+        >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -268,10 +289,16 @@ const MyHours: React.FC = () => {
 
       {/* Hours List */}
       {filteredAndSortedHours.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-          <Clock className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No hours logged yet</h3>
-          <p className="text-gray-500 text-sm mb-4">
+        <div 
+          className="text-center py-12 rounded-lg border"
+          style={{
+            backgroundColor: brandTheme.background.primary,
+            borderColor: brandTheme.border.light
+          }}
+        >
+          <Clock className="w-12 h-12 mx-auto mb-3" style={{ color: brandTheme.text.muted }} />
+          <h3 className="text-lg font-bold mb-2" style={{ color: brandTheme.text.primary }}>No hours logged yet</h3>
+          <p className="text-sm mb-4" style={{ color: brandTheme.text.secondary }}>
             {hoursData.length === 0 
               ? "Start logging your hours to see them here." 
               : "No hours found for the selected filter."}
@@ -287,10 +314,26 @@ const MyHours: React.FC = () => {
           )}
         </div>
       ) : (
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-          <div className="divide-y divide-gray-100">
+        <div 
+          className="rounded-lg border overflow-hidden"
+          style={{
+            backgroundColor: brandTheme.background.primary,
+            borderColor: brandTheme.border.light
+          }}
+        >
+          <div className="divide-y" style={{ borderColor: brandTheme.border.light }}>
             {filteredAndSortedHours.map((hour) => (
-              <div key={hour.id} className="p-4 hover:bg-gray-50 transition-colors">
+              <div 
+                key={hour.id} 
+                className="p-4 transition-colors"
+                style={{ backgroundColor: brandTheme.background.primary }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = brandTheme.background.secondary;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = brandTheme.background.primary;
+                }}
+              >
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     {editingId === hour.id ? (

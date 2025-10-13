@@ -2,12 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { fetchAllTasks, fetchHoursWithTaskDetails, logHours } from '../../../../data/supabase-store';
 import { Task, Hour, Project } from '../../../../types';
-import Modal from '../../../../components/ui/Modal';
-import Button from '../../../../components/ui/Button';
 import Input from '../../../../components/ui/Input';
 import AssignedProjectsTasksList from './AssignedProjectsTasksList';
 import LoggedHours from './LoggedHours';
-import { Clock, Calendar, CheckCircle } from 'lucide-react';
+import { Clock, Calendar, CheckCircle, X } from 'lucide-react';
+import { brandTheme } from '../../../../styles/brandTheme';
 
 interface HourLoggingPageProps {
   isOpen: boolean;
@@ -76,31 +75,52 @@ const HourLogModal: React.FC<HourLogModalProps> = ({ isOpen, onClose, task, onSu
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black bg-opacity-50">
-      <div ref={modalRef} className="bg-white rounded-lg shadow-xl w-full max-w-md">
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h3 className="text-lg font-semibold text-gray-900">Log Hours</h3>
+    <div 
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+    >
+      <div 
+        ref={modalRef} 
+        className="rounded-lg shadow-xl w-full max-w-md"
+        style={{ backgroundColor: brandTheme.background.primary }}
+      >
+        {/* Header */}
+        <div 
+          className="flex items-center justify-between px-5 py-3 border-b"
+          style={{ 
+            backgroundColor: brandTheme.primary.navy,
+            borderColor: brandTheme.border.light 
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <Clock className="w-5 h-5 text-white" />
+            <h3 className="text-lg font-bold text-white">Log Hours</h3>
+          </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="p-1 rounded hover:bg-white hover:bg-opacity-20 transition-colors"
           >
-            ×
+            <X className="w-5 h-5 text-white" />
           </button>
         </div>
         
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-5 space-y-3">
+          {/* Task Info */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-semibold mb-1" style={{ color: brandTheme.text.primary }}>
               Task
             </label>
-            <div className="p-3 bg-gray-50 rounded-md">
-              <p className="text-sm font-medium text-gray-900">{task.name}</p>
-              <p className="text-xs text-gray-500">{task.description}</p>
+            <div 
+              className="p-3 rounded-lg"
+              style={{ backgroundColor: brandTheme.background.secondary }}
+            >
+              <p className="text-sm font-medium" style={{ color: brandTheme.text.primary }}>{task.name}</p>
             </div>
           </div>
 
+          {/* Date Input */}
           <div>
-            <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="date" className="block text-sm font-semibold mb-1" style={{ color: brandTheme.text.primary }}>
               Date
             </label>
             <Input
@@ -112,8 +132,9 @@ const HourLogModal: React.FC<HourLogModalProps> = ({ isOpen, onClose, task, onSu
             />
           </div>
 
+          {/* Hours Input */}
           <div>
-            <label htmlFor="hours" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="hours" className="block text-sm font-semibold mb-1" style={{ color: brandTheme.text.primary }}>
               Hours
             </label>
             <Input
@@ -127,27 +148,34 @@ const HourLogModal: React.FC<HourLogModalProps> = ({ isOpen, onClose, task, onSu
               max="24"
               required
             />
-            <p className="text-xs text-gray-500 mt-1">Enter hours in decimal format (e.g., 1.5 for 1 hour 30 minutes)</p>
           </div>
 
-          <div className="flex gap-3 pt-4">
-            <Button
+          {/* Action Buttons */}
+          <div className="flex gap-2 pt-2">
+            <button
               type="button"
-              variant="outline"
               onClick={onClose}
               disabled={isSubmitting}
-              className="flex-1"
+              className="flex-1 px-4 py-2 rounded-lg border font-medium transition-all"
+              style={{
+                backgroundColor: brandTheme.background.primary,
+                borderColor: brandTheme.border.medium,
+                color: brandTheme.text.secondary,
+              }}
             >
               Cancel
-            </Button>
-            <Button
+            </button>
+            <button
               type="submit"
-              variant="primary"
               disabled={isSubmitting || !hours || parseFloat(hours) <= 0}
-              className="flex-1"
+              className="flex-1 px-4 py-2 rounded-lg font-medium transition-all disabled:opacity-50"
+              style={{
+                backgroundColor: brandTheme.primary.navy,
+                color: '#FFFFFF',
+              }}
             >
               {isSubmitting ? 'Logging...' : 'Log Hours'}
-            </Button>
+            </button>
           </div>
         </form>
       </div>
@@ -215,8 +243,6 @@ const HourLoggingPage: React.FC<HourLoggingPageProps> = ({ isOpen, onClose }) =>
     }
   };
 
-  if (!isOpen) return null;
-
   // Create a custom onClose handler that prevents closing when the hour log modal is open
   const handleMainModalClose = () => {
     if (!showHourLogModal) {
@@ -224,51 +250,98 @@ const HourLoggingPage: React.FC<HourLoggingPageProps> = ({ isOpen, onClose }) =>
     }
   };
 
+  if (!isOpen) return null;
+
   return (
     <>
-      <Modal isOpen={isOpen} onClose={handleMainModalClose} title="Hour Logging">
-        <div className="max-h-[80vh] overflow-y-auto">
-          {successMessage && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-green-600" />
-              <p className="text-sm text-green-800">{successMessage}</p>
+      {/* Main Modal Backdrop */}
+      <div 
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+        onClick={handleMainModalClose}
+      >
+        <div 
+          className="rounded-lg shadow-xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+          style={{ 
+            backgroundColor: brandTheme.background.primary,
+            maxWidth: '95vw',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div
+            className="px-6 py-4 flex items-center justify-between border-b"
+            style={{ 
+              backgroundColor: brandTheme.primary.navy,
+              borderColor: brandTheme.border.light 
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <Clock className="w-6 h-6 text-white" />
+              <h2 className="text-2xl font-bold text-white">Hour Logging</h2>
             </div>
-          )}
+            <button
+              onClick={handleMainModalClose}
+              className="p-2 rounded-lg hover:bg-white hover:bg-opacity-20 transition-colors"
+            >
+              <X className="w-6 h-6 text-white" />
+            </button>
+          </div>
 
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {/* All Tasks Section */}
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <Clock className="w-5 h-5 text-blue-600" />
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Log Hours for Tasks
-                  </h3>
-                </div>
-                <AssignedProjectsTasksList
-                  tasks={allTasks}
-                  onTaskClick={handleTaskClick}
-                />
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-6">
+            {successMessage && (
+              <div 
+                className="mb-4 p-3 rounded-lg flex items-center gap-2 border"
+                style={{
+                  backgroundColor: '#D1FAE5',
+                  borderColor: brandTheme.status.success,
+                  color: brandTheme.status.success,
+                }}
+              >
+                <CheckCircle className="w-5 h-5" />
+                <p className="text-sm font-medium">{successMessage}</p>
               </div>
+            )}
 
-              {/* Logged Hours Section */}
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <Calendar className="w-5 h-5 text-gray-600" />
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Previously Logged Hours
-                  </h3>
-                </div>
-                <LoggedHours hours={loggedHours} />
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Clock className="w-8 h-8 animate-spin" style={{ color: brandTheme.primary.navy }} />
+                <span className="ml-3 text-lg" style={{ color: brandTheme.text.secondary }}>Loading...</span>
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="space-y-6">
+                {/* All Tasks Section */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3 pb-2 border-b" style={{ borderColor: brandTheme.border.light }}>
+                    <Clock className="w-5 h-5" style={{ color: brandTheme.primary.navy }} />
+                    <h3 className="text-lg font-bold" style={{ color: brandTheme.text.primary }}>
+                      Select Task to Log Hours
+                    </h3>
+                  </div>
+                  <AssignedProjectsTasksList
+                    tasks={allTasks}
+                    onTaskClick={handleTaskClick}
+                  />
+                </div>
+
+                {/* Logged Hours Section */}
+                {loggedHours.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3 pb-2 border-b" style={{ borderColor: brandTheme.border.light }}>
+                      <Calendar className="w-5 h-5" style={{ color: brandTheme.primary.navy }} />
+                      <h3 className="text-lg font-bold" style={{ color: brandTheme.text.primary }}>
+                        Recent Hours
+                      </h3>
+                    </div>
+                    <LoggedHours hours={loggedHours} />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      </Modal>
+      </div>
 
       {/* Hour Log Modal */}
       {selectedTask && (

@@ -101,11 +101,6 @@ const SprintSummary: React.FC<SprintSummaryProps> = ({ tasks, userBreakdowns }) 
     done: subtasks.filter(st => st.status === 'done').length,
   };
 
-  // Calculate total hours for completed tasks
-  const completedHours = tasksWithHours
-    .filter(t => t.status === 'done')
-    .reduce((sum, task) => sum + (task.hoursSpent || 0), 0);
-  
   const handleDoneCardClick = () => {
     setIsDoneModalOpen(true);
   };
@@ -285,16 +280,9 @@ const SprintSummary: React.FC<SprintSummaryProps> = ({ tasks, userBreakdowns }) 
             <p className="text-2xl font-bold mt-0.5" style={{ color: brandTheme.text.primary }}>
               {tasksWithHours.filter((t) => t.status === 'done').length}
             </p>
-            <div className="flex items-center gap-2 mt-1">
-              <p className="text-xs italic" style={{ color: '#9CA3AF' }}>
-                {subtaskCounts.done} subtasks
-              </p>
-              <span className="text-xs" style={{ color: '#9CA3AF' }}>•</span>
-              <p className="text-xs font-semibold flex items-center gap-1" style={{ color: brandTheme.status.success }}>
-                <Clock className="w-3 h-3" />
-                {completedHours.toFixed(1)}h
-              </p>
-            </div>
+            <p className="text-xs italic mt-1" style={{ color: '#9CA3AF' }}>
+              {subtaskCounts.done} subtasks
+            </p>
           </div>
           <div className="p-2 rounded-full" style={{ backgroundColor: '#dcfce7' }}>
             <CheckCircle className="w-5 h-5" style={{ color: brandTheme.status.success }} />

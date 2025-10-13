@@ -1,99 +1,41 @@
 import React, { useState } from 'react';
-import { Clock, Calendar, TrendingUp, Users } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import HourLoggingPage from './Projects Redo/Projects/Hours/HourLoggingPage';
 import MyHours from './Projects Redo/Projects/Hours/Myhours';
-import Button from '../components/ui/Button';
+import { brandTheme } from '../styles/brandTheme';
 
 const HourLogging: React.FC = () => {
   const [showHourLoggingModal, setShowHourLoggingModal] = useState(false);
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      {/* Page Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <Clock className="w-8 h-8 text-blue-600" />
-          <h1 className="text-3xl font-bold text-gray-900">Hour Logging</h1>
-        </div>
-        <p className="text-gray-600">
-          Track time spent on your assigned tasks and view your logging history.
-        </p>
-      </div>
-
-      {/* Quick Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="flex items-center gap-3 mb-2">
-            <Clock className="w-5 h-5 text-blue-600" />
-            <h3 className="font-semibold text-gray-900">Time Tracking</h3>
+    <div className="p-6" style={{ backgroundColor: brandTheme.background.secondary }}>
+      {/* Page Header with Button */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <Clock className="w-8 h-8" style={{ color: brandTheme.primary.navy }} />
+          <div>
+            <h1 className="text-3xl font-bold" style={{ color: brandTheme.text.primary }}>Hour Logging</h1>
+            <p className="text-sm mt-1" style={{ color: brandTheme.text.secondary }}>
+              Track time spent on your assigned tasks and view your logging history.
+            </p>
           </div>
-          <p className="text-sm text-gray-600 mb-4">
-            Log hours spent on tasks with precise date and time tracking.
-          </p>
-          <ul className="text-xs text-gray-500 space-y-1">
-            <li>• Decimal hour format (e.g., 1.5 hours)</li>
-            <li>• Date-specific entries</li>
-            <li>• Task-specific logging</li>
-          </ul>
         </div>
-
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="flex items-center gap-3 mb-2">
-            <Calendar className="w-5 h-5 text-green-600" />
-            <h3 className="font-semibold text-gray-900">History & Reports</h3>
-          </div>
-          <p className="text-sm text-gray-600 mb-4">
-            View and filter your logged hours with detailed reporting.
-          </p>
-          <ul className="text-xs text-gray-500 space-y-1">
-            <li>• Filter by date ranges</li>
-            <li>• Sort by various criteria</li>
-            <li>• Project and task context</li>
-          </ul>
-        </div>
-
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="flex items-center gap-3 mb-2">
-            <Users className="w-5 h-5 text-purple-600" />
-            <h3 className="font-semibold text-gray-900">Assigned Tasks</h3>
-          </div>
-          <p className="text-sm text-gray-600 mb-4">
-            Only log hours for tasks that are currently assigned to you.
-          </p>
-          <ul className="text-xs text-gray-500 space-y-1">
-            <li>• Active tasks only</li>
-            <li>• Grouped by projects</li>
-            <li>• Priority indicators</li>
-          </ul>
-        </div>
-      </div>
-
-      {/* Main Action */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-8 text-center">
-        <div className="mb-6">
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Clock className="w-8 h-8 text-blue-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Ready to Log Your Hours?
-          </h2>
-          <p className="text-gray-600 max-w-md mx-auto">
-            Click below to open the hour logging interface where you can select tasks and record your time.
-          </p>
-        </div>
-
-        <Button
+        
+        <button
           onClick={() => setShowHourLoggingModal(true)}
-          variant="primary"
-          className="px-8 py-3 text-lg"
+          className="px-6 py-3 rounded-lg font-bold transition-all hover:shadow-lg flex items-center gap-2 whitespace-nowrap"
+          style={{
+            backgroundColor: brandTheme.primary.navy,
+            color: '#FFFFFF',
+          }}
         >
-          <Clock className="w-5 h-5 mr-2" />
+          <Clock className="w-5 h-5" />
           Open Hour Logging
-        </Button>
+        </button>
       </div>
 
       {/* My Hours Section */}
-      <div className="mt-12">
+      <div>
         <MyHours />
       </div>
 
