@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { fetchAllUsersHours } from '../../../../data/supabase-store';
 import { Hour, User, Task, Project } from '../../../../types';
-import { Calendar, Clock, Users, TrendingUp, ChevronDown, ChevronRight } from 'lucide-react';
-import Button from '../../../../components/ui/Button';
+import { Calendar, ChevronDown, ChevronRight } from 'lucide-react';
+import LineChart from './linechart';
+import { brandTheme } from '../../../../styles/brandTheme';
 
 interface HoursOverviewProps {
   // Props can be added later if needed
 }
 
-type ViewType = 'weekly' | 'monthly';
+type ViewType = 'chart' | 'weekly' | 'monthly';
 type UserHourData = Hour & { user: User; task: Task; project: Project };
 
 interface WeekData {
@@ -30,7 +31,7 @@ interface MonthData {
 const HoursOverview: React.FC<HoursOverviewProps> = () => {
   const [hoursData, setHoursData] = useState<UserHourData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewType, setViewType] = useState<ViewType>('weekly');
+  const [viewType, setViewType] = useState<ViewType>('chart');
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -177,76 +178,65 @@ const HoursOverview: React.FC<HoursOverviewProps> = () => {
     return user.email;
   };
 
-  const totalHours = hoursData.reduce((sum, entry) => sum + entry.hours, 0);
-  const uniqueUsers = new Set(hoursData.map(entry => entry.user.id)).size;
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div 
+          className="animate-spin rounded-full h-8 w-8 border-b-2"
+          style={{ borderColor: brandTheme.primary.navy }}
+        ></div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Header with Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Clock className="w-5 h-5 text-blue-600" />
-            <h3 className="font-semibold text-gray-900">Total Hours</h3>
-          </div>
-          <p className="text-2xl font-bold text-blue-600">{totalHours.toFixed(2)}</p>
-          <p className="text-sm text-gray-500">All time logged</p>
-        </div>
-
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Users className="w-5 h-5 text-green-600" />
-            <h3 className="font-semibold text-gray-900">Active Users</h3>
-          </div>
-          <p className="text-2xl font-bold text-green-600">{uniqueUsers}</p>
-          <p className="text-sm text-gray-500">Users logging hours</p>
-        </div>
-
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-5 h-5 text-purple-600" />
-            <h3 className="font-semibold text-gray-900">Average per User</h3>
-          </div>
-          <p className="text-2xl font-bold text-purple-600">
-            {uniqueUsers > 0 ? (totalHours / uniqueUsers).toFixed(2) : '0.00'}
-          </p>
-          <p className="text-sm text-gray-500">Hours per user</p>
-        </div>
-      </div>
-
       {/* View Toggle */}
       <div className="flex items-center gap-2 mb-4">
-        <Button
-          variant={viewType === 'weekly' ? 'primary' : 'outline'}
-          size="sm"
+        <button
+          className="px-4 py-2 rounded-lg font-medium transition-all"
+          style={{
+            backgroundColor: viewType === 'chart' ? brandTheme.primary.navy : brandTheme.background.primary,
+            color: viewType === 'chart' ? '#FFFFFF' : brandTheme.text.primary,
+            border: `1px solid ${viewType === 'chart' ? brandTheme.primary.navy : brandTheme.border.medium}`,
+          }}
+          onClick={() => setViewType('chart')}
+        >
+          Chart View
+        </button>
+        <button
+          className="px-4 py-2 rounded-lg font-medium transition-all"
+          style={{
+            backgroundColor: viewType === 'weekly' ? brandTheme.primary.navy : brandTheme.background.primary,
+            color: viewType === 'weekly' ? '#FFFFFF' : brandTheme.text.primary,
+            border: `1px solid ${viewType === 'weekly' ? brandTheme.primary.navy : brandTheme.border.medium}`,
+          }}
           onClick={() => setViewType('weekly')}
         >
           Weekly View
-        </Button>
-        <Button
-          variant={viewType === 'monthly' ? 'primary' : 'outline'}
-          size="sm"
+        </button>
+        <button
+          className="px-4 py-2 rounded-lg font-medium transition-all"
+          style={{
+            backgroundColor: viewType === 'monthly' ? brandTheme.primary.navy : brandTheme.background.primary,
+            color: viewType === 'monthly' ? '#FFFFFF' : brandTheme.text.primary,
+            border: `1px solid ${viewType === 'monthly' ? brandTheme.primary.navy : brandTheme.border.medium}`,
+          }}
           onClick={() => setViewType('monthly')}
         >
           Monthly View
-        </Button>
+        </button>
       </div>
 
-      {/* Hours Breakdown */}
+      {/* Content */}
       <div className="space-y-4">
-        {viewType === 'weekly' ? (
+        {viewType === 'chart' ? (
+          <LineChart hoursData={hoursData} />
+        ) : viewType === 'weekly' ? (
           weeklyData.length === 0 ? (
             <div className="text-center py-8">
-              <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-500">No hours logged yet.</p>
+              <Calendar className="w-12 h-12 mx-auto mb-3" style={{ color: brandTheme.text.muted }} />
+              <p style={{ color: brandTheme.text.secondary }}>No hours logged yet.</p>
             </div>
           ) : (
             weeklyData.map((week) => {
@@ -254,28 +244,38 @@ const HoursOverview: React.FC<HoursOverviewProps> = () => {
               const isExpanded = expandedItems.has(weekKey);
 
               return (
-                <div key={weekKey} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                <div 
+                  key={weekKey} 
+                  className="rounded-lg border overflow-hidden"
+                  style={{
+                    backgroundColor: brandTheme.background.primary,
+                    borderColor: brandTheme.border.light,
+                  }}
+                >
                   <div
-                    className="p-4 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
+                    className="p-4 cursor-pointer transition-colors"
+                    style={{ backgroundColor: brandTheme.background.secondary }}
                     onClick={() => toggleExpanded(weekKey)}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = brandTheme.primary.paleBlue}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = brandTheme.background.secondary}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         {isExpanded ? (
-                          <ChevronDown className="w-5 h-5 text-gray-500" />
+                          <ChevronDown className="w-5 h-5" style={{ color: brandTheme.text.secondary }} />
                         ) : (
-                          <ChevronRight className="w-5 h-5 text-gray-500" />
+                          <ChevronRight className="w-5 h-5" style={{ color: brandTheme.text.secondary }} />
                         )}
                         <div>
-                          <h3 className="font-semibold text-gray-900">{week.weekLabel}</h3>
-                          <p className="text-sm text-gray-600">
+                          <h3 className="font-semibold" style={{ color: brandTheme.text.primary }}>{week.weekLabel}</h3>
+                          <p className="text-sm" style={{ color: brandTheme.text.secondary }}>
                             {Object.keys(week.userHours).length} user{Object.keys(week.userHours).length !== 1 ? 's' : ''}
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-lg text-blue-600">{week.totalHours.toFixed(2)}h</p>
-                        <p className="text-sm text-gray-500">Total</p>
+                        <p className="font-bold text-lg" style={{ color: brandTheme.primary.navy }}>{week.totalHours.toFixed(2)}h</p>
+                        <p className="text-sm" style={{ color: brandTheme.text.muted }}>Total</p>
                       </div>
                     </div>
                   </div>
@@ -289,46 +289,63 @@ const HoursOverview: React.FC<HoursOverviewProps> = () => {
                           const isUserExpanded = expandedItems.has(userKey);
                           
                           return (
-                            <div key={userHour.user.id} className="border border-gray-200 rounded-md overflow-hidden">
+                            <div 
+                              key={userHour.user.id} 
+                              className="border rounded-md overflow-hidden"
+                              style={{ borderColor: brandTheme.border.medium }}
+                            >
                               <div 
-                                className="flex items-center justify-between p-3 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
+                                className="flex items-center justify-between p-3 cursor-pointer transition-colors"
+                                style={{ backgroundColor: brandTheme.background.secondary }}
                                 onClick={() => toggleExpanded(userKey)}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = brandTheme.primary.paleBlue}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = brandTheme.background.secondary}
                               >
                                 <div className="flex items-center gap-3">
                                   {isUserExpanded ? (
-                                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                                    <ChevronDown className="w-4 h-4" style={{ color: brandTheme.text.secondary }} />
                                   ) : (
-                                    <ChevronRight className="w-4 h-4 text-gray-500" />
+                                    <ChevronRight className="w-4 h-4" style={{ color: brandTheme.text.secondary }} />
                                   )}
                                   <div
                                     className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold"
-                                    style={{ backgroundColor: userHour.user.profileColor || '#2563eb' }}
+                                    style={{ backgroundColor: userHour.user.profileColor || brandTheme.primary.navy }}
                                   >
                                     {userHour.user.firstName?.charAt(0) || userHour.user.email.charAt(0).toUpperCase()}
                                   </div>
                                   <div>
-                                    <p className="font-medium text-gray-900">{getUserDisplayName(userHour.user)}</p>
-                                    <p className="text-sm text-gray-600">{userHour.entries.length} entr{userHour.entries.length !== 1 ? 'ies' : 'y'}</p>
+                                    <p className="font-medium" style={{ color: brandTheme.text.primary }}>{getUserDisplayName(userHour.user)}</p>
+                                    <p className="text-sm" style={{ color: brandTheme.text.secondary }}>{userHour.entries.length} entr{userHour.entries.length !== 1 ? 'ies' : 'y'}</p>
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  <p className="font-semibold text-gray-900">{userHour.totalHours.toFixed(2)}h</p>
-                                  <p className="text-xs text-gray-500">
+                                  <p className="font-semibold" style={{ color: brandTheme.text.primary }}>{userHour.totalHours.toFixed(2)}h</p>
+                                  <p className="text-xs" style={{ color: brandTheme.text.muted }}>
                                     {((userHour.totalHours / week.totalHours) * 100).toFixed(1)}%
                                   </p>
                                 </div>
                               </div>
                               
                               {isUserExpanded && (
-                                <div className="p-3 bg-white space-y-2">
+                                <div 
+                                  className="p-3 space-y-2"
+                                  style={{ backgroundColor: brandTheme.background.primary }}
+                                >
                                   {userHour.entries
                                     .sort((a, b) => parseISODate(b.date).getTime() - parseISODate(a.date).getTime())
                                     .map((entry, idx) => (
-                                      <div key={idx} className="p-3 bg-gray-50 rounded border border-gray-200">
+                                      <div 
+                                        key={idx} 
+                                        className="p-3 rounded border"
+                                        style={{
+                                          backgroundColor: brandTheme.background.secondary,
+                                          borderColor: brandTheme.border.light,
+                                        }}
+                                      >
                                         <div className="flex items-start justify-between mb-2">
                                           <div className="flex items-center gap-2">
-                                            <Calendar className="w-4 h-4 text-gray-500" />
-                                            <span className="text-sm font-medium text-gray-900">
+                                            <Calendar className="w-4 h-4" style={{ color: brandTheme.text.secondary }} />
+                                            <span className="text-sm font-medium" style={{ color: brandTheme.text.primary }}>
                                               {parseISODate(entry.date).toLocaleDateString('en-US', { 
                                                 weekday: 'short',
                                                 month: 'short', 
@@ -337,15 +354,15 @@ const HoursOverview: React.FC<HoursOverviewProps> = () => {
                                               })}
                                             </span>
                                           </div>
-                                          <span className="text-sm font-semibold text-blue-600">
+                                          <span className="text-sm font-semibold" style={{ color: brandTheme.primary.navy }}>
                                             {entry.hours.toFixed(2)}h
                                           </span>
                                         </div>
                                         <div className="ml-6 space-y-1">
-                                          <p className="text-sm text-gray-700">
+                                          <p className="text-sm" style={{ color: brandTheme.text.secondary }}>
                                             <span className="font-medium">Project:</span> {entry.project.name}
                                           </p>
-                                          <p className="text-sm text-gray-700">
+                                          <p className="text-sm" style={{ color: brandTheme.text.secondary }}>
                                             <span className="font-medium">Task:</span> {entry.task.name}
                                           </p>
                                         </div>
@@ -365,8 +382,8 @@ const HoursOverview: React.FC<HoursOverviewProps> = () => {
         ) : (
           monthlyData.length === 0 ? (
             <div className="text-center py-8">
-              <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-500">No hours logged yet.</p>
+              <Calendar className="w-12 h-12 mx-auto mb-3" style={{ color: brandTheme.text.muted }} />
+              <p style={{ color: brandTheme.text.secondary }}>No hours logged yet.</p>
             </div>
           ) : (
             monthlyData.map((month) => {
@@ -374,28 +391,38 @@ const HoursOverview: React.FC<HoursOverviewProps> = () => {
               const isExpanded = expandedItems.has(monthKey);
 
               return (
-                <div key={monthKey} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                <div 
+                  key={monthKey} 
+                  className="rounded-lg border overflow-hidden"
+                  style={{
+                    backgroundColor: brandTheme.background.primary,
+                    borderColor: brandTheme.border.light,
+                  }}
+                >
                   <div
-                    className="p-4 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
+                    className="p-4 cursor-pointer transition-colors"
+                    style={{ backgroundColor: brandTheme.background.secondary }}
                     onClick={() => toggleExpanded(monthKey)}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = brandTheme.primary.paleBlue}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = brandTheme.background.secondary}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         {isExpanded ? (
-                          <ChevronDown className="w-5 h-5 text-gray-500" />
+                          <ChevronDown className="w-5 h-5" style={{ color: brandTheme.text.secondary }} />
                         ) : (
-                          <ChevronRight className="w-5 h-5 text-gray-500" />
+                          <ChevronRight className="w-5 h-5" style={{ color: brandTheme.text.secondary }} />
                         )}
                         <div>
-                          <h3 className="font-semibold text-gray-900">{month.monthLabel}</h3>
-                          <p className="text-sm text-gray-600">
+                          <h3 className="font-semibold" style={{ color: brandTheme.text.primary }}>{month.monthLabel}</h3>
+                          <p className="text-sm" style={{ color: brandTheme.text.secondary }}>
                             {Object.keys(month.userHours).length} user{Object.keys(month.userHours).length !== 1 ? 's' : ''}
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-lg text-blue-600">{month.totalHours.toFixed(2)}h</p>
-                        <p className="text-sm text-gray-500">Total</p>
+                        <p className="font-bold text-lg" style={{ color: brandTheme.primary.navy }}>{month.totalHours.toFixed(2)}h</p>
+                        <p className="text-sm" style={{ color: brandTheme.text.muted }}>Total</p>
                       </div>
                     </div>
                   </div>
@@ -409,46 +436,63 @@ const HoursOverview: React.FC<HoursOverviewProps> = () => {
                           const isUserExpanded = expandedItems.has(userKey);
                           
                           return (
-                            <div key={userHour.user.id} className="border border-gray-200 rounded-md overflow-hidden">
+                            <div 
+                              key={userHour.user.id} 
+                              className="border rounded-md overflow-hidden"
+                              style={{ borderColor: brandTheme.border.medium }}
+                            >
                               <div 
-                                className="flex items-center justify-between p-3 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
+                                className="flex items-center justify-between p-3 cursor-pointer transition-colors"
+                                style={{ backgroundColor: brandTheme.background.secondary }}
                                 onClick={() => toggleExpanded(userKey)}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = brandTheme.primary.paleBlue}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = brandTheme.background.secondary}
                               >
                                 <div className="flex items-center gap-3">
                                   {isUserExpanded ? (
-                                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                                    <ChevronDown className="w-4 h-4" style={{ color: brandTheme.text.secondary }} />
                                   ) : (
-                                    <ChevronRight className="w-4 h-4 text-gray-500" />
+                                    <ChevronRight className="w-4 h-4" style={{ color: brandTheme.text.secondary }} />
                                   )}
                                   <div
                                     className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold"
-                                    style={{ backgroundColor: userHour.user.profileColor || '#2563eb' }}
+                                    style={{ backgroundColor: userHour.user.profileColor || brandTheme.primary.navy }}
                                   >
                                     {userHour.user.firstName?.charAt(0) || userHour.user.email.charAt(0).toUpperCase()}
                                   </div>
                                   <div>
-                                    <p className="font-medium text-gray-900">{getUserDisplayName(userHour.user)}</p>
-                                    <p className="text-sm text-gray-600">{userHour.entries.length} entr{userHour.entries.length !== 1 ? 'ies' : 'y'}</p>
+                                    <p className="font-medium" style={{ color: brandTheme.text.primary }}>{getUserDisplayName(userHour.user)}</p>
+                                    <p className="text-sm" style={{ color: brandTheme.text.secondary }}>{userHour.entries.length} entr{userHour.entries.length !== 1 ? 'ies' : 'y'}</p>
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  <p className="font-semibold text-gray-900">{userHour.totalHours.toFixed(2)}h</p>
-                                  <p className="text-xs text-gray-500">
+                                  <p className="font-semibold" style={{ color: brandTheme.text.primary }}>{userHour.totalHours.toFixed(2)}h</p>
+                                  <p className="text-xs" style={{ color: brandTheme.text.muted }}>
                                     {((userHour.totalHours / month.totalHours) * 100).toFixed(1)}%
                                   </p>
                                 </div>
                               </div>
                               
                               {isUserExpanded && (
-                                <div className="p-3 bg-white space-y-2">
+                                <div 
+                                  className="p-3 space-y-2"
+                                  style={{ backgroundColor: brandTheme.background.primary }}
+                                >
                                   {userHour.entries
                                     .sort((a, b) => parseISODate(b.date).getTime() - parseISODate(a.date).getTime())
                                     .map((entry, idx) => (
-                                      <div key={idx} className="p-3 bg-gray-50 rounded border border-gray-200">
+                                      <div 
+                                        key={idx} 
+                                        className="p-3 rounded border"
+                                        style={{
+                                          backgroundColor: brandTheme.background.secondary,
+                                          borderColor: brandTheme.border.light,
+                                        }}
+                                      >
                                         <div className="flex items-start justify-between mb-2">
                                           <div className="flex items-center gap-2">
-                                            <Calendar className="w-4 h-4 text-gray-500" />
-                                            <span className="text-sm font-medium text-gray-900">
+                                            <Calendar className="w-4 h-4" style={{ color: brandTheme.text.secondary }} />
+                                            <span className="text-sm font-medium" style={{ color: brandTheme.text.primary }}>
                                               {parseISODate(entry.date).toLocaleDateString('en-US', { 
                                                 weekday: 'short',
                                                 month: 'short', 
@@ -457,15 +501,15 @@ const HoursOverview: React.FC<HoursOverviewProps> = () => {
                                               })}
                                             </span>
                                           </div>
-                                          <span className="text-sm font-semibold text-blue-600">
+                                          <span className="text-sm font-semibold" style={{ color: brandTheme.primary.navy }}>
                                             {entry.hours.toFixed(2)}h
                                           </span>
                                         </div>
                                         <div className="ml-6 space-y-1">
-                                          <p className="text-sm text-gray-700">
+                                          <p className="text-sm" style={{ color: brandTheme.text.secondary }}>
                                             <span className="font-medium">Project:</span> {entry.project.name}
                                           </p>
-                                          <p className="text-sm text-gray-700">
+                                          <p className="text-sm" style={{ color: brandTheme.text.secondary }}>
                                             <span className="font-medium">Task:</span> {entry.task.name}
                                           </p>
                                         </div>

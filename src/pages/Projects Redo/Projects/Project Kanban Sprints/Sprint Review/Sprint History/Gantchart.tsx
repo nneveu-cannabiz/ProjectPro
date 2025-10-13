@@ -508,12 +508,11 @@ const GanttChart: React.FC<GanttChartProps> = ({ sprints }) => {
 
                             {/* Hover tooltip for group */}
                             <div
-                              className="absolute left-0 top-full mt-1 hidden group-hover/item:block p-2 rounded-lg shadow-lg border min-w-[200px]"
+                              className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 hidden group-hover/item:block p-2 rounded-lg shadow-lg border min-w-[200px]"
                               style={{
                                 backgroundColor: brandTheme.background.primary,
                                 borderColor: brandTheme.border.medium,
                                 zIndex: 9999,
-                                position: 'absolute',
                               }}
                             >
                               <p className="font-semibold text-sm mb-1" style={{ color: brandTheme.text.primary }}>

@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../../context/AuthContext';
 import { isUserAdmin } from '../../../../data/supabase-store';
-import { DollarSign, Clock, Shield, AlertCircle, Monitor } from 'lucide-react';
+import { DollarSign, Clock, Shield, Monitor } from 'lucide-react';
 import HoursOverview from './HoursOverview';
 import Software from './Spending/Software';
 import ThisMonthSpending from './ThisMonthSpending';
 import Button from '../../../../components/ui/Button';
+import { brandTheme } from '../../../../styles/brandTheme';
 
 const BudgetAndHoursPage: React.FC = () => {
   const { currentUser } = useAuth();
@@ -86,29 +87,44 @@ const BudgetAndHoursPage: React.FC = () => {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      {/* Page Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <DollarSign className="w-8 h-8 text-green-600" />
-          <h1 className="text-3xl font-bold text-gray-900">Budget & Hours</h1>
-          <div className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
-            Admin Only
+      {/* Page Header with Admin Notice in Top Right */}
+      <div className="mb-8 flex items-start justify-between gap-6">
+        <div className="flex-1">
+          <div className="flex items-center gap-3 mb-2">
+            <DollarSign className="w-8 h-8" style={{ color: brandTheme.status.success }} />
+            <h1 className="text-3xl font-bold" style={{ color: brandTheme.text.primary }}>Budget & Hours</h1>
+            <div 
+              className="ml-2 px-2 py-1 text-xs font-medium rounded-full"
+              style={{
+                backgroundColor: brandTheme.primary.paleBlue,
+                color: brandTheme.primary.navy,
+              }}
+            >
+              Admin Only
+            </div>
           </div>
-        </div>
-        <p className="text-gray-600">
-          Administrative overview of project budgets, time tracking, and resource allocation across all users and projects.
-        </p>
-      </div>
-
-      {/* Admin Notice */}
-      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3">
-        <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
-        <div>
-          <h3 className="font-medium text-blue-900 mb-1">Administrator Access</h3>
-          <p className="text-sm text-blue-800">
-            You're viewing sensitive administrative data including all user hours, project costs, and budget information. 
-            This information should be handled confidentially and in accordance with company policies.
+          <p style={{ color: brandTheme.text.secondary }}>
+            Administrative overview of project budgets, time tracking, and resource allocation across all users and projects.
           </p>
+        </div>
+
+        {/* Admin Notice - Compact Top Right */}
+        <div 
+          className="px-4 py-3 rounded-lg border flex items-start gap-2 max-w-xs flex-shrink-0"
+          style={{
+            backgroundColor: brandTheme.primary.paleBlue,
+            borderColor: brandTheme.primary.lightBlue,
+          }}
+        >
+          <Shield className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: brandTheme.primary.navy }} />
+          <div>
+            <h3 className="font-semibold text-sm mb-1" style={{ color: brandTheme.primary.navy }}>
+              Administrator Access
+            </h3>
+            <p className="text-xs" style={{ color: brandTheme.text.secondary }}>
+              Viewing sensitive administrative data. Handle confidentially.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -121,57 +137,135 @@ const BudgetAndHoursPage: React.FC = () => {
       <div className="mb-6">
         <nav className="flex space-x-8">
           <button 
-            className={`border-b-2 pb-2 text-sm font-medium transition-colors ${
-              activeTab === 'hours' 
-                ? 'border-blue-500 text-blue-600' 
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            className="border-b-2 pb-2 text-sm font-medium transition-colors"
+            style={{
+              borderColor: activeTab === 'hours' ? brandTheme.primary.navy : 'transparent',
+              color: activeTab === 'hours' ? brandTheme.primary.navy : brandTheme.text.muted,
+            }}
             onClick={() => setActiveTab('hours')}
+            onMouseEnter={(e) => {
+              if (activeTab !== 'hours') {
+                e.currentTarget.style.color = brandTheme.text.secondary;
+                e.currentTarget.style.borderColor = brandTheme.border.medium;
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (activeTab !== 'hours') {
+                e.currentTarget.style.color = brandTheme.text.muted;
+                e.currentTarget.style.borderColor = 'transparent';
+              }
+            }}
           >
             <Clock className="w-4 h-4 inline mr-2" />
             Hours Overview
           </button>
           <button 
-            className={`border-b-2 pb-2 text-sm font-medium transition-colors ${
-              activeTab === 'software' 
-                ? 'border-blue-500 text-blue-600' 
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            className="border-b-2 pb-2 text-sm font-medium transition-colors"
+            style={{
+              borderColor: activeTab === 'software' ? brandTheme.primary.navy : 'transparent',
+              color: activeTab === 'software' ? brandTheme.primary.navy : brandTheme.text.muted,
+            }}
             onClick={() => setActiveTab('software')}
+            onMouseEnter={(e) => {
+              if (activeTab !== 'software') {
+                e.currentTarget.style.color = brandTheme.text.secondary;
+                e.currentTarget.style.borderColor = brandTheme.border.medium;
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (activeTab !== 'software') {
+                e.currentTarget.style.color = brandTheme.text.muted;
+                e.currentTarget.style.borderColor = 'transparent';
+              }
+            }}
           >
             <Monitor className="w-4 h-4 inline mr-2" />
             Software
           </button>
-          <button className="border-b-2 border-transparent pb-2 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
+          <button 
+            className="border-b-2 border-transparent pb-2 text-sm font-medium"
+            style={{ color: brandTheme.text.muted }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = brandTheme.text.secondary;
+              e.currentTarget.style.borderColor = brandTheme.border.medium;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = brandTheme.text.muted;
+              e.currentTarget.style.borderColor = 'transparent';
+            }}
+          >
             Budget Analysis
-            <span className="ml-2 text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded">Coming Soon</span>
+            <span 
+              className="ml-2 text-xs px-2 py-1 rounded"
+              style={{ backgroundColor: brandTheme.background.secondary, color: brandTheme.text.muted }}
+            >
+              Coming Soon
+            </span>
           </button>
-          <button className="border-b-2 border-transparent pb-2 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
+          <button 
+            className="border-b-2 border-transparent pb-2 text-sm font-medium"
+            style={{ color: brandTheme.text.muted }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = brandTheme.text.secondary;
+              e.currentTarget.style.borderColor = brandTheme.border.medium;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = brandTheme.text.muted;
+              e.currentTarget.style.borderColor = 'transparent';
+            }}
+          >
             Resource Planning
-            <span className="ml-2 text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded">Coming Soon</span>
+            <span 
+              className="ml-2 text-xs px-2 py-1 rounded"
+              style={{ backgroundColor: brandTheme.background.secondary, color: brandTheme.text.muted }}
+            >
+              Coming Soon
+            </span>
           </button>
-          <button className="border-b-2 border-transparent pb-2 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
+          <button 
+            className="border-b-2 border-transparent pb-2 text-sm font-medium"
+            style={{ color: brandTheme.text.muted }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = brandTheme.text.secondary;
+              e.currentTarget.style.borderColor = brandTheme.border.medium;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = brandTheme.text.muted;
+              e.currentTarget.style.borderColor = 'transparent';
+            }}
+          >
             Cost Reports
-            <span className="ml-2 text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded">Coming Soon</span>
+            <span 
+              className="ml-2 text-xs px-2 py-1 rounded"
+              style={{ backgroundColor: brandTheme.background.secondary, color: brandTheme.text.muted }}
+            >
+              Coming Soon
+            </span>
           </button>
         </nav>
       </div>
 
       {/* Main Content */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <div 
+        className="rounded-lg border p-6"
+        style={{
+          backgroundColor: brandTheme.background.primary,
+          borderColor: brandTheme.border.light,
+        }}
+      >
         {activeTab === 'hours' ? (
           <>
             <div className="flex items-center gap-2 mb-6">
-              <Clock className="w-6 h-6 text-blue-600" />
-              <h2 className="text-xl font-semibold text-gray-900">Hours Overview</h2>
+              <Clock className="w-6 h-6" style={{ color: brandTheme.primary.navy }} />
+              <h2 className="text-xl font-semibold" style={{ color: brandTheme.text.primary }}>Hours Overview</h2>
             </div>
             <HoursOverview />
           </>
         ) : (
           <>
             <div className="flex items-center gap-2 mb-6">
-              <Monitor className="w-6 h-6 text-blue-600" />
-              <h2 className="text-xl font-semibold text-gray-900">Software Spending</h2>
+              <Monitor className="w-6 h-6" style={{ color: brandTheme.primary.navy }} />
+              <h2 className="text-xl font-semibold" style={{ color: brandTheme.text.primary }}>Software Spending</h2>
             </div>
             <Software />
           </>
