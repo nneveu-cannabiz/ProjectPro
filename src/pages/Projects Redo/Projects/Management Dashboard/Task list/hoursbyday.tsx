@@ -70,7 +70,7 @@ const HoursByDay: React.FC<HoursByDayProps> = ({ startDate, endDate, scrollRef, 
 
     while (current <= end) {
       const dayIndex = Math.floor((current.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-      const position = (dayIndex / (diffDays + 1)) * 100;
+      const position = (dayIndex / diffDays) * 100;
       
       markers.push({
         date: new Date(current),

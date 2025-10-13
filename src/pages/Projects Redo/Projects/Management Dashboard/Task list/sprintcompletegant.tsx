@@ -355,7 +355,7 @@ const SprintCompleteGantt: React.FC<SprintCompleteGanttProps> = ({
           />
 
           {/* Day markers header */}
-          <div className="relative mb-2 h-8 flex items-end" style={{ paddingLeft: '16px', paddingRight: '16px' }}>
+          <div className="relative mb-2 h-10 flex items-end" style={{ paddingLeft: '16px', paddingRight: '16px' }}>
             {dayMarkers.map((marker, index) => (
               <div
                 key={index}
@@ -367,6 +367,14 @@ const SprintCompleteGantt: React.FC<SprintCompleteGanttProps> = ({
                   className="h-2 w-px mb-1"
                   style={{ backgroundColor: brandTheme.border.medium }}
                 />
+                
+                {/* Day of week */}
+                <span
+                  className="text-[10px] font-semibold whitespace-nowrap mb-0.5"
+                  style={{ color: brandTheme.text.muted }}
+                >
+                  {marker.date.toLocaleDateString('en-US', { weekday: 'short' })}
+                </span>
                 
                 {/* Date label */}
                 <span
