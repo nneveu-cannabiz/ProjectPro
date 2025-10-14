@@ -10,6 +10,7 @@ import SprintEpics from './sprintepics';
 import SprintSummary from './sprintsummary';
 import SprintUpdatesSection from './sprintupdatessection';
 import HoursByDay from './hoursbyday';
+import CurrentSprintQAandDone from './currentsprintQAandDone';
 
 interface TaskWithSprintInfo extends Task {
   project: Project;
@@ -59,10 +60,26 @@ const SprintsTaskListPage: React.FC = () => {
     priority: 90,
     sprint: 200,
   });
+  const [qaColumnWidths, setQaColumnWidths] = useState({
+    taskName: 300,
+    assignee: 60,
+    hoursSpent: 100,
+    subtasks: 120,
+    priority: 90,
+    sprint: 200,
+  });
+  const [doneColumnWidths, setDoneColumnWidths] = useState({
+    taskName: 300,
+    assignee: 60,
+    hoursSpent: 100,
+    subtasks: 120,
+    priority: 90,
+    sprint: 200,
+  });
 
   // Resize state
-  const [resizing, setResizing] = useState<{ table: 'todo' | 'inprogress'; column: string; startX: number; startWidth: number } | null>(null);
-  const [hoveredColumn, setHoveredColumn] = useState<{ table: 'todo' | 'inprogress'; column: string } | null>(null);
+  const [resizing, setResizing] = useState<{ table: 'todo' | 'inprogress' | 'qa' | 'done'; column: string; startX: number; startWidth: number } | null>(null);
+  const [hoveredColumn, setHoveredColumn] = useState<{ table: 'todo' | 'inprogress' | 'qa' | 'done'; column: string } | null>(null);
 
   interface UserTaskBreakdown {
     user: User;
@@ -143,8 +160,18 @@ const SprintsTaskListPage: React.FC = () => {
           ...prev,
           [resizing.column]: newWidth,
         }));
-      } else {
+      } else if (resizing.table === 'inprogress') {
         setInProgressColumnWidths(prev => ({
+          ...prev,
+          [resizing.column]: newWidth,
+        }));
+      } else if (resizing.table === 'qa') {
+        setQaColumnWidths(prev => ({
+          ...prev,
+          [resizing.column]: newWidth,
+        }));
+      } else if (resizing.table === 'done') {
+        setDoneColumnWidths(prev => ({
           ...prev,
           [resizing.column]: newWidth,
         }));
@@ -170,7 +197,7 @@ const SprintsTaskListPage: React.FC = () => {
     };
   }, [resizing]);
 
-  const startResize = (table: 'todo' | 'inprogress', column: string, startX: number, startWidth: number) => {
+  const startResize = (table: 'todo' | 'inprogress' | 'qa' | 'done', column: string, startX: number, startWidth: number) => {
     setResizing({ table, column, startX, startWidth });
   };
 
@@ -1461,6 +1488,18 @@ const SprintsTaskListPage: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* QA and Done Section */}
+        <CurrentSprintQAandDone
+          tasks={filteredTasks}
+          onTaskClick={handleTaskClick}
+          qaColumnWidths={qaColumnWidths}
+          doneColumnWidths={doneColumnWidths}
+          onStartResize={startResize}
+          hoveredColumn={hoveredColumn}
+          setHoveredColumn={setHoveredColumn}
+          resizing={resizing}
+        />
 
         {/* Sprint Updates Section */}
         <SprintUpdatesSection tasks={tasks} />
