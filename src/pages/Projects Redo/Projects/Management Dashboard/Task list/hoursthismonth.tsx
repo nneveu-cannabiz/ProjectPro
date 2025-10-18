@@ -303,8 +303,8 @@ const HoursThisMonth: React.FC<HoursThisMonthProps> = ({ isOpen, onClose }) => {
                         </div>
                       </div>
 
-                      {/* Center: User Breakdown (when collapsed) */}
-                      {!isExpanded && (() => {
+                      {/* Center: User Breakdown (always visible) */}
+                      {(() => {
                         // Calculate user totals for the week
                         const userTotalsMap = new Map<string, { user: User; totalHours: number }>();
                         
