@@ -152,6 +152,7 @@ const SprintsTaskListPage: React.FC = () => {
     );
   }, [tasks]);
 
+
   useEffect(() => {
     loadData();
   }, []);
@@ -313,10 +314,31 @@ const SprintsTaskListPage: React.FC = () => {
 
       // Set default selected sprint to current sprint if not already set
       if (!selectedSprintId && sprints.length > 0) {
+        // First, try to find a current sprint (today is between start and end dates)
         const currentSprint = sprints.find(s => s.isCurrent);
-        const defaultSprintId = currentSprint ? currentSprint.sprint_id : sprints[0].sprint_id;
-        setSelectedSprintId(defaultSprintId);
-        // Return early to let the useEffect handle the reload with the selected sprint
+        
+        if (currentSprint) {
+          setSelectedSprintId(currentSprint.sprint_id);
+          return;
+        }
+
+        // If no current sprint, find the next upcoming sprint (start date > today)
+        const upcomingSprints = sprints.filter(s => {
+          const startDate = new Date(s.start_date).toISOString().split('T')[0];
+          return currentDate < startDate;
+        }).sort((a, b) => {
+          // Sort by start date ascending (closest upcoming first)
+          return new Date(a.start_date).getTime() - new Date(b.start_date).getTime();
+        });
+
+        if (upcomingSprints.length > 0) {
+          // Select the next upcoming sprint
+          setSelectedSprintId(upcomingSprints[0].sprint_id);
+          return;
+        }
+
+        // If no upcoming sprint, fall back to the most recent sprint
+        setSelectedSprintId(sprints[0].sprint_id);
         return;
       }
 
@@ -641,24 +663,46 @@ const SprintsTaskListPage: React.FC = () => {
               <h1 className="text-lg font-bold text-white">Sprint Tasks</h1>
             </div>
             <div className="flex items-center gap-3">
-              {availableSprints.length > 0 && (
-                <select
-                  value={selectedSprintId || ''}
-                  onChange={(e) => setSelectedSprintId(e.target.value)}
-                  className="px-3 py-1.5 rounded-lg text-sm font-medium border-2 transition-all"
-                  style={{
-                    backgroundColor: brandTheme.background.primary,
-                    color: brandTheme.primary.navy,
-                    borderColor: brandTheme.primary.lightBlue,
-                  }}
-                >
-                  {availableSprints.map((sprint) => (
-                    <option key={sprint.sprint_id} value={sprint.sprint_id}>
-                      Sprint {sprint.sprint_id} {sprint.isCurrent ? '(Current)' : ''}
-                    </option>
-                  ))}
-                </select>
-              )}
+              {availableSprints.length > 0 && (() => {
+                const currentDate = new Date().toISOString().split('T')[0];
+                
+                // Find the next upcoming sprint for labeling
+                const upcomingSprints = availableSprints.filter(s => {
+                  const startDate = new Date(s.start_date).toISOString().split('T')[0];
+                  return currentDate < startDate;
+                }).sort((a, b) => {
+                  return new Date(a.start_date).getTime() - new Date(b.start_date).getTime();
+                });
+                
+                const nextSprintId = upcomingSprints.length > 0 ? upcomingSprints[0].sprint_id : null;
+                
+                return (
+                  <select
+                    value={selectedSprintId || ''}
+                    onChange={(e) => setSelectedSprintId(e.target.value)}
+                    className="px-3 py-1.5 rounded-lg text-sm font-medium border-2 transition-all"
+                    style={{
+                      backgroundColor: brandTheme.background.primary,
+                      color: brandTheme.primary.navy,
+                      borderColor: brandTheme.primary.lightBlue,
+                    }}
+                  >
+                    {availableSprints.map((sprint) => {
+                      let label = `Sprint ${sprint.sprint_id}`;
+                      if (sprint.isCurrent) {
+                        label += ' (Current)';
+                      } else if (sprint.sprint_id === nextSprintId) {
+                        label += ' (Next)';
+                      }
+                      return (
+                        <option key={sprint.sprint_id} value={sprint.sprint_id}>
+                          {label}
+                        </option>
+                      );
+                    })}
+                  </select>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -686,10 +730,16 @@ const SprintsTaskListPage: React.FC = () => {
             const earliestStart = new Date(Math.min(...startDates.map(d => d.getTime())));
             const latestEnd = new Date(Math.max(...endDates.map(d => d.getTime())));
             
+            // Generate sprint label
+            const sprintLabel = selectedSprintId 
+              ? `Sprint ${selectedSprintId} (${earliestStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${latestEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`
+              : undefined;
+            
             return (
               <HoursByDay
                 startDate={earliestStart}
                 endDate={latestEnd}
+                sprintLabel={sprintLabel}
               />
             );
           }

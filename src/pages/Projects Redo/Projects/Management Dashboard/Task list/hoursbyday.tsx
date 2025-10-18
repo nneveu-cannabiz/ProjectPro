@@ -4,6 +4,7 @@ import { Clock, ChevronDown, ChevronRight, Calendar } from 'lucide-react';
 import { fetchAllUsersHours } from '../../../../../data/supabase-store';
 import { Hour, User, Task, Project } from '../../../../../types';
 import HoursThisMonth from './hoursthismonth';
+import HoursThisSprint from './hoursthissprint';
 
 interface HoursByDayProps {
   startDate: Date;
@@ -12,17 +13,19 @@ interface HoursByDayProps {
   onScroll?: () => void;
   isIntegrated?: boolean; // When true, renders as part of completion timeline
   onHoursDataProcessed?: (hoursData: any[]) => void; // Callback to pass processed hours data
+  sprintLabel?: string; // Label for the sprint (e.g., "Sprint 001")
 }
 
 type UserHourData = Hour & { user: User; task: Task; project: Project };
 
-const HoursByDay: React.FC<HoursByDayProps> = ({ startDate, endDate, scrollRef, onScroll, isIntegrated = false, onHoursDataProcessed }) => {
+const HoursByDay: React.FC<HoursByDayProps> = ({ startDate, endDate, scrollRef, onScroll, isIntegrated = false, onHoursDataProcessed, sprintLabel }) => {
   const [allHoursData, setAllHoursData] = useState<UserHourData[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedWeek, setExpandedWeek] = useState<string | null>(null);
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
   const [isExpanded, setIsExpanded] = useState(false);
   const [isMonthModalOpen, setIsMonthModalOpen] = useState(false);
+  const [isSprintModalOpen, setIsSprintModalOpen] = useState(false);
 
   // Parse ISO date string as local date to avoid timezone offset issues
   const parseISODate = (dateString: string): Date => {
@@ -612,12 +615,15 @@ const HoursByDay: React.FC<HoursByDayProps> = ({ startDate, endDate, scrollRef, 
 
             {/* This Sprint Hours Total Stat Card - Inline */}
             <div
-              className="px-3 py-2 rounded-lg border flex items-center gap-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsSprintModalOpen(true);
+              }}
+              className="px-3 py-2 rounded-lg border cursor-pointer hover:shadow-md transition-all flex items-center gap-2"
               style={{
                 backgroundColor: brandTheme.background.primary,
-                borderColor: brandTheme.border.medium,
+                borderColor: brandTheme.primary.navy,
               }}
-              onClick={(e) => e.stopPropagation()}
             >
               <Clock className="w-4 h-4" style={{ color: brandTheme.primary.navy }} />
               <div className="flex flex-col">
@@ -893,6 +899,15 @@ const HoursByDay: React.FC<HoursByDayProps> = ({ startDate, endDate, scrollRef, 
       <HoursThisMonth
         isOpen={isMonthModalOpen}
         onClose={() => setIsMonthModalOpen(false)}
+      />
+
+      {/* Sprint Hours Modal */}
+      <HoursThisSprint
+        isOpen={isSprintModalOpen}
+        onClose={() => setIsSprintModalOpen(false)}
+        sprintStartDate={startDate}
+        sprintEndDate={endDate}
+        sprintLabel={sprintLabel || `${sprintDateRange}`}
       />
     </div>
   );
