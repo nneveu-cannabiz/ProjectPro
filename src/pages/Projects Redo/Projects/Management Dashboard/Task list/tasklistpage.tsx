@@ -34,6 +34,13 @@ interface SprintGroupInfo {
   sprint_id: string | null;
 }
 
+interface SprintOption {
+  sprint_id: string;
+  start_date: string;
+  end_date: string;
+  isCurrent: boolean;
+}
+
 const SprintsTaskListPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<TaskWithSprintInfo[]>([]);
@@ -42,6 +49,8 @@ const SprintsTaskListPage: React.FC = () => {
   const [filterPriority, setFilterPriority] = useState<string>('all');
   const [filterAssignee, setFilterAssignee] = useState<string | null>(null);
   const [activeSprintGroups, setActiveSprintGroups] = useState<SprintGroupInfo[]>([]);
+  const [availableSprints, setAvailableSprints] = useState<SprintOption[]>([]);
+  const [selectedSprintId, setSelectedSprintId] = useState<string | null>(null);
   
   // Column widths state
   const [todoColumnWidths, setTodoColumnWidths] = useState({
@@ -146,6 +155,13 @@ const SprintsTaskListPage: React.FC = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Reload when selected sprint changes
+  useEffect(() => {
+    if (selectedSprintId) {
+      loadData();
+    }
+  }, [selectedSprintId]);
 
   // Handle column resize
   useEffect(() => {
@@ -252,21 +268,62 @@ const SprintsTaskListPage: React.FC = () => {
       if (!allSprintGroups || allSprintGroups.length === 0) {
         setTasks([]);
         setActiveSprintGroups([]);
+        setAvailableSprints([]);
         return;
       }
 
-      // Filter sprint groups where current date is between start_date and end_date
-      // Only include groups that have a sprint_id AND dates set
-      const sprintGroups = allSprintGroups.filter((group: any) => {
-        if (!group.sprint_id || !group.start_date || !group.end_date) {
-          return false; // Exclude groups without sprint_id or dates
+      // Filter to only include groups with sprint_id and dates
+      const validGroups = allSprintGroups.filter((group: any) => 
+        group.sprint_id && group.start_date && group.end_date
+      );
+
+      // Build list of unique sprints with their date ranges
+      const sprintMap = new Map<string, SprintOption>();
+      validGroups.forEach((group: any) => {
+        if (!sprintMap.has(group.sprint_id)) {
+          const startDate = new Date(group.start_date).toISOString().split('T')[0];
+          const endDate = new Date(group.end_date).toISOString().split('T')[0];
+          const isCurrent = currentDate >= startDate && currentDate <= endDate;
+          
+          sprintMap.set(group.sprint_id, {
+            sprint_id: group.sprint_id,
+            start_date: group.start_date,
+            end_date: group.end_date,
+            isCurrent,
+          });
+        } else {
+          // Update isCurrent if any group in this sprint is current
+          const existing = sprintMap.get(group.sprint_id)!;
+          const startDate = new Date(group.start_date).toISOString().split('T')[0];
+          const endDate = new Date(group.end_date).toISOString().split('T')[0];
+          const isCurrent = currentDate >= startDate && currentDate <= endDate;
+          
+          if (isCurrent && !existing.isCurrent) {
+            existing.isCurrent = true;
+          }
         }
-        
-        const startDate = new Date(group.start_date).toISOString().split('T')[0];
-        const endDate = new Date(group.end_date).toISOString().split('T')[0];
-        
-        return currentDate >= startDate && currentDate <= endDate;
       });
+
+      const sprints = Array.from(sprintMap.values()).sort((a, b) => {
+        // Sort by sprint_id numerically (most recent/highest first)
+        return b.sprint_id.localeCompare(a.sprint_id, undefined, { numeric: true });
+      });
+
+      setAvailableSprints(sprints);
+
+      // Set default selected sprint to current sprint if not already set
+      if (!selectedSprintId && sprints.length > 0) {
+        const currentSprint = sprints.find(s => s.isCurrent);
+        const defaultSprintId = currentSprint ? currentSprint.sprint_id : sprints[0].sprint_id;
+        setSelectedSprintId(defaultSprintId);
+        // Return early to let the useEffect handle the reload with the selected sprint
+        return;
+      }
+
+      // Filter sprint groups based on selected sprint
+      const sprintGroups = validGroups.filter((group: any) => 
+        group.sprint_id === selectedSprintId
+      );
 
       // Store active sprint groups info for SprintEpics
       setActiveSprintGroups(
@@ -575,18 +632,33 @@ const SprintsTaskListPage: React.FC = () => {
       <div className="max-w-[95%] mx-auto p-6">
         {/* Header */}
         <div
-          className="rounded-lg shadow-sm p-6 mb-6"
+          className="rounded-lg shadow-sm p-3 mb-6"
           style={{ backgroundColor: brandTheme.primary.navy }}
         >
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-white mb-2">Current Sprint Tasks</h1>
-              <p className="text-white opacity-90">
-                View all tasks across active sprint groups
-              </p>
+            <div className="flex items-center gap-3">
+              <ListTodo className="w-5 h-5 text-white" />
+              <h1 className="text-lg font-bold text-white">Sprint Tasks</h1>
             </div>
-            <div className="flex items-center space-x-2">
-              <ListTodo className="w-8 h-8 text-white" />
+            <div className="flex items-center gap-3">
+              {availableSprints.length > 0 && (
+                <select
+                  value={selectedSprintId || ''}
+                  onChange={(e) => setSelectedSprintId(e.target.value)}
+                  className="px-3 py-1.5 rounded-lg text-sm font-medium border-2 transition-all"
+                  style={{
+                    backgroundColor: brandTheme.background.primary,
+                    color: brandTheme.primary.navy,
+                    borderColor: brandTheme.primary.lightBlue,
+                  }}
+                >
+                  {availableSprints.map((sprint) => (
+                    <option key={sprint.sprint_id} value={sprint.sprint_id}>
+                      Sprint {sprint.sprint_id} {sprint.isCurrent ? '(Current)' : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
         </div>

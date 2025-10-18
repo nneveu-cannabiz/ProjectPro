@@ -134,7 +134,7 @@ const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) =>
     fetchSubtasks();
   }, [tasks]);
 
-  const sprintGroups = useMemo(() => {
+  const { sprintGroups, overallProgress } = useMemo(() => {
     const groupsMap = new Map<string, SprintGroup>();
 
     // Create a map of sprint group info for quick lookup
@@ -182,7 +182,7 @@ const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) =>
     });
 
     // Convert to array and sort by sprint-specific rank
-    return Array.from(groupsMap.values()).sort((a, b) => {
+    const groupsArray = Array.from(groupsMap.values()).sort((a, b) => {
       if (a.lowestRank === Infinity && b.lowestRank === Infinity) {
         return a.name.localeCompare(b.name);
       }
@@ -190,6 +190,25 @@ const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) =>
       if (b.lowestRank === Infinity) return -1;
       return a.lowestRank - b.lowestRank;
     });
+
+    // Calculate overall progress across all sprint groups
+    const totalTasks = groupsArray.reduce((sum, g) => sum + g.taskCount, 0);
+    const totalDone = groupsArray.reduce((sum, g) => sum + g.doneCount, 0);
+    const totalInProgress = groupsArray.reduce((sum, g) => sum + g.inProgressCount, 0);
+    const overallProgressPercent = totalTasks > 0 
+      ? Math.round(((totalDone * 100) + (totalInProgress * 50)) / totalTasks)
+      : 0;
+
+    return {
+      sprintGroups: groupsArray,
+      overallProgress: {
+        percent: overallProgressPercent,
+        totalTasks,
+        totalDone,
+        totalInProgress,
+        totalTodo: groupsArray.reduce((sum, g) => sum + g.todoCount, 0),
+      }
+    };
   }, [tasks, sprintGroupsInfo, sprintGroupRankings]);
 
   const formatDate = (dateString: string | null) => {
@@ -411,20 +430,49 @@ const SprintEpics: React.FC<SprintEpicsProps> = ({ tasks, sprintGroupsInfo }) =>
         className="rounded-lg shadow-sm p-5"
         style={{ backgroundColor: brandTheme.background.secondary }}
       >
-        <div className="flex items-center gap-2 mb-4">
-          <ListTodo className="w-5 h-5" style={{ color: brandTheme.primary.navy }} />
-          <h2 className="text-lg font-bold" style={{ color: brandTheme.text.primary }}>
-            Active Sprint Groups
-          </h2>
-          <span
-            className="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold"
-            style={{
-              backgroundColor: brandTheme.primary.paleBlue,
-              color: brandTheme.primary.navy,
-            }}
-          >
-            {sprintGroups.length}
-          </span>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <ListTodo className="w-5 h-5" style={{ color: brandTheme.primary.navy }} />
+            <h2 className="text-lg font-bold" style={{ color: brandTheme.text.primary }}>
+              Active Sprint Groups
+            </h2>
+            <span
+              className="ml-2 px-2 py-0.5 rounded-full text-xs font-semibold"
+              style={{
+                backgroundColor: brandTheme.primary.paleBlue,
+                color: brandTheme.primary.navy,
+              }}
+            >
+              {sprintGroups.length}
+            </span>
+          </div>
+          
+          {/* Overall Progress */}
+          <div className="flex items-center gap-2">
+            <div
+              className="relative rounded-full overflow-hidden"
+              style={{
+                width: '60px',
+                height: '8px',
+                backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                border: '1px solid rgba(0, 0, 0, 0.15)',
+              }}
+            >
+              <div
+                className="absolute top-0 left-0 h-full transition-all"
+                style={{
+                  width: `${overallProgress.percent}%`,
+                  backgroundColor: brandTheme.primary.navy,
+                }}
+              />
+            </div>
+            <span
+              className="text-xs font-bold whitespace-nowrap"
+              style={{ color: brandTheme.primary.navy, minWidth: '32px' }}
+            >
+              {overallProgress.percent}%
+            </span>
+          </div>
         </div>
 
       <div className="space-y-2">
